@@ -21,13 +21,18 @@ UniSign 桌面端配套助手，用于通过 USB 数据线将 `UniSign.ipa`（�
 
 ## 🚀 启动与使用方式
 
-### 方式一：双击一键启动（推荐）
-在 Windows 资源管理器中进入 `UniSign-Helper` 目录，直接双击运行：
-👉 **`run_helper.bat`**
+### 方式一：直接双击运行（最简方式，无需 Python）
+在解压目录中，直接双击运行：
+👉 **`UniSign-Helper.exe`**
+*(无需配置 Python 环境，无需命令行，带有应用专属高清图标)*
 
-### 方式二：命令行启动
+### 方式二：双击批处理脚本
+双击 **`run_helper.bat`** 会自动拉起 `UniSign-Helper.exe`。
+
+### 方式三：开发者源码运行
 ```bash
 cd UniSign-Helper
+python -m pip install -r requirements.txt  # 或 pip install PySide6 cryptography requests pycryptodome
 python unisign_helper_gui.py
 ```
 

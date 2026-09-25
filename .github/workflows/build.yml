@@ -93,7 +93,7 @@ jobs:
       - name: Build UniSign-Helper.exe
         run: |
           cd UniSign-Helper
-          pyinstaller --onefile --noconsole --name "UniSign-Helper" unisign_helper_gui.py
+          pyinstaller --onefile --noconsole --clean --icon="unisign.ico" --add-data "unisign.ico;." --add-data "unisign.png;." --name "UniSign-Helper" unisign_helper_gui.py
 
       - name: Package Windows ZIP
         shell: pwsh
@@ -103,6 +103,7 @@ jobs:
           Copy-Item dist\UniSign-Helper.exe package\
           Copy-Item run_helper.bat package\
           Copy-Item README.md package\
+          Copy-Item unisign.ico package\
           Compress-Archive -Path package\* -DestinationPath ..\UniSign-Helper-Windows.zip -Force
 
       - name: Upload Windows Helper to Artifacts

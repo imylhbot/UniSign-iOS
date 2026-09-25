@@ -71,7 +71,7 @@ public class LocalInstallServer {
         guard getifaddrs(&ifaddr) == 0, let firstAddr = ifaddr else { return nil }
         defer { freeifaddrs(ifaddr) }
         
-        for ptr in sequence(first: firstAddr, by: { $0.pointee.ifa_next }) {
+        for ptr in sequence(first: firstAddr, next: { $0.pointee.ifa_next }) {
             let flags = Int32(ptr.pointee.ifa_flags)
             let addr = ptr.pointee.ifa_addr.pointee
             

@@ -16,7 +16,7 @@ class PCSigner:
     """Signs IPA files on Windows using Apple ID or P12 certificates."""
     
     @staticmethod
-    def sign_ipa_with_p12(ipa_path, p12_path, p12_password, mobileprovision_path, output_path, bundle_id=None, display_name=None, log_callback=None):
+    def sign_ipa_with_p12(ipa_path, p12_path, p12_password, mobileprovision_path, output_path, bundle_id=None, display_name=None, custom_options=None, log_callback=None):
         def log(msg):
             if log_callback:
                 log_callback(msg)
@@ -45,12 +45,13 @@ class PCSigner:
             cert_name=common_name,
             bundle_id=bundle_id,
             display_name=display_name,
+            custom_options=custom_options,
             output_path=output_path,
             log=log
         )
 
     @staticmethod
-    def sign_ipa_with_apple_id(ipa_path, apple_id, password, udid, output_path, two_factor_code=None, bundle_id=None, display_name=None, log_callback=None):
+    def sign_ipa_with_apple_id(ipa_path, apple_id, password, udid, output_path, two_factor_code=None, bundle_id=None, display_name=None, custom_options=None, log_callback=None):
         def log(msg):
             if log_callback:
                 log_callback(msg)
@@ -100,6 +101,7 @@ class PCSigner:
             cert_name=f"Apple Development: {apple_id}",
             bundle_id=b_id,
             display_name=display_name,
+            custom_options=custom_options,
             output_path=output_path,
             log=log
         )
@@ -107,7 +109,7 @@ class PCSigner:
         return res
 
     @staticmethod
-    def _repackage_and_sign(ipa_path, provision_path, cert_name, bundle_id, display_name, output_path, log):
+    def _repackage_and_sign(ipa_path, provision_path, cert_name, bundle_id, display_name, output_path, log, custom_options=None):
         work_dir = tempfile.mkdtemp()
         try:
             log("[*] 正在解压 IPA 文件...")
@@ -134,6 +136,14 @@ class PCSigner:
                             p_dict["CFBundleIdentifier"] = bundle_id
                         if display_name:
                             p_dict["CFBundleDisplayName"] = display_name
+                        if custom_options:
+                            if custom_options.get("file_sharing"):
+                                p_dict["UIFileSharingEnabled"] = True
+                                p_dict["LSSupportsOpeningDocumentsInPlace"] = True
+                                log("[*] 已注入: 开启文件共享与文件App支持")
+                            if custom_options.get("remove_schemes"):
+                                p_dict.pop("CFBundleURLTypes", None)
+                                log("[*] 已注入: 移除 URL Schemes")
                         with open(info_plist, "wb") as out_f:
                             plistlib.dump(p_dict, out_f, fmt=plistlib.FMT_BINARY)
                         log("[*] Info.plist 配置修改完成")
