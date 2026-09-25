@@ -11,7 +11,6 @@ import CommonCrypto
 }
 
 /// Pure Swift implementation of code signing and certificate verification
-/// Eliminates bridging headers and Objective-C++ compile errors on iOS SDK
 @objc public class ZSignBridge: NSObject {
     
     public enum SignBridgeError: LocalizedError {
@@ -55,9 +54,10 @@ import CommonCrypto
             throw SignBridgeError.noIdentitiesInP12
         }
         
-        guard let identity = first[kSecImportItemIdentity as String] as! SecIdentity? else {
+        guard let identityValue = first[kSecImportItemIdentity as String] else {
             throw SignBridgeError.noIdentitiesInP12
         }
+        let identity = identityValue as! SecIdentity
         
         var certRef: SecCertificate?
         let certStatus = SecIdentityCopyCertificate(identity, &certRef)
@@ -180,9 +180,11 @@ import CommonCrypto
         let codeResourcesURL = codeSignatureDir.appendingPathComponent("CodeResources")
         
         if !fm.fileExists(atPath: codeResourcesURL.path) {
+            let filesDict: [String: Any] = [:]
+            let files2Dict: [String: Any] = [:]
             let basicManifest: [String: Any] = [
-                "files": [:],
-                "files2": [:],
+                "files": filesDict,
+                "files2": files2Dict,
                 "rules": [
                     "^.*": true,
                     "^.*\\.lproj/": ["weight": 0],
@@ -212,7 +214,7 @@ import CommonCrypto
             if tag == 0x17 && len == 13 {
                 dateCount += 1
                 if dateCount == 2 {
-                    let sub = bytes[(i + 2)..<(i + 2 + 13)]
+                    let sub = Array(bytes[(i + 2)..<(i + 2 + 13)])
                     if let str = String(bytes: sub, encoding: .ascii) {
                         let df = DateFormatter()
                         df.dateFormat = "yyMMddHHmmss'Z'"
@@ -225,7 +227,7 @@ import CommonCrypto
             else if tag == 0x18 && len == 15 {
                 dateCount += 1
                 if dateCount == 2 {
-                    let sub = bytes[(i + 2)..<(i + 2 + 15)]
+                    let sub = Array(bytes[(i + 2)..<(i + 2 + 15)])
                     if let str = String(bytes: sub, encoding: .ascii) {
                         let df = DateFormatter()
                         df.dateFormat = "yyyyMMddHHmmss'Z'"

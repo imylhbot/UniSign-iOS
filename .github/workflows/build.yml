@@ -26,9 +26,9 @@ jobs:
           sudo xcode-select -s /Applications/Xcode_15.4.app/Contents/Developer
           xcodebuild -version
 
-
       - name: Build UniSign (Ad-Hoc / Sideloadable)
         run: |
+          set -o pipefail
           xcodebuild build \
             -project UniSign.xcodeproj \
             -scheme UniSign \
@@ -39,7 +39,9 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
-            AD_HOC_CODE_SIGNING_ALLOWED=YES
+            AD_HOC_CODE_SIGNING_ALLOWED=YES \
+            COMPILER_INDEX_STORE_ENABLE=NO \
+            2>&1 | tee xcodebuild.log || (echo "=== COMPILER ERRORS ===" && grep -C 2 -E "error:" xcodebuild.log && exit 1)
 
       - name: Package into IPA
         run: |
@@ -65,7 +67,7 @@ jobs:
             
             - **版本**: ${{ github.event.inputs.version_tag }}
             - **兼容性**: iOS 13.0 及以上设备
-            - **特性**: 纯手机端本地免越狱重签、多 Apple ID 切换、7天免费证书一键续期、P12 有效期检测、插件注入与文件访问开启。
+            - **特性**: 纯手机端本地免越狱重签、多 Apple ID 切换、7天免费证书一键续期、3-app 配额限制统计、P12 有效期检测、插件注入与文件访问开启。
             
             ### 📱 安装方式：
             - 下载下方 Assets 中的 `UniSign.ipa`。
