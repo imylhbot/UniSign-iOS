@@ -6,13 +6,21 @@ class AFCClient:
     
     MAGIC = b"CFA6LPAA"
     
-    # Operations
-    OP_STATUS = 1
-    OP_FILE_CLOSE = 2
-    OP_FILE_WRITE = 3
-    OP_GET_FILE_INFO = 10
-    OP_FILE_OPEN = 13
-    OP_MAKE_DIR = 9
+    # Official Apple AFC Protocol Opcodes (libimobiledevice / pymobiledevice3)
+    OP_STATUS = 1          # 0x01
+    OP_DATA = 2            # 0x02
+    OP_READ_DIR = 3        # 0x03
+    OP_READ_FILE = 4       # 0x04
+    OP_WRITE_FILE = 5      # 0x05
+    OP_MAKE_DIR = 9        # 0x09
+    OP_GET_FILE_INFO = 10  # 0x0A
+    OP_FILE_OPEN = 13      # 0x0D (FileRefOpen)
+    OP_FILE_OPEN_RES = 14  # 0x0E (FileRefOpenResult)
+    OP_FILE_READ = 15      # 0x0F (FileRefRead)
+    OP_FILE_WRITE = 16     # 0x10 (FileRefWrite)
+    OP_FILE_SEEK = 17      # 0x11
+    OP_FILE_TELL = 18      # 0x12
+    OP_FILE_CLOSE = 20     # 0x14 (FileRefClose)
     
     def __init__(self, sock):
         self.sock = sock
@@ -27,20 +35,31 @@ class AFCClient:
 
     def _recv_packet(self):
         hdr = self._read_exact(40)
-        if not hdr:
+        if not hdr or len(hdr) < 40:
             return None, b""
         magic, entire_len, this_len, pkt_num, op = struct.unpack("<8sQQQQ", hdr)
+        if magic != self.MAGIC:
+            return None, b""
+        if entire_len < 40 or entire_len > 10 * 1024 * 1024:
+            return None, b""
         payload_len = entire_len - this_len
+        if payload_len < 0 or payload_len > 10 * 1024 * 1024:
+            return None, b""
         payload = self._read_exact(payload_len) if payload_len > 0 else b""
         return op, payload
 
     def _read_exact(self, count):
+        if count <= 0 or count > 10 * 1024 * 1024:
+            return b""
         buf = bytearray()
         while len(buf) < count:
-            chunk = self.sock.recv(count - len(buf))
-            if not chunk:
+            try:
+                chunk = self.sock.recv(count - len(buf))
+                if not chunk:
+                    break
+                buf.extend(chunk)
+            except Exception:
                 break
-            buf.extend(chunk)
         return bytes(buf)
 
     def make_directory(self, path):
@@ -50,7 +69,7 @@ class AFCClient:
         return True
 
     def file_open(self, path, mode=3):
-        """mode 3 = read/write create/truncate"""
+        """mode 3 = read/write create/truncate (O_RDWR | O_CREAT | O_TRUNC)"""
         mode_data = struct.pack("<Q", mode)
         path_data = path.encode("utf-8") + b"\x00"
         self._send_packet(self.OP_FILE_OPEN, mode_data + path_data)
@@ -62,11 +81,17 @@ class AFCClient:
             return handle
         return None
 
-
     def file_write(self, handle, data):
+        self.packet_num += 1
+        header_len = 40
+        this_len = header_len + 8  # 40 bytes header + 8 bytes handle
+        entire_len = this_len + len(data)
+        hdr = struct.pack("<8sQQQQ", self.MAGIC, entire_len, this_len, self.packet_num, self.OP_FILE_WRITE)
         handle_data = struct.pack("<Q", handle)
-        self._send_packet(self.OP_FILE_WRITE, handle_data + data)
+        self.sock.sendall(hdr + handle_data + data)
         op, payload = self._recv_packet()
+        if op is None:
+            raise ConnectionError("AFC 文件写入通信中断")
         return op == self.OP_STATUS
 
     def file_close(self, handle):
@@ -80,7 +105,7 @@ class AFCClient:
         file_size = os.path.getsize(local_path)
         handle = self.file_open(remote_path, mode=3)
         if not handle:
-            raise IOError(f"Failed to open remote path {remote_path} for writing on iOS device")
+            raise IOError(f"AFC 文件打开失败: 无法在手机建立写入句柄 ({remote_path})")
         
         chunk_size = 64 * 1024
         uploaded = 0

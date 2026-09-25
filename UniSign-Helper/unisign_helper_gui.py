@@ -13,6 +13,7 @@ import plistlib
 import shutil
 import tempfile
 import subprocess
+import json
 
 # Set Windows AppUserModelID so the taskbar groups under this app icon instead of Python's generic icon
 if sys.platform == "win32":
@@ -27,8 +28,9 @@ from PySide6.QtWidgets import (
     QLabel, QPushButton, QLineEdit, QFileDialog, QTabWidget,
     QProgressBar, QPlainTextEdit, QGroupBox, QFrame, QMessageBox,
     QCheckBox, QRadioButton, QButtonGroup, QScrollArea, QSplitter,
-    QStackedWidget, QSizePolicy
+    QStackedWidget, QSizePolicy, QComboBox
 )
+
 from PySide6.QtCore import Qt, Signal, QObject, QTimer, QSize, QPoint, QRectF
 from PySide6.QtGui import (
     QFont, QIcon, QColor, QPainter, QBrush, QPen, QLinearGradient,
@@ -386,8 +388,8 @@ class UniSignHelperApp(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("UniSign 电脑助手 Pro · iOS 免越狱直签与设备管理套件")
-        self.resize(1080, 790)
-        self.setMinimumSize(980, 720)
+        self.resize(1180, 840)
+        self.setMinimumSize(960, 680)
         
         # Set App Window & Taskbar Icon
         ico_file = resource_path("unisign.ico")
@@ -406,9 +408,12 @@ class UniSignHelperApp(QMainWindow):
         self.current_device = None
         self.current_lockdown = None
         self.current_selected_ipa = ""
+        self.saved_accounts = {}
         
         self.init_ui()
+        self.load_saved_accounts()
         self.start_device_polling()
+
 
     def init_ui(self):
         # Premium Modern Native Desktop Styling
@@ -782,9 +787,19 @@ class UniSignHelperApp(QMainWindow):
         lbl_a1 = QLabel("Apple ID 账号:")
         lbl_a1.setFixedWidth(110)
         row_a1.addWidget(lbl_a1)
-        self.edit_apple_id = QLineEdit()
-        self.edit_apple_id.setPlaceholderText("例如: your_account@icloud.com")
-        row_a1.addWidget(self.edit_apple_id)
+        
+        self.combo_apple_id = QComboBox()
+        self.combo_apple_id.setEditable(True)
+        self.combo_apple_id.setPlaceholderText("输入或下拉选择 Apple ID (例如: your_account@icloud.com)")
+        self.combo_apple_id.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.combo_apple_id.currentTextChanged.connect(self.on_apple_id_selected)
+        row_a1.addWidget(self.combo_apple_id)
+        
+        btn_del_acc = QPushButton("🗑️ 移除此账号")
+        btn_del_acc.setMaximumWidth(100)
+        btn_del_acc.setStyleSheet("background-color: #F1F5F9; color: #EF4444; border: 1px solid #CBD5E1; font-size: 11px; padding: 5px;")
+        btn_del_acc.clicked.connect(self.delete_current_apple_id)
+        row_a1.addWidget(btn_del_acc)
         apple_layout.addLayout(row_a1)
 
         row_a2 = QHBoxLayout()
@@ -793,13 +808,21 @@ class UniSignHelperApp(QMainWindow):
         row_a2.addWidget(lbl_a2)
         self.edit_apple_pwd = QLineEdit()
         self.edit_apple_pwd.setEchoMode(QLineEdit.Password)
-        self.edit_apple_pwd.setPlaceholderText("Apple ID 账户密码 (本地加密传输至 Apple 认证服务器)")
+        self.edit_apple_pwd.setPlaceholderText("Apple ID 账户密码 (本地加密传输至 Apple 官方认证服务)")
         row_a2.addWidget(self.edit_apple_pwd)
         apple_layout.addLayout(row_a2)
 
-        apple_note = QLabel("💡 免费 Apple ID 签名：免越狱环境直接运行，有效期 7 天。支持 Apple 2FA 双重验证。")
+        row_remember = QHBoxLayout()
+        self.chk_remember_id = QCheckBox("💾 记住此 Apple ID 账号与密码 (下次启动自动填入，支持保存多个账号)")
+        self.chk_remember_id.setChecked(True)
+        row_remember.addWidget(self.chk_remember_id)
+        row_remember.addStretch()
+        apple_layout.addLayout(row_remember)
+
+        apple_note = QLabel("💡 免费 Apple ID 签名：免越狱环境直接运行，有效期 7 天。支持 Apple 2FA 双重验证。已保存的账号可随时下拉切换。")
         apple_note.setStyleSheet("color: #64748B; font-size: 11px;")
         apple_layout.addWidget(apple_note)
+
 
         self.cert_tabs.addTab(sub_apple, "🔑 Apple ID 免费签名 (7天)")
 
@@ -892,7 +915,13 @@ class UniSignHelperApp(QMainWindow):
         self.status_label.setStyleSheet("color: #475569; font-size: 12px; font-weight: bold;")
         tab_sign_layout.addWidget(self.status_label)
 
-        self.main_tabs.addTab(tab_sign, "✍️ 应用签名与直装")
+        scroll_sign = QScrollArea()
+        scroll_sign.setWidgetResizable(True)
+        scroll_sign.setFrameShape(QFrame.NoFrame)
+        scroll_sign.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        scroll_sign.setWidget(tab_sign)
+        self.main_tabs.addTab(scroll_sign, "✍️ 应用签名与直装")
+
 
         # Tab 2: 🛠️ 常用工具箱 (Toolbox)
         tab_tools = QWidget()
@@ -964,8 +993,9 @@ class UniSignHelperApp(QMainWindow):
         
         self.log_console = QPlainTextEdit()
         self.log_console.setReadOnly(True)
-        self.log_console.setMaximumHeight(135)
+        self.log_console.setMaximumHeight(110)
         log_layout.addWidget(self.log_console)
+
 
         log_btn_layout = QHBoxLayout()
         btn_copy_log = QPushButton("📋 复制全部日志")
@@ -1214,6 +1244,84 @@ class UniSignHelperApp(QMainWindow):
         if path:
             self.edit_prov_path.setText(path)
 
+    def get_config_file(self):
+        config_dir = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "UniSign")
+        os.makedirs(config_dir, exist_ok=True)
+        return os.path.join(config_dir, "config.json")
+
+    def load_saved_accounts(self):
+        cfg_file = self.get_config_file()
+        self.saved_accounts = {}
+        if os.path.exists(cfg_file):
+            try:
+                with open(cfg_file, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    self.saved_accounts = data.get("apple_accounts", {})
+                    last_acc = data.get("last_apple_id", "")
+                    
+                    self.combo_apple_id.blockSignals(True)
+                    self.combo_apple_id.clear()
+                    for email in self.saved_accounts.keys():
+                        self.combo_apple_id.addItem(email)
+                    
+                    if last_acc and last_acc in self.saved_accounts:
+                        self.combo_apple_id.setCurrentText(last_acc)
+                        self.edit_apple_pwd.setText(self.saved_accounts[last_acc].get("password", ""))
+                    elif self.saved_accounts:
+                        first_email = list(self.saved_accounts.keys())[0]
+                        self.combo_apple_id.setCurrentText(first_email)
+                        self.edit_apple_pwd.setText(self.saved_accounts[first_email].get("password", ""))
+                    self.combo_apple_id.blockSignals(False)
+            except Exception:
+                pass
+
+    def save_account_credentials(self, email, password):
+        if not email or not hasattr(self, "chk_remember_id") or not self.chk_remember_id.isChecked():
+            return
+        cfg_file = self.get_config_file()
+        try:
+            data = {}
+            if os.path.exists(cfg_file):
+                try:
+                    with open(cfg_file, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+                except Exception:
+                    data = {}
+            accounts = data.get("apple_accounts", {})
+            accounts[email] = {"password": password}
+            data["apple_accounts"] = accounts
+            data["last_apple_id"] = email
+            with open(cfg_file, "w", encoding="utf-8") as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+            self.saved_accounts = accounts
+            
+            if self.combo_apple_id.findText(email) == -1:
+                self.combo_apple_id.addItem(email)
+        except Exception:
+            pass
+
+    def delete_current_apple_id(self):
+        email = self.combo_apple_id.currentText().strip()
+        if not email or email not in self.saved_accounts:
+            QMessageBox.information(self, "提示", "未选择已保存的账号。")
+            return
+        del self.saved_accounts[email]
+        cfg_file = self.get_config_file()
+        try:
+            with open(cfg_file, "w", encoding="utf-8") as f:
+                json.dump({"apple_accounts": self.saved_accounts, "last_apple_id": ""}, f, ensure_ascii=False, indent=2)
+        except Exception:
+            pass
+        self.load_saved_accounts()
+        self.edit_apple_pwd.clear()
+        QMessageBox.information(self, "提示", f"已成功移除账号: {email}")
+
+    def on_apple_id_selected(self, text):
+        email = text.strip()
+        if hasattr(self, "saved_accounts") and email in self.saved_accounts:
+            pwd = self.saved_accounts[email].get("password", "")
+            self.edit_apple_pwd.setText(pwd)
+
     def start_sign_and_install(self):
         ipa_path = self.current_selected_ipa
         if not ipa_path or not os.path.exists(ipa_path):
@@ -1239,11 +1347,14 @@ class UniSignHelperApp(QMainWindow):
             self.append_log("[*] 检测到 iOS 16+ 系统，将自动确保开发者模式开启...")
         
         if is_apple_id:
-            apple_id = self.edit_apple_id.text().strip()
+            apple_id = self.combo_apple_id.currentText().strip()
             password = self.edit_apple_pwd.text().strip()
             if not apple_id or not password:
                 QMessageBox.warning(self, "提示", "请输入 Apple ID 邮箱账号与密码！")
                 return
+            
+            # Save account if remember is enabled
+            self.save_account_credentials(apple_id, password)
             
             self.btn_sign_and_install.setEnabled(False)
             self.btn_direct_install.setEnabled(False)
@@ -1252,6 +1363,7 @@ class UniSignHelperApp(QMainWindow):
                 args=(ipa_path, apple_id, password, custom_bundle_id, custom_opts),
                 daemon=True
             ).start()
+
         else:
             p12_path = self.edit_p12_path.text().strip()
             p12_pwd = self.edit_p12_pwd.text().strip()
