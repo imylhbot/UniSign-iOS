@@ -241,24 +241,24 @@ public class CertificateManagerViewController: UIViewController, UIDocumentPicke
             return
         }
         
-        var error: NSError?
-        let info = ZSignBridge.inspectP12(p12.path, password: p12PasswordField.text ?? "", error: &error)
-        
-        if let info = info {
-            let df = DateFormatter()
-            df.dateStyle = .medium
-            let expStr = info.expirationDate != nil ? df.string(from: info.expirationDate!) : "Unknown"
-            
-            var remainingDaysText = ""
-            if let expDate = info.expirationDate {
-                let diff = Calendar.current.dateComponents([.day], from: Date(), to: expDate).day ?? 0
-                remainingDaysText = diff > 0 ? "\(diff) days remaining" : "EXPIRED"
+        do {
+            let info = try ZSignBridge.inspectP12(p12.path, password: p12PasswordField.text ?? "")
+            if let info = info {
+                let df = DateFormatter()
+                df.dateStyle = .medium
+                let expStr = info.expirationDate != nil ? df.string(from: info.expirationDate!) : "Unknown"
+                
+                var remainingDaysText = ""
+                if let expDate = info.expirationDate {
+                    let diff = Calendar.current.dateComponents([.day], from: Date(), to: expDate).day ?? 0
+                    remainingDaysText = diff > 0 ? "\(diff) days remaining" : "EXPIRED"
+                }
+                
+                certStatusLabel.text = "Valid Certificate:\nName: \(info.commonName ?? "Developer")\nExpires: \(expStr) (\(remainingDaysText))\nStatus: \(info.isExpired ? "EXPIRED" : "ACTIVE")"
+                certStatusLabel.textColor = info.isExpired ? .systemRed : .systemGreen
             }
-            
-            certStatusLabel.text = "Valid Certificate:\nName: \(info.commonName ?? "Developer")\nExpires: \(expStr) (\(remainingDaysText))\nStatus: \(info.isExpired ? "EXPIRED" : "ACTIVE")"
-            certStatusLabel.textColor = info.isExpired ? .systemRed : .systemGreen
-        } else {
-            certStatusLabel.text = "Verification failed: \(error?.localizedDescription ?? "Invalid password or format")"
+        } catch {
+            certStatusLabel.text = "Verification failed: \(error.localizedDescription)"
             certStatusLabel.textColor = .systemRed
         }
     }

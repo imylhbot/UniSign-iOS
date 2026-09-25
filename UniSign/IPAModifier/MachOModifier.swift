@@ -67,7 +67,8 @@ public class MachOModifier {
                         let pathMaxLen = cmdsize - strOffset
                         let pathData = data.subdata(in: pathStart..<(pathStart + pathMaxLen))
                         if let nullIndex = pathData.firstIndex(of: 0) {
-                            if let str = String(data: pathData[..<nullIndex], encoding: .utf8) {
+                            let sub = pathData[..<nullIndex]
+                            if let str = String(data: Data(sub), encoding: .utf8) {
                                 if !dylibs.contains(str) {
                                     dylibs.append(str)
                                 }
@@ -82,7 +83,6 @@ public class MachOModifier {
     }
     
     /// Injects LC_LOAD_DYLIB command into the Mach-O binary for the given dylib path
-    /// Example path: "@executable_path/Frameworks/MyTweak.dylib"
     public static func injectDylib(binaryURL: URL, dylibPath: String, weak: Bool = false) throws {
         var data = try Data(contentsOf: binaryURL)
         let slices = try parseSlices(data: data)
@@ -127,7 +127,6 @@ public class MachOModifier {
         if magic == MH_MAGIC_64 {
             return [MachOSlice(offset: 0, size: data.count)]
         } else if magic == FAT_MAGIC || magic == FAT_CIGAM {
-            // Universal / Fat binary
             let isSwap = (magic == FAT_CIGAM)
             let nfat_arch = Int(isSwap ? data.readUInt32(at: 4).byteSwapped : data.readUInt32(at: 4))
             var slices: [MachOSlice] = []
@@ -160,7 +159,6 @@ public class MachOModifier {
         let headerSize = 32 // mach_header_64
         let endOfCommands = sliceOffset + headerSize + sizeofcmds
         
-        // Check if already injected
         var curOffset = sliceOffset + headerSize
         for _ in 0..<ncmds {
             let cmd = data.readUInt32(at: curOffset)
@@ -171,54 +169,46 @@ public class MachOModifier {
                 let pathLen = cmdsize - strOffset
                 if pathStart + pathLen <= data.count {
                     let pathData = data.subdata(in: pathStart..<(pathStart + pathLen))
-                    if let nullIdx = pathData.firstIndex(of: 0),
-                       let existingPath = String(data: pathData[..<nullIdx], encoding: .utf8),
-                       existingPath == dylibPath {
-                        // Already exists, skip
-                        return
+                    if let nullIdx = pathData.firstIndex(of: 0) {
+                        let sub = pathData[..<nullIdx]
+                        if let existingPath = String(data: Data(sub), encoding: .utf8), existingPath == dylibPath {
+                            return
+                        }
                     }
                 }
             }
             curOffset += cmdsize
         }
         
-        // Build new LC_LOAD_DYLIB load command
         guard let pathBytes = dylibPath.data(using: .utf8) else { return }
-        let dylibCmdStructSize = 24 // sizeof(struct dylib_command)
+        let dylibCmdStructSize = 24
         let rawCmdSize = dylibCmdStructSize + pathBytes.count + 1
-        // Align to 8 bytes (64-bit boundary)
         let alignedCmdSize = (rawCmdSize + 7) & ~7
         
-        // Verify available padding before the first section
         guard endOfCommands + alignedCmdSize <= data.count else {
             throw MachOError.insufficientHeaderPadding
         }
         
-        // Check if padding is actually zeroed
         for i in endOfCommands..<(endOfCommands + alignedCmdSize) {
             if data[i] != 0 {
                 throw MachOError.insufficientHeaderPadding
             }
         }
         
-        // Construct dylib_command buffer
         var newCmd = Data(count: alignedCmdSize)
         let cmdType: UInt32 = weak ? LC_LOAD_WEAK_DYLIB : LC_LOAD_DYLIB
         newCmd.writeUInt32(cmdType, at: 0)
         newCmd.writeUInt32(UInt32(alignedCmdSize), at: 4)
-        newCmd.writeUInt32(UInt32(dylibCmdStructSize), at: 8) // name.offset
-        newCmd.writeUInt32(2, at: 12) // timestamp
-        newCmd.writeUInt32(0x00010000, at: 16) // current_version (1.0.0)
-        newCmd.writeUInt32(0x00010000, at: 20) // compatibility_version (1.0.0)
+        newCmd.writeUInt32(UInt32(dylibCmdStructSize), at: 8)
+        newCmd.writeUInt32(2, at: 12)
+        newCmd.writeUInt32(0x00010000, at: 16)
+        newCmd.writeUInt32(0x00010000, at: 20)
         
-        // Write path string
         newCmd.replaceSubrange(dylibCmdStructSize..<(dylibCmdStructSize + pathBytes.count), with: pathBytes)
-        newCmd[dylibCmdStructSize + pathBytes.count] = 0 // null terminator
+        newCmd[dylibCmdStructSize + pathBytes.count] = 0
         
-        // Append into Mach-O padding space
         data.replaceSubrange(endOfCommands..<(endOfCommands + alignedCmdSize), with: newCmd)
         
-        // Update header ncmds and sizeofcmds
         data.writeUInt32(UInt32(ncmds + 1), at: ncmdsOffset)
         data.writeUInt32(UInt32(sizeofcmds + alignedCmdSize), at: sizeofcmdsOffset)
     }
@@ -228,10 +218,7 @@ public class MachOModifier {
         guard magic == MH_MAGIC_64 else { return false }
         
         let ncmdsOffset = sliceOffset + 16
-        let sizeofcmdsOffset = sliceOffset + 20
-        
         let ncmds = Int(data.readUInt32(at: ncmdsOffset))
-        let sizeofcmds = Int(data.readUInt32(at: sizeofcmdsOffset))
         let headerSize = 32
         
         var curOffset = sliceOffset + headerSize
@@ -245,14 +232,14 @@ public class MachOModifier {
                 let pathLen = cmdsize - strOffset
                 if pathStart + pathLen <= data.count {
                     let pathData = data.subdata(in: pathStart..<(pathStart + pathLen))
-                    if let nullIdx = pathData.firstIndex(of: 0),
-                       let existingPath = String(data: pathData[..<nullIdx], encoding: .utf8) {
-                        if existingPath.contains(dylibNameOrPath) {
-                            // Found target dylib. Zero out the command or convert to LC_ID_DYLIB / no-op
-                            // To safely keep offsets intact without breaking segments, zero out or replace cmd with 0x0
-                            let zeroData = Data(count: cmdsize)
-                            data.replaceSubrange(curOffset..<(curOffset + cmdsize), with: zeroData)
-                            return true
+                    if let nullIdx = pathData.firstIndex(of: 0) {
+                        let sub = pathData[..<nullIdx]
+                        if let existingPath = String(data: Data(sub), encoding: .utf8) {
+                            if existingPath.contains(dylibNameOrPath) {
+                                let zeroData = Data(count: cmdsize)
+                                data.replaceSubrange(curOffset..<(curOffset + cmdsize), with: zeroData)
+                                return true
+                            }
                         }
                     }
                 }
@@ -263,15 +250,19 @@ public class MachOModifier {
     }
 }
 
-// MARK: - Data Byte Helpers
+// MARK: - Safe Data Byte Helpers
 private extension Data {
     func readUInt32(at offset: Int) -> UInt32 {
-        return self.withUnsafeBytes { ptr in
-            ptr.load(fromByteOffset: offset, as: UInt32.self)
+        guard offset + 4 <= self.count else { return 0 }
+        var val: UInt32 = 0
+        _ = withUnsafeMutableBytes(of: &val) { valPtr in
+            self.copyBytes(to: valPtr, from: offset..<(offset + 4))
         }
+        return val
     }
     
     mutating func writeUInt32(_ value: UInt32, at offset: Int) {
+        guard offset + 4 <= self.count else { return }
         var v = value
         withUnsafeBytes(of: &v) { bytes in
             self.replaceSubrange(offset..<(offset + 4), with: bytes)

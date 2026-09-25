@@ -3,10 +3,10 @@
 NS_ASSUME_NONNULL_BEGIN
 
 @interface ZSignCertificateInfo : NSObject
-@property (nonatomic, copy) NSString *commonName;
-@property (nonatomic, copy) NSString *teamId;
-@property (nonatomic, copy) NSString *teamName;
-@property (nonatomic, strong) NSDate *expirationDate;
+@property (nonatomic, copy, nullable) NSString *commonName;
+@property (nonatomic, copy, nullable) NSString *teamId;
+@property (nonatomic, copy, nullable) NSString *teamName;
+@property (nonatomic, strong, nullable) NSDate *expirationDate;
 @property (nonatomic, assign) BOOL isExpired;
 @end
 
@@ -25,7 +25,7 @@ NS_ASSUME_NONNULL_BEGIN
 + (BOOL)signAppBundle:(NSString *)appPath
               p12Path:(NSString *)p12Path
           p12Password:(NSString *)password
-        provisionPath:(NSString *)provisionPath
+        provisionPath:(nullable NSString *)provisionPath
      entitlementsPath:(nullable NSString *)entitlementsPath
              bundleId:(nullable NSString *)bundleId
           displayName:(nullable NSString *)displayName

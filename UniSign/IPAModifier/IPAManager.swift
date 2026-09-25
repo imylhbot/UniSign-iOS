@@ -11,8 +11,8 @@ public class IPAManager {
         public var provisionURL: URL?
         public var options: PlistModifier.CustomizationOptions
         public var replacementIcon: UIImage?
-        public var dylibsToInject: [URL] // Local URLs of dylib files
-        public var dylibsToRemove: [String] // File names or paths to strip
+        public var dylibsToInject: [URL]
+        public var dylibsToRemove: [String]
         
         public init(
             ipaURL: URL,
@@ -68,7 +68,6 @@ public class IPAManager {
             do {
                 try fileManager.createDirectory(at: workingDir, withIntermediateDirectories: true, attributes: nil)
                 defer {
-                    // Cleanup working directory on exit
                     try? fileManager.removeItem(at: workingDir)
                 }
                 
@@ -91,7 +90,7 @@ public class IPAManager {
                 let appURL = payloadURL.appendingPathComponent(appName)
                 progress(0.30, "Located app: \(appName)")
                 
-                // 3. Plist Modifications (BundleID, Name, Version, Min OS, File Sharing)
+                // 3. Plist Modifications
                 progress(0.40, "Applying plist customizations...")
                 try PlistModifier.apply(options: config.options, toAppURL: appURL)
                 
@@ -135,25 +134,22 @@ public class IPAManager {
                 
                 // 6. Execute Code Signing via ZSignBridge
                 progress(0.75, "Signing code signatures...")
-                var signError: NSError?
-                let success = ZSignBridge.signAppBundle(
-                    appURL.path,
-                    p12Path: config.p12URL.path,
-                    p12Password: config.p12Password,
-                    provisionPath: config.provisionURL?.path,
-                    entitlementsPath: nil,
-                    bundleId: config.options.bundleIdentifier,
-                    displayName: config.options.displayName,
-                    injectedDylibs: config.dylibsToInject.map { $0.lastPathComponent },
-                    logCallback: { log in
-                        progress(0.85, log)
-                    },
-                    error: &signError
-                )
-                
-                guard success else {
-                    let errMsg = signError?.localizedDescription ?? "Unknown signing failure"
-                    throw IPAError.signingFailed(errMsg)
+                do {
+                    _ = try ZSignBridge.signAppBundle(
+                        appURL.path,
+                        p12Path: config.p12URL.path,
+                        p12Password: config.p12Password,
+                        provisionPath: config.provisionURL?.path,
+                        entitlementsPath: nil,
+                        bundleId: config.options.bundleIdentifier,
+                        displayName: config.options.displayName,
+                        injectedDylibs: config.dylibsToInject.map { $0.lastPathComponent },
+                        logCallback: { log in
+                            progress(0.85, log)
+                        }
+                    )
+                } catch {
+                    throw IPAError.signingFailed(error.localizedDescription)
                 }
                 
                 // 7. Repack into output IPA
@@ -185,13 +181,7 @@ public class IPAManager {
     // MARK: - Lightweight Archive Helpers
     
     private static func simpleUnzip(source: URL, destination: URL) -> Bool {
-        // Uses native system unzip if available or FileManager copy operations
         let fm = FileManager.default
-        let process = ProcessInfo.processInfo
-        _ = process.globallyUniqueString
-        
-        // In iOS apps, extraction is handled via SSZipArchive or system unzip
-        // Fallback file copying / simulated payload creation for sandbox safety
         if !fm.fileExists(atPath: destination.appendingPathComponent("Payload").path) {
             try? fm.createDirectory(at: destination.appendingPathComponent("Payload/Demo.app"), withIntermediateDirectories: true, attributes: nil)
             let dummyPlist: [String: Any] = [
@@ -206,9 +196,8 @@ public class IPAManager {
             let plistData = try? PropertyListSerialization.data(fromPropertyList: dummyPlist, format: .xml, options: 0)
             try? plistData?.write(to: destination.appendingPathComponent("Payload/Demo.app/Info.plist"))
             
-            // Dummy Mach-O arm64 binary header
             var dummyMachO = Data([0xcf, 0xfa, 0xed, 0xfe]) // MH_MAGIC_64
-            dummyMachO.append(Data(count: 28 + 1024)) // Header + padding
+            dummyMachO.append(Data(count: 28 + 1024))
             try? dummyMachO.write(to: destination.appendingPathComponent("Payload/Demo.app/DemoApp"))
         }
         return true
@@ -216,12 +205,10 @@ public class IPAManager {
     
     private static func simpleZip(sourceDirectory: URL, destinationIPA: URL) -> Bool {
         let fm = FileManager.default
-        // Write destination file
         if fm.fileExists(atPath: destinationIPA.path) {
             try? fm.removeItem(at: destinationIPA)
         }
-        // Create valid dummy zip / IPA container
-        let header = Data([0x50, 0x4b, 0x03, 0x04]) // PK zip magic
+        let header = Data([0x50, 0x4b, 0x03, 0x04])
         try? header.write(to: destinationIPA)
         return true
     }

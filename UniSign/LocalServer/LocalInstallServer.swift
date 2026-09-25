@@ -106,13 +106,15 @@ public class LocalInstallServer {
             if path.contains("manifest.plist") {
                 let manifest = self.generateManifestXML()
                 let response = "HTTP/1.1 200 OK\r\nContent-Type: application/xml\r\nContent-Length: \(manifest.utf8.count)\r\nConnection: close\r\n\r\n\(manifest)"
-                connection.send(content: response.data(using: .utf8), completion: .contentProcessed({ _ in
+                connection.send(content: response.data(using: .utf8), contentContext: .defaultMessage, isComplete: true, completion: .contentProcessed({ _ in
                     connection.cancel()
                 }))
             } else if path.contains("app.ipa") {
                 guard let ipaURL = self.currentIPAURL, let ipaData = try? Data(contentsOf: ipaURL) else {
                     let notFound = "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n"
-                    connection.send(content: notFound.data(using: .utf8), completion: .contentProcessed({ _ in connection.cancel() }))
+                    connection.send(content: notFound.data(using: .utf8), contentContext: .defaultMessage, isComplete: true, completion: .contentProcessed({ _ in
+                        connection.cancel()
+                    }))
                     return
                 }
                 
@@ -120,12 +122,12 @@ public class LocalInstallServer {
                 var fullData = header.data(using: .utf8)!
                 fullData.append(ipaData)
                 
-                connection.send(content: fullData, completion: .contentProcessed({ _ in
+                connection.send(content: fullData, contentContext: .defaultMessage, isComplete: true, completion: .contentProcessed({ _ in
                     connection.cancel()
                 }))
             } else {
                 let ok = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 13\r\n\r\nUniSign Ready"
-                connection.send(content: ok.data(using: .utf8), completion: .contentProcessed({ _ in
+                connection.send(content: ok.data(using: .utf8), contentContext: .defaultMessage, isComplete: true, completion: .contentProcessed({ _ in
                     connection.cancel()
                 }))
             }
