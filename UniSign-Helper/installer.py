@@ -157,6 +157,15 @@ class DeviceInstaller:
                     
                     if "Error" in resp:
                         err_msg = resp.get("ErrorDescription", resp["Error"])
+                        if "0xe8008014" in err_msg or "invalid signature" in err_msg.lower():
+                            detailed_msg = (
+                                "安装失败 (0xe8008014: 签名无效)。\n\n"
+                                "【原因】当前 IPA 未包含您这台 iPhone 11 的有效签名证书，因此被 iOS 系统安全机制拦截。\n"
+                                "【解决方式】请在上方界面输入或选择您的 Apple ID 账号与密码，然后点击「🚀 开始一键签名并安装到手机」，系统将自动完成免费签名并成功安装！"
+                            )
+                            log(f"❌ {detailed_msg}")
+                            inst_sock.close()
+                            raise RuntimeError(detailed_msg)
                         log(f"❌ 安装失败: {err_msg}")
                         inst_sock.close()
                         raise RuntimeError(f"安装失败: {err_msg}")

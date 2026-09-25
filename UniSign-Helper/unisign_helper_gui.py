@@ -108,12 +108,12 @@ class IPADropAreaWidget(QFrame):
         super().__init__(parent)
         self.setAcceptDrops(True)
         self.setCursor(QCursor(Qt.PointingHandCursor))
-        self.setFixedHeight(105)
+        self.setFixedHeight(92)
         self.current_ipa = ""
         self.is_hovered = False
         
         self.main_layout = QVBoxLayout(self)
-        self.main_layout.setContentsMargins(16, 12, 16, 12)
+        self.main_layout.setContentsMargins(14, 8, 14, 8)
         
         # 1. Empty State Widget
         self.empty_widget = QWidget()
@@ -751,13 +751,25 @@ class UniSignHelperApp(QMainWindow):
         # Tab 1: ✍️ 应用签名与直装 (IPA Sideload & Signer)
         tab_sign = QWidget()
         tab_sign_layout = QVBoxLayout(tab_sign)
-        tab_sign_layout.setContentsMargins(12, 10, 12, 10)
-        tab_sign_layout.setSpacing(8)
+        tab_sign_layout.setContentsMargins(12, 8, 12, 8)
+        tab_sign_layout.setSpacing(6)
+
+        # Upper settings scroll area (Settings scroll smoothly on small screens, action buttons stay pinned at bottom)
+        scroll_settings = QScrollArea()
+        scroll_settings.setWidgetResizable(True)
+        scroll_settings.setFrameShape(QFrame.NoFrame)
+        scroll_settings.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        scroll_settings.setStyleSheet("QScrollArea { border: none; background: transparent; }")
+
+        settings_widget = QWidget()
+        settings_layout = QVBoxLayout(settings_widget)
+        settings_layout.setContentsMargins(0, 0, 0, 0)
+        settings_layout.setSpacing(6)
 
         # IPA Drag and Drop / Selection Zone
         self.drop_area = IPADropAreaWidget()
         self.drop_area.ipa_selected.connect(self.on_ipa_selected)
-        tab_sign_layout.addWidget(self.drop_area)
+        settings_layout.addWidget(self.drop_area)
 
         # Auto-filled / Editable Bundle Identifier row
         bundle_box = QHBoxLayout()
@@ -771,10 +783,10 @@ class UniSignHelperApp(QMainWindow):
         
         btn_reset_bundle = QPushButton("还原")
         btn_reset_bundle.setMaximumWidth(60)
-        btn_reset_bundle.setStyleSheet("background-color: #F1F5F9; color: #0F172A; border: 1px solid #CBD5E1; padding: 5px;")
+        btn_reset_bundle.setStyleSheet("background-color: #F1F5F9; color: #0F172A; border: 1px solid #CBD5E1; padding: 4px;")
         btn_reset_bundle.clicked.connect(self.reset_bundle_id)
         bundle_box.addWidget(btn_reset_bundle)
-        tab_sign_layout.addLayout(bundle_box)
+        settings_layout.addLayout(bundle_box)
 
         # Credentials Sub-Tabs
         self.cert_tabs = QTabWidget()
@@ -825,7 +837,6 @@ class UniSignHelperApp(QMainWindow):
         apple_note.setStyleSheet("color: #64748B; font-size: 11px;")
         apple_layout.addWidget(apple_note)
 
-
         self.cert_tabs.addTab(sub_apple, "🔑 Apple ID 免费签名 (7天)")
 
         # Sub-tab: P12 Certificate Signing
@@ -871,7 +882,7 @@ class UniSignHelperApp(QMainWindow):
         p12_layout.addLayout(row_p3)
 
         self.cert_tabs.addTab(sub_p12, "📜 个人 / 企业 P12 证书")
-        tab_sign_layout.addWidget(self.cert_tabs)
+        settings_layout.addWidget(self.cert_tabs)
 
         # Advanced Settings Checklist
         opt_box = QGroupBox("⚙️ 签名高级定制选项")
@@ -892,9 +903,13 @@ class UniSignHelperApp(QMainWindow):
         self.chk_auto_devmode.setChecked(True)
         opt_layout.addWidget(self.chk_auto_devmode)
         
-        tab_sign_layout.addWidget(opt_box)
+        settings_layout.addWidget(opt_box)
+        settings_layout.addStretch()
 
-        # Primary Actions
+        scroll_settings.setWidget(settings_widget)
+        tab_sign_layout.addWidget(scroll_settings, 1)
+
+        # Primary Actions (PINNED AT BOTTOM: Always 100% visible and accessible!)
         action_layout = QHBoxLayout()
         self.btn_sign_and_install = QPushButton("🚀 开始一键签名并安装到手机")
         self.btn_sign_and_install.setObjectName("btn_primary_action")
@@ -905,6 +920,7 @@ class UniSignHelperApp(QMainWindow):
         self.btn_direct_install = QPushButton("📲 快速直装 (跳过重签)")
         self.btn_direct_install.setObjectName("btn_green_action")
         self.btn_direct_install.setFixedHeight(44)
+        self.btn_direct_install.setToolTip("仅适用于已包含当前设备 UDID 签名的 IPA 或企业包；若未签名请使用左侧「开始一键签名」")
         self.btn_direct_install.clicked.connect(self.start_direct_install)
         action_layout.addWidget(self.btn_direct_install)
         tab_sign_layout.addLayout(action_layout)
@@ -915,16 +931,10 @@ class UniSignHelperApp(QMainWindow):
         tab_sign_layout.addWidget(self.progress_bar)
 
         self.status_label = QLabel("就绪 · 等待开始")
-        self.status_label.setStyleSheet("color: #475569; font-size: 12px; font-weight: bold;")
+        self.status_label.setStyleSheet("color: #475569; font-size: 11px; font-weight: bold;")
         tab_sign_layout.addWidget(self.status_label)
 
-        scroll_sign = QScrollArea()
-        scroll_sign.setWidgetResizable(True)
-        scroll_sign.setFrameShape(QFrame.NoFrame)
-        scroll_sign.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        scroll_sign.setStyleSheet("QScrollArea { border: none; background: transparent; }")
-        scroll_sign.setWidget(tab_sign)
-        self.main_tabs.addTab(scroll_sign, "✍️ 应用签名与直装")
+        self.main_tabs.addTab(tab_sign, "✍️ 应用签名与直装")
 
 
         # Tab 2: 🛠️ 常用工具箱 (Toolbox)
@@ -988,33 +998,43 @@ class UniSignHelperApp(QMainWindow):
         guide_layout.addStretch()
         self.main_tabs.addTab(tab_guide, "💡 使用指引")
 
-        right_layout.addWidget(self.main_tabs)
+        right_layout.addWidget(self.main_tabs, 1)
 
-        # Bottom Log Terminal
-        log_box = QGroupBox("📋 运行与交互日志控制台")
+        # Bottom Log Terminal (Slim & Compact)
+        log_box = QGroupBox("📋 运行状态与日志")
+        log_box.setStyleSheet("""
+            QGroupBox {
+                margin-top: 4px;
+                padding-top: 10px;
+                font-size: 11px;
+                font-weight: bold;
+                color: #475569;
+            }
+        """)
         log_layout = QVBoxLayout(log_box)
-        log_layout.setContentsMargins(8, 6, 8, 6)
+        log_layout.setContentsMargins(8, 4, 8, 4)
+        log_layout.setSpacing(4)
         
         self.log_console = QPlainTextEdit()
         self.log_console.setReadOnly(True)
-        self.log_console.setMaximumHeight(85)
+        self.log_console.setFixedHeight(48)
         log_layout.addWidget(self.log_console)
 
-
         log_btn_layout = QHBoxLayout()
+        log_btn_layout.setContentsMargins(0, 0, 0, 0)
         btn_copy_log = QPushButton("📋 复制全部日志")
-        btn_copy_log.setStyleSheet("background-color: #F1F5F9; color: #0F172A; border: 1px solid #CBD5E1; padding: 4px 10px; font-size: 11px;")
+        btn_copy_log.setStyleSheet("background-color: #F1F5F9; color: #0F172A; border: 1px solid #CBD5E1; padding: 2px 8px; font-size: 11px; border-radius: 4px;")
         btn_copy_log.clicked.connect(self.copy_logs)
         log_btn_layout.addWidget(btn_copy_log)
 
         btn_clear_log = QPushButton("🧹 清空")
-        btn_clear_log.setStyleSheet("background-color: #F1F5F9; color: #0F172A; border: 1px solid #CBD5E1; padding: 4px 10px; font-size: 11px;")
+        btn_clear_log.setStyleSheet("background-color: #F1F5F9; color: #0F172A; border: 1px solid #CBD5E1; padding: 2px 8px; font-size: 11px; border-radius: 4px;")
         btn_clear_log.clicked.connect(self.log_console.clear)
         log_btn_layout.addWidget(btn_clear_log)
         log_btn_layout.addStretch()
         log_layout.addLayout(log_btn_layout)
 
-        right_layout.addWidget(log_box)
+        right_layout.addWidget(log_box, 0)
         splitter.addWidget(right_widget)
         
         # Set default split proportions: left panel ~310px, right expands
@@ -1479,7 +1499,27 @@ class UniSignHelperApp(QMainWindow):
             QMessageBox.information(self, "操作成功", message)
         else:
             self.append_log(f"❌ 发生错误: {message}")
-            QMessageBox.critical(self, "执行失败", f"错误详情:\n{message}")
+            if "0xe8008014" in message or "签名无效" in message or "invalid signature" in message.lower():
+                msg_box = QMessageBox(self)
+                msg_box.setIcon(QMessageBox.Warning)
+                msg_box.setWindowTitle("安装提示 · 需要签名")
+                msg_box.setText("<h3>⚠️ 手机系统拒绝安装：应用签名无效 (0xe8008014)</h3>")
+                msg_box.setInformativeText(
+                    "【原因分析】\n"
+                    "未越狱的 iPhone 只允许运行包含您本机设备 UDID 的签名证书。\n"
+                    "当前 IPA 尚未签名或证书不匹配，因此安装在校验阶段被系统拦截。\n\n"
+                    "👉 <b>一键解决办法</b>：\n"
+                    "点击下方按钮，输入您的 Apple ID 与密码后，点击<b>【🚀 开始一键签名并安装到手机】</b>，系统将自动免费申请开发者证书并安装到手机！"
+                )
+                btn_sign = msg_box.addButton("去输入 Apple ID 免费签名并安装", QMessageBox.AcceptRole)
+                msg_box.addButton("知道了", QMessageBox.RejectRole)
+                msg_box.exec()
+                if msg_box.clickedButton() == btn_sign:
+                    self.main_tabs.setCurrentIndex(0)
+                    self.cert_tabs.setCurrentIndex(0)
+                    self.combo_apple_id.setFocus()
+            else:
+                QMessageBox.critical(self, "执行失败", f"错误详情:\n{message}")
 
 
 if __name__ == "__main__":

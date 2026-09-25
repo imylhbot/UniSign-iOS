@@ -370,7 +370,7 @@ public class AppLibraryViewController: UIViewController, UITableViewDelegate, UI
         ProgressHUD.shared.show(in: view, title: L("正在批量续签...", "Renewing All..."))
         RenewalService.shared.renewAllSignedApps(progress: { [weak self] current, total, step in
             DispatchQueue.main.async {
-                guard let self = self else { return }
+                guard self != nil else { return }
                 ProgressHUD.shared.update(title: step, detail: "\(current)/\(total)")
             }
         }) { [weak self] renewed, failures in
