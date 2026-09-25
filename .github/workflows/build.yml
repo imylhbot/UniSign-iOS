@@ -1,0 +1,75 @@
+name: Build & Release UniSign IPA
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-14
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Select Xcode version
+        run: |
+          sudo xcode-select -s /Applications/Xcode_15.4.app/Contents/Developer
+          xcodebuild -version
+
+      - name: Install Dependencies
+        run: |
+          brew install openssl@3
+          echo "OpenSSL installed"
+
+      - name: Resolve Swift Package Dependencies (if any)
+        run: |
+          xcodebuild -resolvePackageDependencies -project UniSign.xcodeproj -scheme UniSign || true
+
+      - name: Build UniSign (Ad-Hoc / Unsigned for Sideloading)
+        run: |
+          xcodebuild build \
+            -project UniSign.xcodeproj \
+            -scheme UniSign \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            AD_HOC_CODE_SIGNING_ALLOWED=YES
+
+      - name: Package into IPA
+        run: |
+          APP_PATH=$(find build/Build/Products/Release-iphoneos -name "*.app" -type d | head -n 1)
+          if [ -z "$APP_PATH" ]; then
+            echo "Error: .app file not found!"
+            exit 1
+          fi
+          echo "Found app at: $APP_PATH"
+          mkdir -p Payload
+          cp -r "$APP_PATH" Payload/
+          zip -r -9 UniSign.ipa Payload
+          rm -rf Payload
+          echo "UniSign.ipa created successfully!"
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: UniSign-IPA
+          path: UniSign.ipa
+          retention-days: 7
+
+      - name: Create GitHub Release (on tag or manual)
+        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: UniSign.ipa
+          name: UniSign Release ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

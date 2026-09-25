@@ -1,0 +1,359 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 52;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A10000012C00000100000001 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012C00000100000001 /* AppDelegate.swift */; };
+		A10000022C00000100000001 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000022C00000100000001 /* SceneDelegate.swift */; };
+		A10000032C00000100000001 /* ZSignBridge.mm in Sources */ = {isa = PBXBuildFile; fileRef = B10000032C00000100000001 /* ZSignBridge.mm */; };
+		A10000042C00000100000001 /* PlistModifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000042C00000100000001 /* PlistModifier.swift */; };
+		A10000052C00000100000001 /* MachOModifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000052C00000100000001 /* MachOModifier.swift */; };
+		A10000062C00000100000001 /* IconReplacer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000062C00000100000001 /* IconReplacer.swift */; };
+		A10000072C00000100000001 /* IPAManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000072C00000100000001 /* IPAManager.swift */; };
+		A10000082C00000100000001 /* AnisetteClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000082C00000100000001 /* AnisetteClient.swift */; };
+		A10000092C00000100000001 /* AppleDeveloperService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000092C00000100000001 /* AppleDeveloperService.swift */; };
+		A100000A2C00000100000001 /* LocalInstallServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000A2C00000100000001 /* LocalInstallServer.swift */; };
+		A100000B2C00000100000001 /* SignWorkflowViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000B2C00000100000001 /* SignWorkflowViewController.swift */; };
+		A100000C2C00000100000001 /* CertificateManagerViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000C2C00000100000001 /* CertificateManagerViewController.swift */; };
+		A100000D2C00000100000001 /* SettingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000D2C00000100000001 /* SettingsViewController.swift */; };
+		A100000E2C00000100000001 /* MainTabBarController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000E2C00000100000001 /* MainTabBarController.swift */; };
+		A100000F2C00000100000001 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C10000012C00000100000001 /* Security.framework */; };
+		A10000102C00000100000001 /* Network.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C10000022C00000100000001 /* Network.framework */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		B10000012C00000100000001 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		B10000022C00000100000001 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
+		B10000032C00000100000001 /* ZSignBridge.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = ZSignBridge.mm; sourceTree = "<group>"; };
+		B10000032C00000200000001 /* ZSignBridge.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ZSignBridge.h; sourceTree = "<group>"; };
+		B10000042C00000100000001 /* PlistModifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlistModifier.swift; sourceTree = "<group>"; };
+		B10000052C00000100000001 /* MachOModifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MachOModifier.swift; sourceTree = "<group>"; };
+		B10000062C00000100000001 /* IconReplacer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IconReplacer.swift; sourceTree = "<group>"; };
+		B10000072C00000100000001 /* IPAManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IPAManager.swift; sourceTree = "<group>"; };
+		B10000082C00000100000001 /* AnisetteClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnisetteClient.swift; sourceTree = "<group>"; };
+		B10000092C00000100000001 /* AppleDeveloperService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleDeveloperService.swift; sourceTree = "<group>"; };
+		B100000A2C00000100000001 /* LocalInstallServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalInstallServer.swift; sourceTree = "<group>"; };
+		B100000B2C00000100000001 /* SignWorkflowViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignWorkflowViewController.swift; sourceTree = "<group>"; };
+		B100000C2C00000100000001 /* CertificateManagerViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CertificateManagerViewController.swift; sourceTree = "<group>"; };
+		B100000D2C00000100000001 /* SettingsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsViewController.swift; sourceTree = "<group>"; };
+		B100000E2C00000100000001 /* MainTabBarController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainTabBarController.swift; sourceTree = "<group>"; };
+		B100000F2C00000100000001 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		B10000102C00000100000001 /* UniSign-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "UniSign-Bridging-Header.h"; sourceTree = "<group>"; };
+		C10000012C00000100000001 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
+		C10000022C00000100000001 /* Network.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Network.framework; path = System/Library/Frameworks/Network.framework; sourceTree = SDKROOT; };
+		D10000012C00000100000001 /* UniSign.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = UniSign.app; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		E10000012C00000100000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A100000F2C00000100000001 /* Security.framework in Frameworks */,
+				A10000102C00000100000001 /* Network.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		F10000012C00000100000001 = {
+			isa = PBXGroup;
+			children = (
+				F10000022C00000100000001 /* UniSign */,
+				F10000082C00000100000001 /* Products */,
+				F10000092C00000100000001 /* Frameworks */,
+			);
+			sourceTree = "<group>";
+		};
+		F10000022C00000100000001 /* UniSign */ = {
+			isa = PBXGroup;
+			children = (
+				F10000032C00000100000001 /* App */,
+				F10000042C00000100000001 /* SigningEngine */,
+				F10000052C00000100000001 /* IPAModifier */,
+				F10000062C00000100000001 /* LocalServer */,
+				F10000072C00000100000001 /* Views */,
+				B10000102C00000100000001 /* UniSign-Bridging-Header.h */,
+			);
+			path = UniSign;
+			sourceTree = "<group>";
+		};
+		F10000032C00000100000001 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				B10000012C00000100000001 /* AppDelegate.swift */,
+				B10000022C00000100000001 /* SceneDelegate.swift */,
+				B100000F2C00000100000001 /* Info.plist */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		F10000042C00000100000001 /* SigningEngine */ = {
+			isa = PBXGroup;
+			children = (
+				B10000032C00000200000001 /* ZSignBridge.h */,
+				B10000032C00000100000001 /* ZSignBridge.mm */,
+				F100000A2C00000100000001 /* AppleID */,
+			);
+			path = SigningEngine;
+			sourceTree = "<group>";
+		};
+		F100000A2C00000100000001 /* AppleID */ = {
+			isa = PBXGroup;
+			children = (
+				B10000082C00000100000001 /* AnisetteClient.swift */,
+				B10000092C00000100000001 /* AppleDeveloperService.swift */,
+			);
+			path = AppleID;
+			sourceTree = "<group>";
+		};
+		F10000052C00000100000001 /* IPAModifier */ = {
+			isa = PBXGroup;
+			children = (
+				B10000042C00000100000001 /* PlistModifier.swift */,
+				B10000052C00000100000001 /* MachOModifier.swift */,
+				B10000062C00000100000001 /* IconReplacer.swift */,
+				B10000072C00000100000001 /* IPAManager.swift */,
+			);
+			path = IPAModifier;
+			sourceTree = "<group>";
+		};
+		F10000062C00000100000001 /* LocalServer */ = {
+			isa = PBXGroup;
+			children = (
+				B100000A2C00000100000001 /* LocalInstallServer.swift */,
+			);
+			path = LocalServer;
+			sourceTree = "<group>";
+		};
+		F10000072C00000100000001 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				B100000E2C00000100000001 /* MainTabBarController.swift */,
+				B100000B2C00000100000001 /* SignWorkflowViewController.swift */,
+				B100000C2C00000100000001 /* CertificateManagerViewController.swift */,
+				B100000D2C00000100000001 /* SettingsViewController.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		F10000082C00000100000001 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				D10000012C00000100000001 /* UniSign.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		F10000092C00000100000001 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				C10000012C00000100000001 /* Security.framework */,
+				C10000022C00000100000001 /* Network.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		110000012C00000100000001 /* UniSign */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 210000012C00000100000001 /* Build configuration list for PBXNativeTarget "UniSign" */;
+			buildPhases = (
+				310000012C00000100000001 /* Sources */,
+				E10000012C00000100000001 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = UniSign;
+			productName = UniSign;
+			productReference = D10000012C00000100000001 /* UniSign.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		010000012C00000100000001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastUpgradeCheck = 1500;
+				TargetAttributes = {
+					110000012C00000100000001 = {
+						CreatedOnToolsVersion = 15.0;
+					};
+				};
+			};
+			buildConfigurationList = 010000022C00000100000001 /* Build configuration list for PBXProject "UniSign" */;
+			compatibilityVersion = "Xcode 13.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = F10000012C00000100000001;
+			productRefGroup = F10000082C00000100000001 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				110000012C00000100000001 /* UniSign */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		310000012C00000100000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000012C00000100000001 /* AppDelegate.swift in Sources */,
+				A10000022C00000100000001 /* SceneDelegate.swift in Sources */,
+				A10000032C00000100000001 /* ZSignBridge.mm in Sources */,
+				A10000042C00000100000001 /* PlistModifier.swift in Sources */,
+				A10000052C00000100000001 /* MachOModifier.swift in Sources */,
+				A10000062C00000100000001 /* IconReplacer.swift in Sources */,
+				A10000072C00000100000001 /* IPAManager.swift in Sources */,
+				A10000082C00000100000001 /* AnisetteClient.swift in Sources */,
+				A10000092C00000100000001 /* AppleDeveloperService.swift in Sources */,
+				A100000A2C00000100000001 /* LocalInstallServer.swift in Sources */,
+				A100000B2C00000100000001 /* SignWorkflowViewController.swift in Sources */,
+				A100000C2C00000100000001 /* CertificateManagerViewController.swift in Sources */,
+				A100000D2C00000100000001 /* SettingsViewController.swift in Sources */,
+				A100000E2C00000100000001 /* MainTabBarController.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		010000032C00000100000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		010000042C00000100000001 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		110000022C00000100000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_BITCODE = NO;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = UniSign/App/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.unisign.app;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_OBJC_BRIDGING_HEADER = "UniSign/UniSign-Bridging-Header.h";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		110000032C00000100000001 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_BITCODE = NO;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = UniSign/App/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.unisign.app;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_OBJC_BRIDGING_HEADER = "UniSign/UniSign-Bridging-Header.h";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		010000022C00000100000001 /* Build configuration list for PBXProject "UniSign" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				010000032C00000100000001 /* Debug */,
+				010000042C00000100000001 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		210000012C00000100000001 /* Build configuration list for PBXNativeTarget "UniSign" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				110000022C00000100000001 /* Debug */,
+				110000032C00000100000001 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+	};
+	rootObject = 010000012C00000100000001 /* Project object */;
+}
