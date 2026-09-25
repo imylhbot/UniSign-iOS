@@ -1392,18 +1392,17 @@ public class SignWorkflowViewController: UIViewController, UIDocumentPickerDeleg
             }
         }))
         
-        // 5. 巨魔安装 (仅在设备存在巨魔时展示)
-        let tsURL = URL(string: "apple-magnifier://")
-        if let ts = tsURL, UIApplication.shared.canOpenURL(ts) {
-            sheet.addAction(UIAlertAction(title: "⚡ " + L("使用 TrollStore (巨魔) 一键安装", "Install via TrollStore"), style: .default, handler: { [weak self] _ in
-                let tsInstall = "apple-magnifier://install?url=\(ipaURL.path.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")"
-                if let url = URL(string: tsInstall) {
-                    UIApplication.shared.open(url, options: [:], completionHandler: nil)
-                } else {
-                    self?.openInOtherApp(ipaURL)
-                }
-            }))
-        }
+        // 5. 巨魔安装 (TrollStore 一键秒装)
+        sheet.addAction(UIAlertAction(title: "⚡ " + L("使用 TrollStore (巨魔) 一键秒装", "Install via TrollStore"), style: .default, handler: { [weak self] _ in
+            let encodedPath = ipaURL.path.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+            if let ts1 = URL(string: "apple-magnifier://install?url=\(encodedPath)"), UIApplication.shared.canOpenURL(ts1) {
+                UIApplication.shared.open(ts1, options: [:], completionHandler: nil)
+            } else if let ts2 = URL(string: "trollstore://install?url=\(encodedPath)"), UIApplication.shared.canOpenURL(ts2) {
+                UIApplication.shared.open(ts2, options: [:], completionHandler: nil)
+            } else {
+                self?.openInOtherApp(ipaURL)
+            }
+        }))
         
         sheet.addAction(UIAlertAction(title: L("完成", "Done"), style: .cancel))
         present(sheet, animated: true)

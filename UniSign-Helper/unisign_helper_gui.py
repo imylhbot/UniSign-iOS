@@ -1515,18 +1515,18 @@ class UniSignHelperApp(QMainWindow):
             QMessageBox.information(self, "操作成功", message)
         else:
             self.append_log(f"❌ 发生错误: {message}")
-            if "0xe8008014" in message or "签名无效" in message or "invalid signature" in message.lower():
+            if "0xe8008014" in message or "0xe800801c" in message or "签名无效" in message or "no code signature" in message.lower() or "invalid signature" in message.lower():
                 msg_box = QMessageBox(self)
                 msg_box.setIcon(QMessageBox.Warning)
-                msg_box.setWindowTitle("安装提示 · 需要签名")
-                msg_box.setText("<h3>⚠️ 手机系统拒绝安装：应用签名无效 (0xe8008014)</h3>")
+                msg_box.setWindowTitle("安装提示 · 需要有效代码签名")
+                msg_box.setText("<h3>⚠️ 手机系统拒绝安装：未找到有效代码签名 (0xe800801c / 0xe8008014)</h3>")
                 msg_box.setInformativeText(
                     "【原因分析】\n"
                     "未越狱的 iPhone 只允许运行包含您本机设备 UDID 的正规签名证书。\n"
                     "当前 IPA 尚未签名或证书与设备不匹配，因此在系统安装校验阶段被拦截。\n\n"
                     "👉 <b>推荐解决办法</b>：\n"
                     "1. 切换至<b>【📜 个人 / 企业 P12 证书】</b>标签页，导入匹配您设备的 P12 证书与描述文件，SoulSign 助手内置了苹果官方代码签名引擎，将为您完成 100% 真实签名与安装！\n"
-                    "2. 或直接在 <b>iPhone 手机端打开 SoulSign App</b>，通过安装本地 CA 描述文件一键自签安装！"
+                    "2. 若设备已安装 TrollStore（巨魔商店），可通过巨魔直接安装，永久免签名！"
                 )
                 btn_p12 = msg_box.addButton("去导入 P12 证书签名", QMessageBox.AcceptRole)
                 msg_box.addButton("知道了", QMessageBox.RejectRole)

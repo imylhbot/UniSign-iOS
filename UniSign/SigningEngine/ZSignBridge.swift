@@ -223,25 +223,76 @@ public class ZSignBridge {
             }
         }
         
-        // 5. Code Directory and Signature Manifest
+        // 5. Code Directory and Signature Manifest (Real Resource Hashing)
         let codeSignatureDir = appURL.appendingPathComponent("_CodeSignature")
         try? fm.createDirectory(at: codeSignatureDir, withIntermediateDirectories: true, attributes: nil)
         let codeResourcesURL = codeSignatureDir.appendingPathComponent("CodeResources")
         
-        if !fm.fileExists(atPath: codeResourcesURL.path) {
-            let filesDict: [String: Any] = [:]
-            let files2Dict: [String: Any] = [:]
-            let basicManifest: [String: Any] = [
-                "files": filesDict,
-                "files2": files2Dict,
-                "rules": [
-                    "^.*": true,
-                    "^.*\\.lproj/": ["weight": 0],
-                    "^version\\.plist$": ["weight": 20]
-                ]
+        log("[*] Computing cryptographic resource hashes for CodeResources...")
+        var files1Dict: [String: Data] = [:]
+        var files2Dict: [String: Any] = [:]
+        
+        if let enumerator = fm.enumerator(at: appURL, includingPropertiesForKeys: [.isRegularFileKey], options: [.skipsHiddenFiles]) {
+            for case let fileURL as URL in enumerator {
+                let fullPath = fileURL.path
+                let appPathStr = appURL.path
+                guard fullPath.hasPrefix(appPathStr) else { continue }
+                
+                var relPath = String(fullPath.dropFirst(appPathStr.count))
+                if relPath.hasPrefix("/") {
+                    relPath = String(relPath.dropFirst())
+                }
+                
+                // Skip CodeResources itself and embedded provisioning profile
+                if relPath.hasPrefix("_CodeSignature") || relPath == "embedded.mobileprovision" {
+                    continue
+                }
+                
+                guard let isFile = (try? fileURL.resourceValues(forKeys: [.isRegularFileKey]))?.isRegularFile, isFile else {
+                    continue
+                }
+                
+                if let fileData = try? Data(contentsOf: fileURL) {
+                    var s1Digest = [UInt8](repeating: 0, count: Int(CC_SHA1_DIGEST_LENGTH))
+                    fileData.withUnsafeBytes {
+                        _ = CC_SHA1($0.baseAddress, CC_LONG(fileData.count), &s1Digest)
+                    }
+                    let s1 = Data(s1Digest)
+                    
+                    var s2Digest = [UInt8](repeating: 0, count: Int(CC_SHA256_DIGEST_LENGTH))
+                    fileData.withUnsafeBytes {
+                        _ = CC_SHA256($0.baseAddress, CC_LONG(fileData.count), &s2Digest)
+                    }
+                    let s2 = Data(s2Digest)
+                    
+                    files1Dict[relPath] = s1
+                    files2Dict[relPath] = [
+                        "hash": s1,
+                        "hash2": s2
+                    ]
+                }
+            }
+        }
+        
+        let codeResourcesManifest: [String: Any] = [
+            "files": files1Dict,
+            "files2": files2Dict,
+            "rules": [
+                "^.*": true,
+                "^.*\\.lproj/": ["weight": 0],
+                "^version\\.plist$": ["weight": 20]
+            ],
+            "rules2": [
+                ".*\\.dSYM($|/)": ["weight": 11],
+                "^.*": true,
+                "^.*\\.lproj/": ["weight": 0],
+                "^version\\.plist$": ["weight": 20]
             ]
-            let manifestData = try? PropertyListSerialization.data(fromPropertyList: basicManifest, format: .xml, options: 0)
-            try? manifestData?.write(to: codeResourcesURL)
+        ]
+        
+        if let manifestData = try? PropertyListSerialization.data(fromPropertyList: codeResourcesManifest, format: .xml, options: 0) {
+            try? manifestData.write(to: codeResourcesURL)
+            log("[*] CodeResources generated with \(files1Dict.count) sealed files.")
         }
         
         log("[✓] App signature applied successfully!")
