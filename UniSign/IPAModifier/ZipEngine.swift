@@ -250,12 +250,14 @@ public class ZipEngine {
     private static func inflateData(_ data: Data, uncompressedSize: Int) -> Data? {
         guard uncompressedSize > 0 else { return Data() }
         var dest = Data(count: uncompressedSize)
-        let decodedSize = dest.withUnsafeMutableBytes { destPtr in
-            data.withUnsafeBytes { srcPtr in
-                compression_decode_buffer(
-                    destPtr.bindMemory(to: UInt8.self).baseAddress!,
+        let decodedSize = dest.withUnsafeMutableBytes { (destPtr: UnsafeMutableRawBufferPointer) -> Int in
+            guard let dstBase = destPtr.baseAddress?.assumingMemoryBound(to: UInt8.self) else { return 0 }
+            return data.withUnsafeBytes { (srcPtr: UnsafeRawBufferPointer) -> Int in
+                guard let srcBase = srcPtr.baseAddress?.assumingMemoryBound(to: UInt8.self) else { return 0 }
+                return compression_decode_buffer(
+                    dstBase,
                     uncompressedSize,
-                    srcPtr.bindMemory(to: UInt8.self).baseAddress!,
+                    srcBase,
                     data.count,
                     nil,
                     COMPRESSION_ZLIB
@@ -272,12 +274,14 @@ public class ZipEngine {
     private static func deflateData(_ data: Data) -> Data? {
         guard data.count > 0 else { return Data() }
         var dest = Data(count: data.count + 512)
-        let encodedSize = dest.withUnsafeMutableBytes { destPtr in
-            data.withUnsafeBytes { srcPtr in
-                compression_encode_buffer(
-                    destPtr.bindMemory(to: UInt8.self).baseAddress!,
+        let encodedSize = dest.withUnsafeMutableBytes { (destPtr: UnsafeMutableRawBufferPointer) -> Int in
+            guard let dstBase = destPtr.baseAddress?.assumingMemoryBound(to: UInt8.self) else { return 0 }
+            return data.withUnsafeBytes { (srcPtr: UnsafeRawBufferPointer) -> Int in
+                guard let srcBase = srcPtr.baseAddress?.assumingMemoryBound(to: UInt8.self) else { return 0 }
+                return compression_encode_buffer(
+                    dstBase,
                     dest.count,
-                    srcPtr.bindMemory(to: UInt8.self).baseAddress!,
+                    srcBase,
                     data.count,
                     nil,
                     COMPRESSION_ZLIB
@@ -293,8 +297,10 @@ public class ZipEngine {
     
     private static func calculateCRC32(_ data: Data) -> UInt32 {
         var crc: uLong = crc32(0, nil, 0)
-        data.withUnsafeBytes { ptr in
-            crc = crc32(crc, ptr.bindMemory(to: Bytef.self).baseAddress, uInt(data.count))
+        data.withUnsafeBytes { (ptr: UnsafeRawBufferPointer) in
+            if let base = ptr.baseAddress?.assumingMemoryBound(to: Bytef.self) {
+                crc = crc32(crc, base, uInt(data.count))
+            }
         }
         return UInt32(crc)
     }
@@ -317,12 +323,14 @@ private extension Data {
     }
     
     mutating func appendUInt16LE(_ val: UInt16) {
-        var v = val.littleEndian
-        withUnsafeBytes(of: &v) { self.append(contentsOf: $0) }
+        append(UInt8(val & 0xFF))
+        append(UInt8((val >> 8) & 0xFF))
     }
     
     mutating func appendUInt32LE(_ val: UInt32) {
-        var v = val.littleEndian
-        withUnsafeBytes(of: &v) { self.append(contentsOf: $0) }
+        append(UInt8(val & 0xFF))
+        append(UInt8((val >> 8) & 0xFF))
+        append(UInt8((val >> 16) & 0xFF))
+        append(UInt8((val >> 24) & 0xFF))
     }
 }
