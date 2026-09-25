@@ -50,9 +50,16 @@ class DeveloperModeManager:
             log("✅ 设备已开启开发者模式！可直接安装并运行签名应用。")
             return True, "Developer Mode is already active."
         
+        log("[*] 正在建立专用服务会话以激活 AMFI...")
+        try:
+            # Create fresh session for service calls
+            fresh_ld = LockdownClient.fresh_for_service(device_id, lockdown.udid)
+        except Exception:
+            fresh_ld = lockdown
+        
         log("[*] 正在请求启动 com.apple.amfi.lockdown 安全完整性服务...")
         try:
-            port, enable_ssl = lockdown.start_service("com.apple.amfi.lockdown")
+            port, enable_ssl = fresh_ld.start_service("com.apple.amfi.lockdown")
             log(f"[*] AMFI 服务已在端口 {port} 启动，正在建立通信通道...")
             
             mux = USBMux()
@@ -73,6 +80,12 @@ class DeveloperModeManager:
                 log(f"[*] AMFI 服务响应: {resp_plist}")
             
             amfi_sock.close()
+            try:
+                fresh_ld.stop_session()
+                fresh_ld.close()
+            except Exception:
+                pass
+            
             log("📲 开启指令已成功发送至手机！")
             log("👉 请查看手机屏幕：点击提示框中的『重新启动』，重启后解锁手机并点击『开启』，输入手机锁屏密码即可成功开启开发者模式！")
             return True, "Prompted on device"
@@ -81,3 +94,4 @@ class DeveloperModeManager:
             log(f"⚠️ 通过 AMFI 服务开启开发者模式遇到异常: {e}")
             log("ℹ️ 您也可以直接在手机上手动开启：打开手机『设置』->『隐私与安全性』-> 滑到最底部点击『开发者模式』并开启。")
             return False, str(e)
+

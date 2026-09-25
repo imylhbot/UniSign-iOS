@@ -37,9 +37,14 @@ class USBMux:
     def send_packet(self, payload_dict):
         if not self.sock:
             if not self.connect():
-                raise ConnectionError("Cannot connect to Apple Mobile Device Service (usbmuxd) on 127.0.0.1:27015. Please ensure Apple Mobile Device Support / iTunes is installed and running.")
+                raise ConnectionError(
+                    "无法连接到 Apple 移动设备服务 (iTunes/Apple Mobile Device Support)\n"
+                    "请确保：\n"
+                    "1. iTunes 或 Apple Devices 已安装并正在运行\n"
+                    "2. iPhone 已通过 USB 连接，并在手机上点击【信任此电脑】\n"
+                    "3. Apple Mobile Device Service (AMDS) 服务正在运行"
+                )
         
-        # Format payload as XML Plist
         xml_data = plistlib.dumps(payload_dict, fmt=plistlib.FMT_XML)
         length = 16 + len(xml_data)
         version = 1
@@ -55,7 +60,6 @@ class USBMux:
             return None
         self.sock.settimeout(timeout)
         
-        # Read header (16 bytes)
         header_data = self._read_exact(16)
         if not header_data:
             return None
@@ -91,7 +95,7 @@ class USBMux:
         
         req = {
             "MessageType": "ListDevices",
-            "ClientVersionString": "UniSignHelper-2.0",
+            "ClientVersionString": "UniSignHelper-2.5",
             "ProgName": "UniSign"
         }
         devices = []
@@ -115,28 +119,33 @@ class USBMux:
         return devices
 
     def connect_device_port(self, device_id, port_number):
-        """Opens a raw TCP channel to a TCP port on the target iOS device."""
+        """Opens a raw TCP channel to a TCP port on the target iOS device via usbmuxd."""
         mux = USBMux(self.host, self.port)
         if not mux.connect():
             raise ConnectionError("Failed to connect to usbmuxd")
         
-        # Note: port_number in usbmuxd connect is in network byte order (big endian)
+        # Port number in usbmuxd is in network byte order
         port_be = socket.htons(port_number)
         req = {
             "MessageType": "Connect",
-            "ClientVersionString": "UniSignHelper-2.0",
+            "ClientVersionString": "UniSignHelper-2.5",
             "ProgName": "UniSign",
             "DeviceID": device_id,
             "PortNumber": port_be
         }
         mux.send_packet(req)
-        resp = mux.receive_packet(timeout=5.0)
+        resp = mux.receive_packet(timeout=8.0)
         if resp and resp.get("Number") == 0:
-            # Socket is now a direct tunnel to the device port!
             raw_sock = mux.sock
             mux.sock = None  # Detach so close() doesn't kill it
             return raw_sock
         else:
             code = resp.get("Number") if resp else "timeout"
             mux.close()
-            raise ConnectionError(f"usbmuxd Connect to port {port_number} on device {device_id} failed (code {code})")
+            raise ConnectionError(
+                f"无法连接设备端口 {port_number} (错误码: {code})\n"
+                f"可能的原因：\n"
+                f"- 手机屏幕未解锁，或锁屏超时断开了 USB 会话\n"
+                f"- 数据线连接不稳定，请重新插拔\n"
+                f"- iTunes 服务未正常运行，请重启 iTunes"
+            )

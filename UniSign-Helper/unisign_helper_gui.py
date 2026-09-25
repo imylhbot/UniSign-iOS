@@ -609,18 +609,30 @@ class UniSignHelperApp(QMainWindow):
         header_layout.addWidget(self.conn_badge)
         main_layout.addWidget(header_widget)
 
-        # 2. Main Content Split View (Left: Device Dashboard; Right: Signing & Tools)
+        # 2. Main Content Split View (QSplitter for responsive resizing)
         content_widget = QWidget()
-        content_layout = QHBoxLayout(content_widget)
+        content_layout = QVBoxLayout(content_widget)
         content_layout.setContentsMargins(16, 14, 16, 14)
-        content_layout.setSpacing(16)
+        content_layout.setSpacing(0)
+        
+        splitter = QSplitter(Qt.Horizontal)
+        splitter.setChildrenCollapsible(False)
+        splitter.setHandleWidth(6)
+        splitter.setStyleSheet("""
+            QSplitter::handle {
+                background-color: #E2E8F0;
+                border-radius: 2px;
+            }
+            QSplitter::handle:hover {
+                background-color: #0066EB;
+            }
+        """)
 
-        # Left Column: Device Dashboard Card (320px)
+        # Left Column: Device Dashboard Card
         left_card = QGroupBox("📱 我的苹果设备")
-        left_card.setFixedWidth(310)
         left_layout = QVBoxLayout(left_card)
         left_layout.setContentsMargins(14, 14, 14, 14)
-        left_layout.setSpacing(10)
+        left_layout.setSpacing(8)
 
         mockup_box = QHBoxLayout()
         self.mockup = IPhoneMockupWidget()
@@ -629,15 +641,25 @@ class UniSignHelperApp(QMainWindow):
 
         # Device Parameter Table
         self.lbl_device_model = QLabel("型号: 等待连接...")
-        self.lbl_device_model.setFont(QFont("Segoe UI", 12, QFont.Bold))
+        self.lbl_device_model.setFont(QFont("Segoe UI", 13, QFont.Bold))
+        self.lbl_device_model.setWordWrap(True)
         left_layout.addWidget(self.lbl_device_model)
 
         self.lbl_device_version = QLabel("系统版本: --")
         self.lbl_device_version.setStyleSheet("color: #0066EB; font-weight: bold; font-size: 13px;")
         left_layout.addWidget(self.lbl_device_version)
 
+        self.lbl_device_name = QLabel("设备名称: --")
+        self.lbl_device_name.setStyleSheet("color: #334155; font-size: 12px;")
+        self.lbl_device_name.setWordWrap(True)
+        left_layout.addWidget(self.lbl_device_name)
+
+        self.lbl_device_serial = QLabel("序列号: --")
+        self.lbl_device_serial.setStyleSheet("color: #64748B; font-family: Consolas, monospace; font-size: 11px;")
+        left_layout.addWidget(self.lbl_device_serial)
+
         self.lbl_device_udid = QLabel("UDID: --")
-        self.lbl_device_udid.setStyleSheet("color: #64748B; font-family: Consolas, monospace; font-size: 11px;")
+        self.lbl_device_udid.setStyleSheet("color: #64748B; font-family: Consolas, monospace; font-size: 10px;")
         self.lbl_device_udid.setWordWrap(True)
         left_layout.addWidget(self.lbl_device_udid)
 
@@ -653,20 +675,32 @@ class UniSignHelperApp(QMainWindow):
         copy_udid_btn.clicked.connect(self.copy_udid)
         left_layout.addWidget(copy_udid_btn)
 
-        # Battery & Storage Specs
-        self.lbl_battery = QLabel("🔋 硬件状态: 电池健康 (100%)")
-        self.lbl_battery.setStyleSheet("color: #10B981; font-size: 12px; font-weight: 500;")
-        left_layout.addWidget(self.lbl_battery)
+        # Hardware info row
+        hw_frame = QFrame()
+        hw_frame.setStyleSheet("background-color: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 4px;")
+        hw_layout = QVBoxLayout(hw_frame)
+        hw_layout.setSpacing(4)
+        hw_layout.setContentsMargins(8, 6, 8, 6)
+        
+        self.lbl_battery = QLabel("🔋 电池: 连接后检测")
+        self.lbl_battery.setStyleSheet("color: #10B981; font-size: 11px; font-weight: 500;")
+        hw_layout.addWidget(self.lbl_battery)
 
-        self.lbl_jailbreak = QLabel("🛡️ 系统环境: 官方纯净系统 (未越狱)")
-        self.lbl_jailbreak.setStyleSheet("color: #64748B; font-size: 12px;")
-        left_layout.addWidget(self.lbl_jailbreak)
+        self.lbl_storage = QLabel("💾 存储: --")
+        self.lbl_storage.setStyleSheet("color: #64748B; font-size: 11px;")
+        hw_layout.addWidget(self.lbl_storage)
+
+        self.lbl_jailbreak = QLabel("🛡️ 系统: 官方纯净 (未越狱)")
+        self.lbl_jailbreak.setStyleSheet("color: #64748B; font-size: 11px;")
+        hw_layout.addWidget(self.lbl_jailbreak)
+        left_layout.addWidget(hw_frame)
 
         # Developer Mode Status Area
         devmode_box = QFrame()
-        devmode_box.setStyleSheet("background-color: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 6px;")
+        devmode_box.setStyleSheet("background-color: #FFFBEB; border: 1px solid #FDE68A; border-radius: 8px; padding: 4px;")
         devmode_layout = QVBoxLayout(devmode_box)
         devmode_layout.setSpacing(6)
+        devmode_layout.setContentsMargins(8, 6, 8, 6)
         
         self.lbl_devmode = QLabel("🛡️ 开发者模式: 未检测")
         self.lbl_devmode.setStyleSheet("font-size: 12px; font-weight: bold; color: #64748B;")
@@ -697,7 +731,7 @@ class UniSignHelperApp(QMainWindow):
         btn_refresh.clicked.connect(self.detect_device)
         left_layout.addWidget(btn_refresh)
 
-        content_layout.addWidget(left_card)
+        splitter.addWidget(left_card)
 
         # Right Column: Main Workspace Tabs (Signer & Toolbox)
         right_widget = QWidget()
@@ -947,7 +981,11 @@ class UniSignHelperApp(QMainWindow):
         log_layout.addLayout(log_btn_layout)
 
         right_layout.addWidget(log_box)
-        content_layout.addWidget(right_widget)
+        splitter.addWidget(right_widget)
+        
+        # Set default split proportions: left panel ~310px, right expands
+        splitter.setSizes([310, 10000])
+        content_layout.addWidget(splitter)
         main_layout.addWidget(content_widget)
 
         # Check default IPA
@@ -1058,24 +1096,46 @@ class UniSignHelperApp(QMainWindow):
         model = info.get("FriendlyModel", "iPhone")
         os_ver = info.get("ProductVersion", "Unknown")
         udid = info.get("UniqueDeviceID", "Unknown")
+        build = info.get("BuildVersion", "")
+        serial = info.get("SerialNumber", "")
+        capacity_gb = info.get("TotalCapacityGB", 0)
+        
+        # Store UDID in lockdown client for fresh_for_service
+        if self.current_lockdown:
+            self.current_lockdown.udid = udid
         
         self.conn_badge.setText(f"🟢 已连接: {model} (iOS {os_ver})")
         self.conn_badge.setStyleSheet("background-color: #10B981; color: #FFFFFF; padding: 8px 18px; border-radius: 16px; font-weight: bold;")
         
         self.mockup.update_state(True, name=model, version=os_ver)
         self.lbl_device_model.setText(f"型号: {model}")
-        self.lbl_device_version.setText(f"系统版本: iOS {os_ver}")
-        self.lbl_device_udid.setText(f"UDID: {udid}")
+        self.lbl_device_version.setText(f"iOS {os_ver} ({build})")
+        self.lbl_device_name.setText(f"设备名称: {name}")
+        self.lbl_device_serial.setText(f"序列号: {serial}")
+        
+        # Show abbreviated UDID (full UDID can be copied)
+        if len(udid) > 20:
+            short_udid = udid[:10] + "..." + udid[-8:]
+        else:
+            short_udid = udid
+        self.lbl_device_udid.setText(f"UDID: {short_udid}")
+        self.lbl_device_udid.setToolTip(udid)  # Full UDID in tooltip
+        
+        if capacity_gb > 0:
+            self.lbl_storage.setText(f"💾 存储容量: {capacity_gb} GB")
+        else:
+            self.lbl_storage.setText("💾 存储容量: 正在检测...")
         
         is_ios16 = DeveloperModeManager.is_ios16_or_newer(os_ver)
         if is_ios16:
             self.btn_devmode.setEnabled(True)
-            self.lbl_devmode.setText(f"🛡️ 开发者模式 (iOS {os_ver}): 需确认开启")
-            self.lbl_devmode.setStyleSheet("color: #F59E0B; font-weight: bold; font-size: 12px;")
+            self.lbl_devmode.setText(f"🛡️ 开发者模式: iOS {os_ver} · 需确认开启")
+            self.lbl_devmode.setStyleSheet("color: #D97706; font-weight: bold; font-size: 11px;")
         else:
             self.btn_devmode.setEnabled(False)
-            self.lbl_devmode.setText(f"🛡️ 开发者模式: iOS {os_ver} 无需开启")
-            self.lbl_devmode.setStyleSheet("color: #10B981; font-weight: bold; font-size: 12px;")
+            self.lbl_devmode.setText(f"🛡️ 开发者模式: iOS {os_ver} · 无需开启")
+            self.lbl_devmode.setStyleSheet("color: #10B981; font-weight: bold; font-size: 11px;")
+
 
     def on_no_device(self):
         self.current_device = None
@@ -1085,9 +1145,14 @@ class UniSignHelperApp(QMainWindow):
         self.mockup.update_state(False)
         self.lbl_device_model.setText("型号: 等待连接...")
         self.lbl_device_version.setText("系统版本: --")
+        self.lbl_device_name.setText("设备名称: --")
+        self.lbl_device_serial.setText("序列号: --")
         self.lbl_device_udid.setText("UDID: --")
+        self.lbl_storage.setText("💾 存储容量: --")
+        self.lbl_battery.setText("🔋 电池: 连接后检测")
         self.lbl_devmode.setText("🛡️ 开发者模式: 未检测")
         self.btn_devmode.setEnabled(False)
+
 
     def copy_udid(self):
         if self.current_device:
