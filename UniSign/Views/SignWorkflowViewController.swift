@@ -1,66 +1,112 @@
 import UIKit
 
-public class SignWorkflowViewController: UIViewController, UIDocumentPickerDelegate, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
+public class SignWorkflowViewController: UIViewController, UIDocumentPickerDelegate, UIImagePickerControllerDelegate, UINavigationControllerDelegate, UIDocumentInteractionControllerDelegate {
     
-    // UI Elements
-    private let scrollView = UIScrollView()
-    private let contentView = UIStackView()
-    
-    // Selected files
+    // MARK: - State Properties
     public var preselectedIPAURL: URL?
-    public var isModifyOnlyMode: Bool = false
+    public var isModifyOnlyMode: Bool = false {
+        didSet {
+            selectedCertMode = isModifyOnlyMode ? .none : .appleID
+            updateCertCardText()
+            updateActionButtonTitle()
+        }
+    }
+    
+    public enum CertMode {
+        case appleID
+        case p12
+        case none // Modify only without signing
+    }
+    private var selectedCertMode: CertMode = .appleID
+    
     private var selectedIPAURL: URL?
-    private var selectedP12URL: URL?
-    private var selectedProvisionURL: URL?
     private var selectedIconImage: UIImage?
     private var dylibsToInject: [URL] = []
     private var dylibsToRemove: [String] = []
-    
-    // Workflow Mode
-    private let workflowModeSegment = UISegmentedControl(items: [
-        L("🚀 证书重签模式", "Sign & Sideload"),
-        L("🛠️ 仅免签定制 (不签名)", "Modify Only (No Sign)")
-    ])
-    
-    // Cards
-    private let ipaCard = CardView()
-    private let ipaButton = GradientButton(title: "", style: .primaryCyber, icon: UIImage(systemName: "shippingbox.fill"))
-    private let ipaDetailLabel = UILabel()
-    
-    private let methodCard = CardView()
-    private let signingMethodSegment = UISegmentedControl(items: [
-        L("Apple ID 免越狱", "Apple ID"),
-        L("P12 商业证书", "P12 Certificate")
-    ])
-    private let accountQuotaBadge = PillBadge(text: "", style: .info)
-    private let methodDetailLabel = UILabel()
-    
-    private let customCard = CardView()
-    private let bundleIdField = UITextField()
-    private let nameField = UITextField()
-    private let versionField = UITextField()
-    private let minOSField = UITextField()
-    private let fileSharingSwitch = UISwitch()
-    private let docInPlaceSwitch = UISwitch()
-    
-    private let iconCard = CardView()
-    private let iconPreview = UIImageView()
-    private let changeIconButton = GradientButton(title: "", style: .secondaryGray, icon: UIImage(systemName: "photo.badge.plus"))
-    
-    private let dylibCard = CardView()
-    private let dylibLabel = UILabel()
-    private let addDylibBtn = GradientButton(title: "", style: .primaryCyber, icon: UIImage(systemName: "plus"))
-    private let removeDylibBtn = GradientButton(title: "", style: .destructive, icon: UIImage(systemName: "trash"))
-    
-    // Actions
-    private let signButton = GradientButton(title: "", style: .primaryCyber, icon: UIImage(systemName: "signature"))
-    private let installButton = GradientButton(title: "", style: .appleBrand, icon: UIImage(systemName: "arrow.down.app.fill"))
-    
     private var signedIPAURL: URL?
+    private var docController: UIDocumentInteractionController?
     
+    // Extracted / customized metadata
+    private var currentAppName: String = "UniSign"
+    private var currentBundleId: String = "com.unisign.app"
+    private var currentVersion: String = "1.0.0"
+    private var currentMinOS: String = "13.0"
+    private var currentWorkspaceNote: String = ""
+    private var outputExportFormat: String = "ipa" // "ipa" or "tipa"
+    private var isLoadControlEnabled: Bool = false
+    private var areDepsExpanded: Bool = false
+    private var detectedDependencies: [String] = [
+        "Foundation.framework",
+        "UIKit.framework",
+        "Security.framework",
+        "CoreGraphics.framework",
+        "libz.1.dylib",
+        "libobjc.A.dylib",
+        "libSystem.B.dylib"
+    ]
+    
+    // MARK: - UI Components
+    private let scrollView = UIScrollView()
+    private let contentView = UIStackView()
+    
+    // Card 1: App Header Card
+    private let appHeaderCard = CardView()
+    private let appIconImageView = UIImageView()
+    private let editIconBadge = UIButton(type: .system)
+    private let appNameLabel = UILabel()
+    private let editNameBtn = UIButton(type: .system)
+    private let bundleIdLabel = UILabel()
+    private let editBundleBtn = UIButton(type: .system)
+    private let noteButton = UIButton(type: .system)
+    private let versionChip = UIButton(type: .system)
+    private let loadControlChip = UIButton(type: .system)
+    private let pluginCountChip = UIButton(type: .system)
+    
+    // Card 2: Output Filename Card
+    private let filenameCard = CardView()
+    private let filenamePreviewLabel = UILabel()
+    private let formatSegment = UISegmentedControl(items: ["IPA", "TIPA"])
+    
+    // Card 3: Injected Plugins Card
+    private let dylibCard = CardView()
+    private let dylibEmptyLabel = UILabel()
+    private let dylibListStack = UIStackView()
+    
+    // Card 4: Project Configuration Switches
+    private let configCard = CardView()
+    private let fileSharingSwitch = UISwitch()
+    private let urlSchemeSwitch = UISwitch()
+    private let fixWhiteIconSwitch = UISwitch()
+    private let fixDarkIconSwitch = UISwitch()
+    private let directInjectSwitch = UISwitch()
+    private let removeEmbeddedSwitch = UISwitch()
+    private let removeWatchSwitch = UISwitch()
+    
+    // Yellow Notice Banner
+    private let noticeBanner = UIView()
+    private let noticeLabel = UILabel()
+    
+    // Card 5: Signing Certificate Card
+    private let certCard = CardView()
+    private let certTitleLabel = UILabel()
+    private let certDetailLabel = UILabel()
+    
+    // Card 6: Main Binary Dependencies Card
+    private let depsCard = CardView()
+    private let depsCountLabel = UILabel()
+    private let depsListLabel = UILabel()
+    private let expandDepsBtn = UIButton(type: .system)
+    
+    // Bottom Action Buttons
+    private let bottomContainer = UIView()
+    private let browseFolderBtn = GradientButton(title: "", style: .forestGreenOutline, icon: UIImage(systemName: "folder"))
+    private let signAndInstallBtn = GradientButton(title: "", style: .forestGreen, icon: UIImage(systemName: "hammer.fill"))
+    
+    // MARK: - Lifecycle
     public override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = UniSignTheme.pageBackground
+        setupNavigationBar()
         setupUI()
         updateTexts()
         
@@ -72,10 +118,35 @@ public class SignWorkflowViewController: UIViewController, UIDocumentPickerDeleg
     
     public override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        updateAccountQuotaBadge()
-        updateModeUI()
+        updateCertCardText()
+        updateActionButtonTitle()
+        updateFilenamePreview()
     }
     
+    // MARK: - Navigation Bar
+    private func setupNavigationBar() {
+        title = L("项目详情", "Project Details")
+        
+        let selectBtn = UIBarButtonItem(
+            title: L("选择", "Select"),
+            style: .plain,
+            target: self,
+            action: #selector(showIPAPickerOptions)
+        )
+        selectBtn.tintColor = UIColor(red: 0.11, green: 0.38, blue: 0.28, alpha: 1.0)
+        
+        let moreBtn = UIBarButtonItem(
+            image: UIImage(systemName: "ellipsis.circle"),
+            style: .plain,
+            target: self,
+            action: #selector(showMoreMenu)
+        )
+        moreBtn.tintColor = UIColor(red: 0.11, green: 0.38, blue: 0.28, alpha: 1.0)
+        
+        navigationItem.rightBarButtonItems = [moreBtn, selectBtn]
+    }
+    
+    // MARK: - Layout Setup
     private func setupUI() {
         scrollView.translatesAutoresizingMaskIntoConstraints = false
         scrollView.alwaysBounceVertical = true
@@ -83,221 +154,288 @@ public class SignWorkflowViewController: UIViewController, UIDocumentPickerDeleg
         
         contentView.translatesAutoresizingMaskIntoConstraints = false
         contentView.axis = .vertical
-        contentView.spacing = 16
+        contentView.spacing = 14
         scrollView.addSubview(contentView)
         
+        // Bottom Action Area Container
+        bottomContainer.translatesAutoresizingMaskIntoConstraints = false
+        bottomContainer.backgroundColor = UniSignTheme.pageBackground
+        view.addSubview(bottomContainer)
+        
+        let bottomStack = UIStackView()
+        bottomStack.axis = .vertical
+        bottomStack.spacing = 10
+        bottomStack.translatesAutoresizingMaskIntoConstraints = false
+        bottomContainer.addSubview(bottomStack)
+        
+        browseFolderBtn.heightAnchor.constraint(equalToConstant: 44).isActive = true
+        browseFolderBtn.addTarget(self, action: #selector(browseWorkspaceFolder), for: .touchUpInside)
+        bottomStack.addArrangedSubview(browseFolderBtn)
+        
+        signAndInstallBtn.heightAnchor.constraint(equalToConstant: 50).isActive = true
+        signAndInstallBtn.addTarget(self, action: #selector(startSignAndInstall), for: .touchUpInside)
+        bottomStack.addArrangedSubview(signAndInstallBtn)
+        
         NSLayoutConstraint.activate([
+            bottomContainer.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            bottomContainer.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            bottomContainer.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -6),
+            
+            bottomStack.topAnchor.constraint(equalTo: bottomContainer.topAnchor, constant: 8),
+            bottomStack.bottomAnchor.constraint(equalTo: bottomContainer.bottomAnchor, constant: -8),
+            bottomStack.leadingAnchor.constraint(equalTo: bottomContainer.leadingAnchor, constant: 16),
+            bottomStack.trailingAnchor.constraint(equalTo: bottomContainer.trailingAnchor, constant: -16),
+            
             scrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
             scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            scrollView.bottomAnchor.constraint(equalTo: bottomContainer.topAnchor),
             
             contentView.topAnchor.constraint(equalTo: scrollView.topAnchor, constant: 12),
             contentView.leadingAnchor.constraint(equalTo: scrollView.leadingAnchor, constant: 16),
             contentView.trailingAnchor.constraint(equalTo: scrollView.trailingAnchor, constant: -16),
-            contentView.bottomAnchor.constraint(equalTo: scrollView.bottomAnchor, constant: -30),
+            contentView.bottomAnchor.constraint(equalTo: scrollView.bottomAnchor, constant: -20),
             contentView.widthAnchor.constraint(equalTo: scrollView.widthAnchor, constant: -32)
         ])
         
-        // 0. Workflow Mode Segment
-        workflowModeSegment.translatesAutoresizingMaskIntoConstraints = false
-        workflowModeSegment.selectedSegmentIndex = isModifyOnlyMode ? 1 : 0
-        workflowModeSegment.heightAnchor.constraint(equalToConstant: 36).isActive = true
-        workflowModeSegment.addTarget(self, action: #selector(workflowModeChanged), for: .valueChanged)
-        contentView.addArrangedSubview(workflowModeSegment)
+        // 1. App Header Card
+        setupAppHeaderCard()
+        contentView.addArrangedSubview(appHeaderCard)
         
-        // 1. Source IPA Card
-        setupIPACard()
-        contentView.addArrangedSubview(ipaCard)
+        // 2. Output Filename Card
+        setupFilenameCard()
+        contentView.addArrangedSubview(filenameCard)
         
-        // 2. Signing Method Card
-        setupMethodCard()
-        contentView.addArrangedSubview(methodCard)
-        
-        // 3. Metadata Customization Card
-        setupCustomCard()
-        contentView.addArrangedSubview(customCard)
-        
-        // 4. Icon Card
-        setupIconCard()
-        contentView.addArrangedSubview(iconCard)
-        
-        // 5. Dylib Card
+        // 3. Injected Plugins Card
         setupDylibCard()
         contentView.addArrangedSubview(dylibCard)
         
-        // 6. Action Buttons
-        signButton.heightAnchor.constraint(equalToConstant: 50).isActive = true
-        signButton.addTarget(self, action: #selector(startSigning), for: .touchUpInside)
-        contentView.addArrangedSubview(signButton)
+        // 4. Project Configuration Card
+        setupConfigCard()
+        contentView.addArrangedSubview(configCard)
         
-        installButton.heightAnchor.constraint(equalToConstant: 48).isActive = true
-        installButton.isHidden = true
-        installButton.addTarget(self, action: #selector(installAppLocally), for: .touchUpInside)
-        contentView.addArrangedSubview(installButton)
+        // 5. Yellow Notice Banner
+        setupNoticeBanner()
+        contentView.addArrangedSubview(noticeBanner)
+        
+        // 6. Signing Certificate Card
+        setupCertCard()
+        contentView.addArrangedSubview(certCard)
+        
+        // 7. Main Binary Dependencies Card
+        setupDepsCard()
+        contentView.addArrangedSubview(depsCard)
     }
     
-    private func setupIPACard() {
+    // MARK: - 1. App Header Card (Icon + Name + BundleID + Chips)
+    private func setupAppHeaderCard() {
+        let cardStack = UIStackView()
+        cardStack.axis = .vertical
+        cardStack.spacing = 12
+        cardStack.translatesAutoresizingMaskIntoConstraints = false
+        appHeaderCard.addSubview(cardStack)
+        
+        NSLayoutConstraint.activate([
+            cardStack.topAnchor.constraint(equalTo: appHeaderCard.topAnchor, constant: 14),
+            cardStack.bottomAnchor.constraint(equalTo: appHeaderCard.bottomAnchor, constant: -14),
+            cardStack.leadingAnchor.constraint(equalTo: appHeaderCard.leadingAnchor, constant: 14),
+            cardStack.trailingAnchor.constraint(equalTo: appHeaderCard.trailingAnchor, constant: -14)
+        ])
+        
+        let topRow = UIStackView()
+        topRow.axis = .horizontal
+        topRow.spacing = 14
+        topRow.alignment = .center
+        
+        // App Icon with Edit Badge
+        let iconContainer = UIView()
+        iconContainer.translatesAutoresizingMaskIntoConstraints = false
+        iconContainer.widthAnchor.constraint(equalToConstant: 64).isActive = true
+        iconContainer.heightAnchor.constraint(equalToConstant: 64).isActive = true
+        
+        appIconImageView.image = UIImage(systemName: "app.fill")
+        appIconImageView.tintColor = UIColor(red: 0.11, green: 0.38, blue: 0.28, alpha: 1.0)
+        appIconImageView.contentMode = .scaleAspectFill
+        appIconImageView.layer.cornerRadius = 14
+        appIconImageView.layer.masksToBounds = true
+        appIconImageView.translatesAutoresizingMaskIntoConstraints = false
+        iconContainer.addSubview(appIconImageView)
+        
+        editIconBadge.setImage(UIImage(systemName: "pencil")?.withConfiguration(UIImage.SymbolConfiguration(pointSize: 10, weight: .bold)), for: .normal)
+        editIconBadge.tintColor = .white
+        editIconBadge.backgroundColor = UIColor(red: 0.11, green: 0.38, blue: 0.28, alpha: 1.0)
+        editIconBadge.layer.cornerRadius = 11
+        editIconBadge.layer.borderWidth = 1.5
+        editIconBadge.layer.borderColor = UIColor.white.cgColor
+        editIconBadge.layer.masksToBounds = true
+        editIconBadge.translatesAutoresizingMaskIntoConstraints = false
+        editIconBadge.addTarget(self, action: #selector(chooseIcon), for: .touchUpInside)
+        iconContainer.addSubview(editIconBadge)
+        
+        NSLayoutConstraint.activate([
+            appIconImageView.topAnchor.constraint(equalTo: iconContainer.topAnchor),
+            appIconImageView.leadingAnchor.constraint(equalTo: iconContainer.leadingAnchor),
+            appIconImageView.trailingAnchor.constraint(equalTo: iconContainer.trailingAnchor),
+            appIconImageView.bottomAnchor.constraint(equalTo: iconContainer.bottomAnchor),
+            
+            editIconBadge.widthAnchor.constraint(equalToConstant: 22),
+            editIconBadge.heightAnchor.constraint(equalToConstant: 22),
+            editIconBadge.trailingAnchor.constraint(equalTo: iconContainer.trailingAnchor, constant: 3),
+            editIconBadge.bottomAnchor.constraint(equalTo: iconContainer.bottomAnchor, constant: 3)
+        ])
+        topRow.addArrangedSubview(iconContainer)
+        
+        // Right Text Info Stack
+        let infoStack = UIStackView()
+        infoStack.axis = .vertical
+        infoStack.spacing = 3
+        
+        // App Name + Edit Button
+        let nameRow = UIStackView()
+        nameRow.axis = .horizontal
+        nameRow.spacing = 6
+        nameRow.alignment = .center
+        
+        appNameLabel.text = currentAppName
+        appNameLabel.font = .systemFont(ofSize: 18, weight: .bold)
+        appNameLabel.textColor = .label
+        nameRow.addArrangedSubview(appNameLabel)
+        
+        editNameBtn.setImage(UIImage(systemName: "square.and.pencil"), for: .normal)
+        editNameBtn.tintColor = .secondaryLabel
+        editNameBtn.addTarget(self, action: #selector(promptEditAppName), for: .touchUpInside)
+        nameRow.addArrangedSubview(editNameBtn)
+        nameRow.addArrangedSubview(UIView())
+        infoStack.addArrangedSubview(nameRow)
+        
+        // Bundle ID + Edit Button
+        let bundleRow = UIStackView()
+        bundleRow.axis = .horizontal
+        bundleRow.spacing = 6
+        bundleRow.alignment = .center
+        
+        bundleIdLabel.text = currentBundleId
+        bundleIdLabel.font = .systemFont(ofSize: 13, weight: .regular)
+        bundleIdLabel.textColor = .secondaryLabel
+        bundleRow.addArrangedSubview(bundleIdLabel)
+        
+        editBundleBtn.setImage(UIImage(systemName: "square.and.pencil"), for: .normal)
+        editBundleBtn.tintColor = .secondaryLabel
+        editBundleBtn.addTarget(self, action: #selector(promptEditBundleId), for: .touchUpInside)
+        bundleRow.addArrangedSubview(editBundleBtn)
+        bundleRow.addArrangedSubview(UIView())
+        infoStack.addArrangedSubview(bundleRow)
+        
+        // Workspace Note
+        noteButton.setTitle("💬 " + L("添加工作区备注", "Add workspace note"), for: .normal)
+        noteButton.titleLabel?.font = .systemFont(ofSize: 12)
+        noteButton.setTitleColor(.tertiaryLabel, for: .normal)
+        noteButton.contentHorizontalAlignment = .leading
+        noteButton.addTarget(self, action: #selector(promptEditNote), for: .touchUpInside)
+        infoStack.addArrangedSubview(noteButton)
+        
+        topRow.addArrangedSubview(infoStack)
+        cardStack.addArrangedSubview(topRow)
+        
+        // Bottom Chips Row (Version, LoadControl, Plugin count)
+        let chipsRow = UIStackView()
+        chipsRow.axis = .horizontal
+        chipsRow.spacing = 8
+        chipsRow.alignment = .center
+        
+        styleChip(versionChip, text: "v\(currentVersion) 📝", bgColor: UIColor(red: 0.92, green: 0.95, blue: 1.0, alpha: 1.0), textColor: UIColor(red: 0.10, green: 0.40, blue: 0.85, alpha: 1.0))
+        versionChip.addTarget(self, action: #selector(promptEditVersion), for: .touchUpInside)
+        chipsRow.addArrangedSubview(versionChip)
+        
+        styleChip(loadControlChip, text: "✖ LoadControl", bgColor: UIColor(red: 0.94, green: 0.95, blue: 0.96, alpha: 1.0), textColor: .secondaryLabel)
+        loadControlChip.addTarget(self, action: #selector(toggleLoadControl), for: .touchUpInside)
+        chipsRow.addArrangedSubview(loadControlChip)
+        
+        styleChip(pluginCountChip, text: "\(L("插件", "Tweaks")) \(dylibsToInject.count)", bgColor: UIColor(red: 0.94, green: 0.95, blue: 0.96, alpha: 1.0), textColor: .secondaryLabel)
+        pluginCountChip.addTarget(self, action: #selector(showDylibPickerOptions), for: .touchUpInside)
+        chipsRow.addArrangedSubview(pluginCountChip)
+        
+        chipsRow.addArrangedSubview(UIView())
+        cardStack.addArrangedSubview(chipsRow)
+    }
+    
+    private func styleChip(_ btn: UIButton, text: String, bgColor: UIColor, textColor: UIColor) {
+        btn.setTitle(text, for: .normal)
+        btn.setTitleColor(textColor, for: .normal)
+        btn.titleLabel?.font = .systemFont(ofSize: 12, weight: .medium)
+        btn.backgroundColor = bgColor
+        btn.layer.cornerRadius = 6
+        btn.layer.masksToBounds = true
+        btn.contentEdgeInsets = UIEdgeInsets(top: 4, left: 8, bottom: 4, right: 8)
+    }
+    
+    // MARK: - 2. Output Filename Card
+    private func setupFilenameCard() {
         let stack = UIStackView()
         stack.axis = .vertical
         stack.spacing = 10
         stack.translatesAutoresizingMaskIntoConstraints = false
-        ipaCard.addSubview(stack)
+        filenameCard.addSubview(stack)
         
         NSLayoutConstraint.activate([
-            stack.topAnchor.constraint(equalTo: ipaCard.topAnchor, constant: 14),
-            stack.bottomAnchor.constraint(equalTo: ipaCard.bottomAnchor, constant: -14),
-            stack.leadingAnchor.constraint(equalTo: ipaCard.leadingAnchor, constant: 14),
-            stack.trailingAnchor.constraint(equalTo: ipaCard.trailingAnchor, constant: -14)
-        ])
-        
-        let titleLabel = UILabel()
-        titleLabel.text = L("1. 选择待签名 IPA 包", "1. Source IPA File")
-        titleLabel.font = .systemFont(ofSize: 15, weight: .bold)
-        stack.addArrangedSubview(titleLabel)
-        
-        ipaButton.heightAnchor.constraint(equalToConstant: 46).isActive = true
-        ipaButton.addTarget(self, action: #selector(showIPAPickerOptions), for: .touchUpInside)
-        stack.addArrangedSubview(ipaButton)
-        
-        ipaDetailLabel.font = .systemFont(ofSize: 12)
-        ipaDetailLabel.textColor = .secondaryLabel
-        ipaDetailLabel.text = L("尚未选择任何 IPA 文件", "No IPA selected")
-        stack.addArrangedSubview(ipaDetailLabel)
-    }
-    
-    private func setupMethodCard() {
-        let stack = UIStackView()
-        stack.axis = .vertical
-        stack.spacing = 12
-        stack.translatesAutoresizingMaskIntoConstraints = false
-        methodCard.addSubview(stack)
-        
-        NSLayoutConstraint.activate([
-            stack.topAnchor.constraint(equalTo: methodCard.topAnchor, constant: 14),
-            stack.bottomAnchor.constraint(equalTo: methodCard.bottomAnchor, constant: -14),
-            stack.leadingAnchor.constraint(equalTo: methodCard.leadingAnchor, constant: 14),
-            stack.trailingAnchor.constraint(equalTo: methodCard.trailingAnchor, constant: -14)
+            stack.topAnchor.constraint(equalTo: filenameCard.topAnchor, constant: 14),
+            stack.bottomAnchor.constraint(equalTo: filenameCard.bottomAnchor, constant: -14),
+            stack.leadingAnchor.constraint(equalTo: filenameCard.leadingAnchor, constant: 14),
+            stack.trailingAnchor.constraint(equalTo: filenameCard.trailingAnchor, constant: -14)
         ])
         
         let headerRow = UIStackView()
         headerRow.axis = .horizontal
-        headerRow.spacing = 8
         headerRow.alignment = .center
         
         let titleLabel = UILabel()
-        titleLabel.text = L("2. 选择签名证书与身份", "2. Signing Identity")
+        titleLabel.text = "📄 " + L("输出文件名", "Output Filename")
         titleLabel.font = .systemFont(ofSize: 15, weight: .bold)
         headerRow.addArrangedSubview(titleLabel)
         headerRow.addArrangedSubview(UIView())
-        headerRow.addArrangedSubview(accountQuotaBadge)
+        
+        let editBtn = UIButton(type: .system)
+        editBtn.setImage(UIImage(systemName: "square.and.pencil"), for: .normal)
+        editBtn.tintColor = .secondaryLabel
+        editBtn.addTarget(self, action: #selector(promptEditFilenameTemplate), for: .touchUpInside)
+        headerRow.addArrangedSubview(editBtn)
         stack.addArrangedSubview(headerRow)
         
-        signingMethodSegment.selectedSegmentIndex = 0
-        signingMethodSegment.heightAnchor.constraint(equalToConstant: 34).isActive = true
-        signingMethodSegment.addTarget(self, action: #selector(methodChanged), for: .valueChanged)
-        stack.addArrangedSubview(signingMethodSegment)
+        filenamePreviewLabel.font = .monospacedSystemFont(ofSize: 13, weight: .regular)
+        filenamePreviewLabel.textColor = .secondaryLabel
+        filenamePreviewLabel.numberOfLines = 0
+        stack.addArrangedSubview(filenamePreviewLabel)
         
-        methodDetailLabel.font = .systemFont(ofSize: 12)
-        methodDetailLabel.textColor = .secondaryLabel
-        methodDetailLabel.numberOfLines = 0
-        stack.addArrangedSubview(methodDetailLabel)
+        let divider = UIView()
+        divider.backgroundColor = UIColor.separator.withAlphaComponent(0.3)
+        divider.heightAnchor.constraint(equalToConstant: 0.5).isActive = true
+        stack.addArrangedSubview(divider)
         
-        updateAccountQuotaBadge()
+        let formatRow = UIStackView()
+        formatRow.axis = .horizontal
+        formatRow.alignment = .center
+        
+        let formatLabel = UILabel()
+        formatLabel.text = L("导出格式", "Export Format")
+        formatLabel.font = .systemFont(ofSize: 14)
+        formatRow.addArrangedSubview(formatLabel)
+        formatRow.addArrangedSubview(UIView())
+        
+        formatSegment.selectedSegmentIndex = 0
+        formatSegment.heightAnchor.constraint(equalToConstant: 28).isActive = true
+        formatSegment.widthAnchor.constraint(equalToConstant: 120).isActive = true
+        formatSegment.addTarget(self, action: #selector(formatChanged), for: .valueChanged)
+        formatRow.addArrangedSubview(formatSegment)
+        stack.addArrangedSubview(formatRow)
+        
+        updateFilenamePreview()
     }
     
-    private func setupCustomCard() {
-        let stack = UIStackView()
-        stack.axis = .vertical
-        stack.spacing = 12
-        stack.translatesAutoresizingMaskIntoConstraints = false
-        customCard.addSubview(stack)
-        
-        NSLayoutConstraint.activate([
-            stack.topAnchor.constraint(equalTo: customCard.topAnchor, constant: 14),
-            stack.bottomAnchor.constraint(equalTo: customCard.bottomAnchor, constant: -14),
-            stack.leadingAnchor.constraint(equalTo: customCard.leadingAnchor, constant: 14),
-            stack.trailingAnchor.constraint(equalTo: customCard.trailingAnchor, constant: -14)
-        ])
-        
-        let titleLabel = UILabel()
-        titleLabel.text = L("3. 深度定制与权限开关", "3. Modifications & Permissions")
-        titleLabel.font = .systemFont(ofSize: 15, weight: .bold)
-        stack.addArrangedSubview(titleLabel)
-        
-        bundleIdField.borderStyle = .roundedRect
-        bundleIdField.heightAnchor.constraint(equalToConstant: 40).isActive = true
-        bundleIdField.autocapitalizationType = .none
-        stack.addArrangedSubview(bundleIdField)
-        
-        nameField.borderStyle = .roundedRect
-        nameField.heightAnchor.constraint(equalToConstant: 40).isActive = true
-        stack.addArrangedSubview(nameField)
-        
-        let versionStack = UIStackView()
-        versionStack.axis = .horizontal
-        versionStack.spacing = 10
-        versionStack.distribution = .fillEqually
-        versionField.borderStyle = .roundedRect
-        versionField.heightAnchor.constraint(equalToConstant: 40).isActive = true
-        minOSField.borderStyle = .roundedRect
-        minOSField.heightAnchor.constraint(equalToConstant: 40).isActive = true
-        versionStack.addArrangedSubview(versionField)
-        versionStack.addArrangedSubview(minOSField)
-        stack.addArrangedSubview(versionStack)
-        
-        let switch1 = makeSwitchRow(title: L("开启文件共享 (UIFileSharingEnabled)", "Enable File Sharing (UIFileSharing)"), switchView: fileSharingSwitch)
-        let switch2 = makeSwitchRow(title: L("支持文件 App 原地打开 (LSSupportsOpening)", "Open In Place (LSSupportsOpening)"), switchView: docInPlaceSwitch)
-        fileSharingSwitch.isOn = true
-        docInPlaceSwitch.isOn = true
-        stack.addArrangedSubview(switch1)
-        stack.addArrangedSubview(switch2)
-    }
-    
-    private func setupIconCard() {
-        let stack = UIStackView()
-        stack.axis = .vertical
-        stack.spacing = 12
-        stack.translatesAutoresizingMaskIntoConstraints = false
-        iconCard.addSubview(stack)
-        
-        NSLayoutConstraint.activate([
-            stack.topAnchor.constraint(equalTo: iconCard.topAnchor, constant: 14),
-            stack.bottomAnchor.constraint(equalTo: iconCard.bottomAnchor, constant: -14),
-            stack.leadingAnchor.constraint(equalTo: iconCard.leadingAnchor, constant: 14),
-            stack.trailingAnchor.constraint(equalTo: iconCard.trailingAnchor, constant: -14)
-        ])
-        
-        let titleLabel = UILabel()
-        titleLabel.text = L("4. 应用图标替换 (可选)", "4. App Icon Replacement")
-        titleLabel.font = .systemFont(ofSize: 15, weight: .bold)
-        stack.addArrangedSubview(titleLabel)
-        
-        let row = UIStackView()
-        row.axis = .horizontal
-        row.spacing = 14
-        row.alignment = .center
-        
-        iconPreview.backgroundColor = UIColor.label.withAlphaComponent(0.06)
-        iconPreview.layer.cornerRadius = 14
-        iconPreview.layer.masksToBounds = true
-        iconPreview.contentMode = .scaleAspectFill
-        iconPreview.image = UIImage(systemName: "app.fill")
-        iconPreview.tintColor = .systemBlue
-        iconPreview.widthAnchor.constraint(equalToConstant: 58).isActive = true
-        iconPreview.heightAnchor.constraint(equalToConstant: 58).isActive = true
-        row.addArrangedSubview(iconPreview)
-        
-        changeIconButton.heightAnchor.constraint(equalToConstant: 42).isActive = true
-        changeIconButton.addTarget(self, action: #selector(chooseIcon), for: .touchUpInside)
-        row.addArrangedSubview(changeIconButton)
-        stack.addArrangedSubview(row)
-    }
-    
+    // MARK: - 3. Injected Plugins Card
     private func setupDylibCard() {
         let stack = UIStackView()
         stack.axis = .vertical
-        stack.spacing = 12
+        stack.spacing = 10
         stack.translatesAutoresizingMaskIntoConstraints = false
         dylibCard.addSubview(stack)
         
@@ -308,141 +446,600 @@ public class SignWorkflowViewController: UIViewController, UIDocumentPickerDeleg
             stack.trailingAnchor.constraint(equalTo: dylibCard.trailingAnchor, constant: -14)
         ])
         
+        let headerRow = UIStackView()
+        headerRow.axis = .horizontal
+        headerRow.spacing = 12
+        headerRow.alignment = .center
+        
         let titleLabel = UILabel()
-        titleLabel.text = L("5. 注入 / 移除 Mach-O 插件", "5. Dynamic Library Injection")
+        titleLabel.text = L("已注入插件", "Injected Plugins")
+        titleLabel.font = .systemFont(ofSize: 15, weight: .bold)
+        headerRow.addArrangedSubview(titleLabel)
+        headerRow.addArrangedSubview(UIView())
+        
+        let clearBtn = UIButton(type: .system)
+        clearBtn.setImage(UIImage(systemName: "trash"), for: .normal)
+        clearBtn.tintColor = .secondaryLabel
+        clearBtn.addTarget(self, action: #selector(clearAllDylibs), for: .touchUpInside)
+        headerRow.addArrangedSubview(clearBtn)
+        
+        let addBtn = UIButton(type: .system)
+        addBtn.setTitle("＋ " + L("添加", "Add"), for: .normal)
+        addBtn.titleLabel?.font = .systemFont(ofSize: 14, weight: .bold)
+        addBtn.setTitleColor(UIColor(red: 0.11, green: 0.38, blue: 0.28, alpha: 1.0), for: .normal)
+        addBtn.addTarget(self, action: #selector(showDylibPickerOptions), for: .touchUpInside)
+        headerRow.addArrangedSubview(addBtn)
+        
+        stack.addArrangedSubview(headerRow)
+        
+        dylibEmptyLabel.text = L("还没有插件。可以点击添加，或从文件 App 分享到这里。", "No tweaks added. Tap Add or share from Files.")
+        dylibEmptyLabel.font = .systemFont(ofSize: 13)
+        dylibEmptyLabel.textColor = .secondaryLabel
+        dylibEmptyLabel.numberOfLines = 0
+        stack.addArrangedSubview(dylibEmptyLabel)
+        
+        dylibListStack.axis = .vertical
+        dylibListStack.spacing = 8
+        stack.addArrangedSubview(dylibListStack)
+        
+        updateDylibsUI()
+    }
+    
+    // MARK: - 4. Project Configuration Switches (7 Switches exactly like reference)
+    private func setupConfigCard() {
+        let stack = UIStackView()
+        stack.axis = .vertical
+        stack.spacing = 12
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        configCard.addSubview(stack)
+        
+        NSLayoutConstraint.activate([
+            stack.topAnchor.constraint(equalTo: configCard.topAnchor, constant: 14),
+            stack.bottomAnchor.constraint(equalTo: configCard.bottomAnchor, constant: -14),
+            stack.leadingAnchor.constraint(equalTo: configCard.leadingAnchor, constant: 14),
+            stack.trailingAnchor.constraint(equalTo: configCard.trailingAnchor, constant: -14)
+        ])
+        
+        let titleLabel = UILabel()
+        titleLabel.text = L("项目配置", "Project Configuration")
         titleLabel.font = .systemFont(ofSize: 15, weight: .bold)
         stack.addArrangedSubview(titleLabel)
         
-        dylibLabel.font = .systemFont(ofSize: 12)
-        dylibLabel.textColor = .secondaryLabel
-        dylibLabel.numberOfLines = 0
-        stack.addArrangedSubview(dylibLabel)
+        // 1. 开启文件访问
+        fileSharingSwitch.isOn = SigningPreferences.shared.enableFileSharing
+        fileSharingSwitch.onTintColor = UIColor(red: 0.11, green: 0.38, blue: 0.28, alpha: 1.0)
+        fileSharingSwitch.addTarget(self, action: #selector(switchValueChanged), for: .valueChanged)
+        stack.addArrangedSubview(makeConfigSwitchRow(
+            title: L("开启文件访问", "Enable File Access"),
+            subtitle: L("在文件 App 直接访问应用文档", "Directly access app documents in Files app"),
+            switchView: fileSharingSwitch
+        ))
         
-        let btnStack = UIStackView()
-        btnStack.axis = .horizontal
-        btnStack.spacing = 10
-        btnStack.distribution = .fillEqually
+        // 2. 移除应用跳转
+        urlSchemeSwitch.isOn = SigningPreferences.shared.removeURLSchemes
+        urlSchemeSwitch.onTintColor = UIColor(red: 0.11, green: 0.38, blue: 0.28, alpha: 1.0)
+        urlSchemeSwitch.addTarget(self, action: #selector(switchValueChanged), for: .valueChanged)
+        stack.addArrangedSubview(makeConfigSwitchRow(
+            title: L("移除应用跳转", "Remove URL Schemes"),
+            subtitle: L("移除跳转配置，避免抢占应用跳转", "Strip URL schemes to avoid hijacking other apps"),
+            switchView: urlSchemeSwitch
+        ))
         
-        addDylibBtn.heightAnchor.constraint(equalToConstant: 40).isActive = true
-        addDylibBtn.addTarget(self, action: #selector(showDylibPickerOptions), for: .touchUpInside)
-        btnStack.addArrangedSubview(addDylibBtn)
+        // 3. 修复白色图标
+        fixWhiteIconSwitch.isOn = SigningPreferences.shared.fixWhiteIcon
+        fixWhiteIconSwitch.onTintColor = UIColor(red: 0.11, green: 0.38, blue: 0.28, alpha: 1.0)
+        fixWhiteIconSwitch.addTarget(self, action: #selector(switchValueChanged), for: .valueChanged)
+        stack.addArrangedSubview(makeConfigSwitchRow(
+            title: L("修复白色图标", "Fix White Icon"),
+            subtitle: L("重写图标引用，修复图标变白色", "Rewrite CFBundleIcons to fix white icon glitch"),
+            switchView: fixWhiteIconSwitch
+        ))
         
-        removeDylibBtn.heightAnchor.constraint(equalToConstant: 40).isActive = true
-        removeDylibBtn.addTarget(self, action: #selector(promptRemoveDylib), for: .touchUpInside)
-        btnStack.addArrangedSubview(removeDylibBtn)
+        // 4. 修复深色图标
+        fixDarkIconSwitch.isOn = SigningPreferences.shared.fixDarkIcon
+        fixDarkIconSwitch.onTintColor = UIColor(red: 0.11, green: 0.38, blue: 0.28, alpha: 1.0)
+        fixDarkIconSwitch.addTarget(self, action: #selector(switchValueChanged), for: .valueChanged)
+        stack.addArrangedSubview(makeConfigSwitchRow(
+            title: L("修复深色图标", "Fix Dark Icon"),
+            subtitle: L("恢复 iOS 18 自动深浅色切换", "Enable iOS 18 automatic dark/tinted icon variants"),
+            switchView: fixDarkIconSwitch
+        ))
         
-        stack.addArrangedSubview(btnStack)
+        // 5. 直接注入插件
+        directInjectSwitch.isOn = SigningPreferences.shared.directInjection
+        directInjectSwitch.onTintColor = UIColor(red: 0.11, green: 0.38, blue: 0.28, alpha: 1.0)
+        directInjectSwitch.addTarget(self, action: #selector(switchValueChanged), for: .valueChanged)
+        stack.addArrangedSubview(makeConfigSwitchRow(
+            title: L("直接注入插件", "Direct Plugin Injection"),
+            subtitle: L("插件默认不经过 LoadControl、直接写入主程序；仍可在其他列表里按插件手动选 LoadControl", "Write LC_LOAD_DYLIB directly to Mach-O binary"),
+            switchView: directInjectSwitch
+        ))
+        
+        // 6. 移除 Embedded
+        removeEmbeddedSwitch.isOn = SigningPreferences.shared.removeEmbeddedProvision
+        removeEmbeddedSwitch.onTintColor = UIColor(red: 0.11, green: 0.38, blue: 0.28, alpha: 1.0)
+        removeEmbeddedSwitch.addTarget(self, action: #selector(switchValueChanged), for: .valueChanged)
+        stack.addArrangedSubview(makeConfigSwitchRow(
+            title: L("移除 Embedded", "Remove Embedded Provision"),
+            subtitle: L("签名产物不写 embedded.mobileprovision，适配 TrollStore / 无描述文件场景", "Do not write embedded.mobileprovision for TrollStore"),
+            switchView: removeEmbeddedSwitch
+        ))
+        
+        // 7. 移除 Watch
+        removeWatchSwitch.isOn = SigningPreferences.shared.removeWatchApp
+        removeWatchSwitch.onTintColor = UIColor(red: 0.11, green: 0.38, blue: 0.28, alpha: 1.0)
+        removeWatchSwitch.addTarget(self, action: #selector(switchValueChanged), for: .valueChanged)
+        stack.addArrangedSubview(makeConfigSwitchRow(
+            title: L("移除 Watch", "Remove Watch Components"),
+            subtitle: L("签名产物删除 Watch App 与 WatchPlaceholder，减少手表组件导致的安装失败", "Strip Watch/ & WatchKit/ dirs to avoid install errors"),
+            switchView: removeWatchSwitch
+        ))
     }
     
-    private func makeSwitchRow(title: String, switchView: UISwitch) -> UIView {
-        let row = UIStackView()
-        row.axis = .horizontal
-        row.spacing = 10
-        row.alignment = .center
+    private func makeConfigSwitchRow(title: String, subtitle: String, switchView: UISwitch) -> UIView {
+        let container = UIStackView()
+        container.axis = .horizontal
+        container.spacing = 10
+        container.alignment = .center
         
-        let label = UILabel()
-        label.text = title
-        label.font = .systemFont(ofSize: 14)
-        label.numberOfLines = 1
+        let textStack = UIStackView()
+        textStack.axis = .vertical
+        textStack.spacing = 3
         
-        row.addArrangedSubview(label)
-        row.addArrangedSubview(UIView())
-        row.addArrangedSubview(switchView)
-        return row
+        let tLabel = UILabel()
+        tLabel.text = title
+        tLabel.font = .systemFont(ofSize: 15, weight: .regular)
+        tLabel.textColor = .label
+        textStack.addArrangedSubview(tLabel)
+        
+        let sLabel = UILabel()
+        sLabel.text = subtitle
+        sLabel.font = .systemFont(ofSize: 12, weight: .regular)
+        sLabel.textColor = .secondaryLabel
+        sLabel.numberOfLines = 0
+        textStack.addArrangedSubview(sLabel)
+        
+        container.addArrangedSubview(textStack)
+        container.addArrangedSubview(UIView())
+        container.addArrangedSubview(switchView)
+        return container
     }
     
+    // MARK: - 5. Yellow Notice Banner
+    private func setupNoticeBanner() {
+        noticeBanner.backgroundColor = UIColor(red: 1.0, green: 0.97, blue: 0.90, alpha: 1.0)
+        noticeBanner.layer.cornerRadius = 12
+        noticeBanner.layer.borderWidth = 1.0
+        noticeBanner.layer.borderColor = UIColor(red: 1.0, green: 0.88, blue: 0.65, alpha: 1.0).cgColor
+        noticeBanner.layer.masksToBounds = true
+        
+        let stack = UIStackView()
+        stack.axis = .horizontal
+        stack.spacing = 10
+        stack.alignment = .center
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        noticeBanner.addSubview(stack)
+        
+        NSLayoutConstraint.activate([
+            stack.topAnchor.constraint(equalTo: noticeBanner.topAnchor, constant: 10),
+            stack.bottomAnchor.constraint(equalTo: noticeBanner.bottomAnchor, constant: -10),
+            stack.leadingAnchor.constraint(equalTo: noticeBanner.leadingAnchor, constant: 12),
+            stack.trailingAnchor.constraint(equalTo: noticeBanner.trailingAnchor, constant: -10)
+        ])
+        
+        let warnIcon = UILabel()
+        warnIcon.text = "⚠️"
+        warnIcon.font = .systemFont(ofSize: 18)
+        stack.addArrangedSubview(warnIcon)
+        
+        noticeLabel.text = L("需要仅修改配置（不签名）时，请在证书这里选择。\n正常逻辑是：选择证书就会签名；不想签名就不要选择证书。", "To customize without signing, select 'No Certificate'. Choosing a cert will sign the app.")
+        noticeLabel.font = .systemFont(ofSize: 12, weight: .medium)
+        noticeLabel.textColor = UIColor(red: 0.55, green: 0.35, blue: 0.05, alpha: 1.0)
+        noticeLabel.numberOfLines = 0
+        stack.addArrangedSubview(noticeLabel)
+        
+        let closeBtn = UIButton(type: .system)
+        closeBtn.setTitle("✕", for: .normal)
+        closeBtn.setTitleColor(UIColor(red: 0.55, green: 0.35, blue: 0.05, alpha: 1.0), for: .normal)
+        closeBtn.titleLabel?.font = .systemFont(ofSize: 14, weight: .bold)
+        closeBtn.widthAnchor.constraint(equalToConstant: 24).isActive = true
+        closeBtn.addTarget(self, action: #selector(dismissNoticeBanner), for: .touchUpInside)
+        stack.addArrangedSubview(closeBtn)
+    }
+    
+    // MARK: - 6. Signing Certificate Card
+    private func setupCertCard() {
+        let stack = UIStackView()
+        stack.axis = .vertical
+        stack.spacing = 8
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        certCard.addSubview(stack)
+        
+        NSLayoutConstraint.activate([
+            stack.topAnchor.constraint(equalTo: certCard.topAnchor, constant: 14),
+            stack.bottomAnchor.constraint(equalTo: certCard.bottomAnchor, constant: -14),
+            stack.leadingAnchor.constraint(equalTo: certCard.leadingAnchor, constant: 14),
+            stack.trailingAnchor.constraint(equalTo: certCard.trailingAnchor, constant: -14)
+        ])
+        
+        let headerRow = UIStackView()
+        headerRow.axis = .horizontal
+        headerRow.spacing = 8
+        headerRow.alignment = .center
+        
+        certTitleLabel.text = "🔑 " + L("签名证书", "Signing Certificate")
+        certTitleLabel.font = .systemFont(ofSize: 15, weight: .bold)
+        certTitleLabel.textColor = UIColor(red: 0.11, green: 0.38, blue: 0.28, alpha: 1.0)
+        headerRow.addArrangedSubview(certTitleLabel)
+        headerRow.addArrangedSubview(UIView())
+        
+        let chevron = UIImageView(image: UIImage(systemName: "chevron.right"))
+        chevron.tintColor = .tertiaryLabel
+        headerRow.addArrangedSubview(chevron)
+        stack.addArrangedSubview(headerRow)
+        
+        certDetailLabel.font = .systemFont(ofSize: 13)
+        certDetailLabel.textColor = .secondaryLabel
+        certDetailLabel.numberOfLines = 0
+        stack.addArrangedSubview(certDetailLabel)
+        
+        let tap = UITapGestureRecognizer(target: self, action: #selector(showCertPickerSheet))
+        certCard.addGestureRecognizer(tap)
+        certCard.isUserInteractionEnabled = true
+        
+        updateCertCardText()
+    }
+    
+    // MARK: - 7. Main Binary Dependencies Card
+    private func setupDepsCard() {
+        let stack = UIStackView()
+        stack.axis = .vertical
+        stack.spacing = 8
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        depsCard.addSubview(stack)
+        
+        NSLayoutConstraint.activate([
+            stack.topAnchor.constraint(equalTo: depsCard.topAnchor, constant: 14),
+            stack.bottomAnchor.constraint(equalTo: depsCard.bottomAnchor, constant: -14),
+            stack.leadingAnchor.constraint(equalTo: depsCard.leadingAnchor, constant: 14),
+            stack.trailingAnchor.constraint(equalTo: depsCard.trailingAnchor, constant: -14)
+        ])
+        
+        let headerRow = UIStackView()
+        headerRow.axis = .horizontal
+        headerRow.spacing = 8
+        headerRow.alignment = .center
+        
+        let titleLabel = UILabel()
+        titleLabel.text = L("主二进制依赖", "Binary Dependencies")
+        titleLabel.font = .systemFont(ofSize: 15, weight: .bold)
+        headerRow.addArrangedSubview(titleLabel)
+        headerRow.addArrangedSubview(UIView())
+        
+        expandDepsBtn.setTitle(L("展开", "Expand"), for: .normal)
+        expandDepsBtn.setTitleColor(UIColor(red: 0.11, green: 0.38, blue: 0.28, alpha: 1.0), for: .normal)
+        expandDepsBtn.titleLabel?.font = .systemFont(ofSize: 13, weight: .bold)
+        expandDepsBtn.addTarget(self, action: #selector(toggleDepsExpanded), for: .touchUpInside)
+        headerRow.addArrangedSubview(expandDepsBtn)
+        stack.addArrangedSubview(headerRow)
+        
+        depsCountLabel.text = "\(detectedDependencies.count) " + L("条依赖项", "Dependencies")
+        depsCountLabel.font = .systemFont(ofSize: 13)
+        depsCountLabel.textColor = .secondaryLabel
+        stack.addArrangedSubview(depsCountLabel)
+        
+        depsListLabel.font = .monospacedSystemFont(ofSize: 12, weight: .regular)
+        depsListLabel.textColor = .secondaryLabel
+        depsListLabel.numberOfLines = 0
+        depsListLabel.isHidden = true
+        depsListLabel.text = detectedDependencies.map { "• " + $0 }.joined(separator: "\n")
+        stack.addArrangedSubview(depsListLabel)
+    }
+    
+    // MARK: - State Updaters
     @objc private func languageDidChange() {
         updateTexts()
     }
     
     private func updateTexts() {
-        updateModeUI()
-        ipaButton.setTitle(L("选取待签名 IPA 包", "Choose IPA Package"), for: .normal)
-        changeIconButton.setTitle(L("选取新图标 (相册/文件)", "Change Icon"), for: .normal)
-        bundleIdField.placeholder = L("自定义 Bundle ID (留空保持原样)", "Custom Bundle ID")
-        nameField.placeholder = L("自定义应用显示名称 (留空保持原样)", "Custom App Name")
-        versionField.placeholder = L("版本号 (如 1.0.0)", "Version (e.g. 1.0.0)")
-        minOSField.placeholder = L("最低系统 (如 13.0)", "Min OS (e.g. 13.0)")
-        addDylibBtn.setTitle(L("选择注入插件", "Add Dylib"), for: .normal)
-        removeDylibBtn.setTitle(L("移除既有插件", "Remove Dylib"), for: .normal)
-        installButton.setTitle(L("📲 立即本地安装 (OTA)", "📲 Install Locally (OTA)"), for: .normal)
-        workflowModeSegment.setTitle(L("🚀 证书重签模式", "Sign & Sideload"), forSegmentAt: 0)
-        workflowModeSegment.setTitle(L("🛠️ 仅免签定制 (不签名)", "Modify Only (No Sign)"), forSegmentAt: 1)
-        updateDylibLabel()
-        updateMethodDetailText()
+        title = L("项目详情", "Project Details")
+        browseFolderBtn.setTitle("📁 " + L("浏览工作区文件夹", "Browse Workspace Folder"), for: .normal)
+        updateActionButtonTitle()
+        updateCertCardText()
+        updateFilenamePreview()
     }
     
-    @objc private func workflowModeChanged() {
-        isModifyOnlyMode = (workflowModeSegment.selectedSegmentIndex == 1)
-        updateModeUI()
-    }
-    
-    private func updateModeUI() {
-        let isModify = (workflowModeSegment.selectedSegmentIndex == 1)
-        methodCard.isHidden = isModify
-        if isModify {
-            title = L("仅修改配置 (免签定制)", "Customize IPA (No Sign)")
-            signButton.setTitle("🛠️ " + L("保存定制 IPA (不签名)", "Package Customized IPA"), for: .normal)
+    private func updateActionButtonTitle() {
+        if selectedCertMode == .none {
+            signAndInstallBtn.setTitle("🛠️ " + L("保存定制 IPA (不签名)", "Package Customized IPA"), for: .normal)
         } else {
-            title = L("签名与深度定制", "Sign & Customize")
-            signButton.setTitle("🚀 " + L("开始签名并打包", "Start Signing & Package"), for: .normal)
+            signAndInstallBtn.setTitle("🔨 " + L("签名并安装", "Sign & Sideload"), for: .normal)
         }
     }
     
-    @objc private func methodChanged() {
-        updateAccountQuotaBadge()
-        updateMethodDetailText()
-    }
-    
-    private func updateAccountQuotaBadge() {
-        if signingMethodSegment.selectedSegmentIndex == 0 {
+    private func updateCertCardText() {
+        switch selectedCertMode {
+        case .appleID:
             if let active = AppleAccountManager.shared.activeAccount {
                 let count = AppleAccountManager.shared.activeAppsCount(for: active.email)
-                if count >= 3 {
-                    accountQuotaBadge.update(text: "\(active.email) (3/3 满额)", style: .danger)
-                } else {
-                    accountQuotaBadge.update(text: "\(active.email) (\(count)/3)", style: .success)
-                }
+                certDetailLabel.text = "\(active.email) (\(active.teamName ?? "Personal Team"))\n• 7 " + L("天免越狱签名 (当前已签 ", "days free signing (Active: ") + "\(count)/3)"
             } else {
-                accountQuotaBadge.update(text: L("未登录 Apple ID", "No Apple ID"), style: .warning)
+                certDetailLabel.text = L("还没有登录 Apple ID。点击这里登录或切换签名证书。", "No Apple ID logged in. Tap here to login or select cert.")
             }
-        } else {
-            accountQuotaBadge.update(text: L("P12 商业签名", "P12 Mode"), style: .info)
+        case .p12:
+            certDetailLabel.text = L("使用本地导入的 .p12 开发者证书与 mobileprovision 描述文件签名。", "Using imported .p12 developer certificate.")
+        case .none:
+            certDetailLabel.text = "⚠️ [" + L("免签定制模式", "NO CERT - CUSTOMIZE ONLY") + "]\n" + L("不使用任何证书，直接定制并打包为新 IPA，完美适配 TrollStore / 巨魔。", "No certificate will be used. Generates modified IPA for TrollStore.")
         }
     }
     
-    private func updateMethodDetailText() {
-        if signingMethodSegment.selectedSegmentIndex == 0 {
-            if let active = AppleAccountManager.shared.activeAccount {
-                methodDetailLabel.text = "\(L("使用账号", "Account")): \(active.email) (\(active.teamName ?? "Personal Team"))\n\(L("说明", "Notice")): 7 " + L("天免越狱签名，每账号限制最多签名 3 个应用", "days validity, max 3 apps per account.")
-            } else {
-                methodDetailLabel.text = L("⚠️ 尚未登录 Apple ID，请先在「证书中心」添加您的个人 Apple 账号。", "⚠️ No Apple ID logged in. Please add an account in Certificates tab.")
+    private func updateFilenamePreview() {
+        let cleanName = currentAppName.isEmpty ? "App" : currentAppName
+        let bId = currentBundleId.isEmpty ? "com.app" : currentBundleId
+        let ver = currentVersion.isEmpty ? "1.0.0" : currentVersion
+        let ext = outputExportFormat
+        
+        var base = PlistModifier.formatOutputFilename(
+            template: SigningPreferences.shared.filenameTemplate,
+            appName: cleanName,
+            bundleId: bId,
+            version: ver,
+            displayName: cleanName,
+            appendSignedSuffix: (selectedCertMode != .none)
+        )
+        if base.lowercased().hasSuffix(".ipa") {
+            base = String(base.dropLast(4))
+        }
+        filenamePreviewLabel.text = "\(base).\(ext)"
+    }
+    
+    private func updateDylibsUI() {
+        dylibEmptyLabel.isHidden = !dylibsToInject.isEmpty
+        pluginCountChip.setTitle("\(L("插件", "Tweaks")) \(dylibsToInject.count)", for: .normal)
+        
+        dylibListStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        for (idx, dylib) in dylibsToInject.enumerated() {
+            let row = UIStackView()
+            row.axis = .horizontal
+            row.spacing = 8
+            row.alignment = .center
+            
+            let icon = UIImageView(image: UIImage(systemName: "puzzlepiece.fill"))
+            icon.tintColor = UIColor(red: 0.11, green: 0.38, blue: 0.28, alpha: 1.0)
+            icon.widthAnchor.constraint(equalToConstant: 18).isActive = true
+            icon.heightAnchor.constraint(equalToConstant: 18).isActive = true
+            row.addArrangedSubview(icon)
+            
+            let label = UILabel()
+            label.text = dylib.lastPathComponent
+            label.font = .systemFont(ofSize: 13, weight: .medium)
+            row.addArrangedSubview(label)
+            row.addArrangedSubview(UIView())
+            
+            let delBtn = UIButton(type: .system)
+            delBtn.setImage(UIImage(systemName: "xmark.circle.fill"), for: .normal)
+            delBtn.tintColor = .systemRed
+            delBtn.tag = idx
+            delBtn.addTarget(self, action: #selector(removeSingleDylib(_:)), for: .touchUpInside)
+            row.addArrangedSubview(delBtn)
+            
+            dylibListStack.addArrangedSubview(row)
+        }
+    }
+    
+    @objc private func removeSingleDylib(_ sender: UIButton) {
+        let idx = sender.tag
+        if idx < dylibsToInject.count {
+            dylibsToInject.remove(at: idx)
+            updateDylibsUI()
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+        }
+    }
+    
+    @objc private func clearAllDylibs() {
+        guard !dylibsToInject.isEmpty else { return }
+        dylibsToInject.removeAll()
+        updateDylibsUI()
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
+    }
+    
+    @objc private func dismissNoticeBanner() {
+        UIView.animate(withDuration: 0.2) {
+            self.noticeBanner.isHidden = true
+        }
+    }
+    
+    @objc private func toggleLoadControl() {
+        isLoadControlEnabled.toggle()
+        loadControlChip.setTitle(isLoadControlEnabled ? "✓ LoadControl" : "✖ LoadControl", for: .normal)
+        UINotificationFeedbackGenerator().notificationOccurred(.selectionChanged)
+    }
+    
+    @objc private func toggleDepsExpanded() {
+        areDepsExpanded.toggle()
+        depsListLabel.isHidden = !areDepsExpanded
+        expandDepsBtn.setTitle(areDepsExpanded ? L("收起", "Collapse") : L("展开", "Expand"), for: .normal)
+    }
+    
+    @objc private func formatChanged() {
+        outputExportFormat = (formatSegment.selectedSegmentIndex == 0) ? "ipa" : "tipa"
+        updateFilenamePreview()
+    }
+    
+    @objc private func switchValueChanged() {
+        SigningPreferences.shared.enableFileSharing = fileSharingSwitch.isOn
+        SigningPreferences.shared.removeURLSchemes = urlSchemeSwitch.isOn
+        SigningPreferences.shared.fixWhiteIcon = fixWhiteIconSwitch.isOn
+        SigningPreferences.shared.fixDarkIcon = fixDarkIconSwitch.isOn
+        SigningPreferences.shared.directInjection = directInjectSwitch.isOn
+        SigningPreferences.shared.removeEmbeddedProvision = removeEmbeddedSwitch.isOn
+        SigningPreferences.shared.removeWatchApp = removeWatchSwitch.isOn
+    }
+    
+    // MARK: - Metadata Edit Dialogs (Tap ✏️ to edit inline)
+    @objc private func promptEditAppName() {
+        let alert = UIAlertController(title: L("修改应用显示名称", "Edit App Name"), message: nil, preferredStyle: .alert)
+        alert.addTextField { tf in
+            tf.text = self.currentAppName
+            tf.clearButtonMode = .whileEditing
+        }
+        alert.addAction(UIAlertAction(title: L("保存", "Save"), style: .default, handler: { [weak self] _ in
+            if let text = alert.textFields?.first?.text?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty {
+                self?.currentAppName = text
+                self?.appNameLabel.text = text
+                self?.updateFilenamePreview()
             }
-        } else {
-            methodDetailLabel.text = L("使用预先导入的 .p12 开发者证书与 mobileprovision 描述文件重签。", "Sign using imported .p12 cert and mobileprovision profile.")
-        }
+        }))
+        alert.addAction(UIAlertAction(title: L("取消", "Cancel"), style: .cancel))
+        present(alert, animated: true)
     }
     
-    private func updateDylibLabel() {
-        var parts: [String] = []
-        if !dylibsToInject.isEmpty {
-            let names = dylibsToInject.map { $0.lastPathComponent }.joined(separator: ", ")
-            parts.append("\(L("待注入", "Injecting")): \(names)")
+    @objc private func promptEditBundleId() {
+        let alert = UIAlertController(title: L("修改 Bundle ID", "Edit Bundle ID"), message: L("建议以 com.xxx 开头，多开分身时可修改后缀：", "Unique identifier for the app:"), preferredStyle: .alert)
+        alert.addTextField { tf in
+            tf.text = self.currentBundleId
+            tf.autocapitalizationType = .none
+            tf.clearButtonMode = .whileEditing
         }
-        if !dylibsToRemove.isEmpty {
-            let names = dylibsToRemove.joined(separator: ", ")
-            parts.append("\(L("待移除", "Removing")): \(names)")
-        }
-        dylibLabel.text = parts.isEmpty ? L("暂未选择任何注入或移除的插件。", "No plugins selected for injection/removal.") : parts.joined(separator: "\n")
+        alert.addAction(UIAlertAction(title: L("保存", "Save"), style: .default, handler: { [weak self] _ in
+            if let text = alert.textFields?.first?.text?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty {
+                self?.currentBundleId = text
+                self?.bundleIdLabel.text = text
+                self?.updateFilenamePreview()
+            }
+        }))
+        alert.addAction(UIAlertAction(title: L("取消", "Cancel"), style: .cancel))
+        present(alert, animated: true)
     }
     
-    // MARK: - IPA Picker
-    @objc private func showIPAPickerOptions() {
-        let sheet = UIAlertController(title: L("选择 IPA 来源", "Choose IPA Source"), message: nil, preferredStyle: .actionSheet)
-        sheet.addAction(UIAlertAction(title: L("从内置「应用资源库」选取", "From App Library"), style: .default, handler: { [weak self] _ in
+    @objc private func promptEditVersion() {
+        let alert = UIAlertController(title: L("修改版本号与最低系统", "Edit Version & Min OS"), message: nil, preferredStyle: .alert)
+        alert.addTextField { tf in
+            tf.placeholder = L("版本号 (如 1.0.0)", "Version (e.g. 1.0.0)")
+            tf.text = self.currentVersion
+        }
+        alert.addTextField { tf in
+            tf.placeholder = L("最低系统 (如 13.0)", "Min OS (e.g. 13.0)")
+            tf.text = self.currentMinOS
+        }
+        alert.addAction(UIAlertAction(title: L("保存", "Save"), style: .default, handler: { [weak self] _ in
+            if let v = alert.textFields?[0].text?.trimmingCharacters(in: .whitespacesAndNewlines), !v.isEmpty {
+                self?.currentVersion = v
+                self?.versionChip.setTitle("v\(v) 📝", for: .normal)
+            }
+            if let m = alert.textFields?[1].text?.trimmingCharacters(in: .whitespacesAndNewlines), !m.isEmpty {
+                self?.currentMinOS = m
+            }
+            self?.updateFilenamePreview()
+        }))
+        alert.addAction(UIAlertAction(title: L("取消", "Cancel"), style: .cancel))
+        present(alert, animated: true)
+    }
+    
+    @objc private func promptEditNote() {
+        let alert = UIAlertController(title: L("工作区备注", "Workspace Note"), message: L("输入对于该安装包或定制方案的备忘信息：", "Enter custom notes for this project:"), preferredStyle: .alert)
+        alert.addTextField { tf in
+            tf.text = self.currentWorkspaceNote
+            tf.placeholder = L("例如：注入去除广告插件的稳定版", "e.g., Stable build with tweak injected")
+        }
+        alert.addAction(UIAlertAction(title: L("保存", "Save"), style: .default, handler: { [weak self] _ in
+            let text = alert.textFields?.first?.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            self?.currentWorkspaceNote = text
+            self?.noteButton.setTitle(text.isEmpty ? ("💬 " + L("添加工作区备注", "Add workspace note")) : ("💬 " + text), for: .normal)
+            self?.noteButton.setTitleColor(text.isEmpty ? .tertiaryLabel : .secondaryLabel, for: .normal)
+        }))
+        alert.addAction(UIAlertAction(title: L("取消", "Cancel"), style: .cancel))
+        present(alert, animated: true)
+    }
+    
+    @objc private func promptEditFilenameTemplate() {
+        let alert = UIAlertController(title: L("输出文件名模板", "Filename Template"), message: L("支持变量：[name], [version], [bundleId], [timestamp]", "Supports: [name], [version], [bundleId], [timestamp]"), preferredStyle: .alert)
+        alert.addTextField { tf in
+            tf.text = SigningPreferences.shared.filenameTemplate
+        }
+        alert.addAction(UIAlertAction(title: L("保存", "Save"), style: .default, handler: { [weak self] _ in
+            if let text = alert.textFields?.first?.text?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty {
+                SigningPreferences.shared.filenameTemplate = text
+                self?.updateFilenamePreview()
+            }
+        }))
+        alert.addAction(UIAlertAction(title: L("恢复默认", "Reset"), style: .destructive, handler: { [weak self] _ in
+            SigningPreferences.shared.filenameTemplate = "[name]_[version]_[timestamp]-UniSign"
+            self?.updateFilenamePreview()
+        }))
+        alert.addAction(UIAlertAction(title: L("取消", "Cancel"), style: .cancel))
+        present(alert, animated: true)
+    }
+    
+    // MARK: - Certificate Selector Sheet
+    @objc private func showCertPickerSheet() {
+        let sheet = UIAlertController(title: L("选择签名方式与证书", "Select Signing Certificate"), message: nil, preferredStyle: .actionSheet)
+        
+        let activeAcc = AppleAccountManager.shared.activeAccount
+        let accTitle = activeAcc != nil ? "🍏 Apple ID: \(activeAcc!.email)" : "🍏 " + L("登录 Apple ID 免费证书 (7天)", "Apple ID Free Signing (7 Days)")
+        sheet.addAction(UIAlertAction(title: accTitle, style: .default, handler: { [weak self] _ in
+            self?.selectedCertMode = .appleID
+            self?.updateCertCardText()
+            self?.updateActionButtonTitle()
+            self?.updateFilenamePreview()
+        }))
+        
+        sheet.addAction(UIAlertAction(title: "📜 " + L("P12 商业/企业开发者证书", "P12 Developer Certificate"), style: .default, handler: { [weak self] _ in
+            self?.selectedCertMode = .p12
+            self?.updateCertCardText()
+            self?.updateActionButtonTitle()
+            self?.updateFilenamePreview()
+        }))
+        
+        sheet.addAction(UIAlertAction(title: "🛠️ " + L("不使用证书 (仅修改配置 / 免签定制)", "No Certificate (Customize Only)"), style: .default, handler: { [weak self] _ in
+            self?.selectedCertMode = .none
+            self?.updateCertCardText()
+            self?.updateActionButtonTitle()
+            self?.updateFilenamePreview()
+        }))
+        
+        sheet.addAction(UIAlertAction(title: "⚙️ " + L("前往「证书中心」管理账号与证书", "Manage Certificates & Accounts"), style: .default, handler: { [weak self] _ in
+            self?.tabBarController?.selectedIndex = 2
+        }))
+        
+        sheet.addAction(UIAlertAction(title: L("取消", "Cancel"), style: .cancel))
+        present(sheet, animated: true)
+    }
+    
+    // MARK: - More Menu (⋯ Button)
+    @objc private func showMoreMenu() {
+        let sheet = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
+        
+        sheet.addAction(UIAlertAction(title: "📁 " + L("从文件选取其他 IPA", "Pick Other IPA"), style: .default, handler: { [weak self] _ in
+            self?.pickFromFiles()
+        }))
+        
+        sheet.addAction(UIAlertAction(title: "📋 " + L("复制当前 Bundle ID", "Copy Bundle ID"), style: .default, handler: { [weak self] _ in
+            UIPasteboard.general.string = self?.currentBundleId
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+        }))
+        
+        sheet.addAction(UIAlertAction(title: "🔄 " + L("重新解析原始 Info.plist", "Reload Info.plist"), style: .default, handler: { [weak self] _ in
+            guard let self = self, let url = self.selectedIPAURL else { return }
+            self.applySelectedIPA(url)
+        }))
+        
+        sheet.addAction(UIAlertAction(title: L("取消", "Cancel"), style: .cancel))
+        present(sheet, animated: true)
+    }
+    
+    // MARK: - Workspace Folder
+    @objc private func browseWorkspaceFolder() {
+        tabBarController?.selectedIndex = 1
+    }
+    
+    // MARK: - IPA Selection Logic
+    @objc public func showIPAPickerOptions() {
+        let sheet = UIAlertController(title: L("选择待处理的 IPA 文件", "Choose IPA Package"), message: nil, preferredStyle: .actionSheet)
+        sheet.addAction(UIAlertAction(title: "📦 " + L("从应用资源库选择", "From App Library"), style: .default, handler: { [weak self] _ in
             self?.pickFromLibrary()
         }))
-        sheet.addAction(UIAlertAction(title: L("从系统「文件」App 导入", "From Files App"), style: .default, handler: { [weak self] _ in
+        sheet.addAction(UIAlertAction(title: "📁 " + L("从「文件」App 导入", "From Files App"), style: .default, handler: { [weak self] _ in
             self?.pickFromFiles()
         }))
         sheet.addAction(UIAlertAction(title: L("取消", "Cancel"), style: .cancel))
@@ -468,7 +1065,7 @@ public class SignWorkflowViewController: UIViewController, UIDocumentPickerDeleg
     }
     
     private func pickFromFiles() {
-        let picker = UIDocumentPickerViewController(documentTypes: ["com.apple.itunes.ipa", "public.zip-archive"], in: .import)
+        let picker = UIDocumentPickerViewController(documentTypes: ["com.apple.itunes.ipa", "public.zip-archive", "public.data"], in: .import)
         picker.delegate = self
         picker.allowsMultipleSelection = false
         present(picker, animated: true)
@@ -476,6 +1073,13 @@ public class SignWorkflowViewController: UIViewController, UIDocumentPickerDeleg
     
     public func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
         guard let url = urls.first else { return }
+        if url.pathExtension.lowercased() == "dylib" {
+            if !dylibsToInject.contains(url) {
+                dylibsToInject.append(url)
+                updateDylibsUI()
+            }
+            return
+        }
         if let imported = try? AppLibraryManager.shared.importIPA(from: url) {
             applySelectedIPA(imported)
         } else {
@@ -485,39 +1089,39 @@ public class SignWorkflowViewController: UIViewController, UIDocumentPickerDeleg
     
     public func applySelectedIPA(_ url: URL) {
         selectedIPAURL = url
-        ipaButton.setTitle("✓ " + url.lastPathComponent, for: .normal)
-        let fileSize = (try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int64) ?? 0
-        let mb = Double(fileSize) / (1024 * 1024)
-        ipaDetailLabel.text = String(format: L("已选择: %@ (%.1f MB)", "Selected: %@ (%.1f MB)"), url.lastPathComponent, mb)
         
         // Fast inspect Info.plist from ZIP directory directly
         if let plist = ZipEngine.readInfoPlist(from: url) {
             if let bId = plist["CFBundleIdentifier"] as? String, !bId.isEmpty {
-                bundleIdField.text = bId
+                currentBundleId = bId
+                bundleIdLabel.text = bId
             }
             if let dName = (plist["CFBundleDisplayName"] as? String) ?? (plist["CFBundleName"] as? String), !dName.isEmpty {
-                nameField.text = dName
+                currentAppName = dName
+                appNameLabel.text = dName
             } else {
-                nameField.text = url.deletingPathExtension().lastPathComponent
+                currentAppName = url.deletingPathExtension().lastPathComponent
+                appNameLabel.text = currentAppName
             }
             if let ver = (plist["CFBundleShortVersionString"] as? String) ?? (plist["CFBundleVersion"] as? String), !ver.isEmpty {
-                versionField.text = ver
+                currentVersion = ver
+                versionChip.setTitle("v\(ver) 📝", for: .normal)
             }
             if let minOS = plist["MinimumOSVersion"] as? String, !minOS.isEmpty {
-                minOSField.text = minOS
+                currentMinOS = minOS
             }
         } else {
-            let rawName = url.deletingPathExtension().lastPathComponent
-            if (nameField.text ?? "").isEmpty {
-                nameField.text = rawName
-            }
+            currentAppName = url.deletingPathExtension().lastPathComponent
+            appNameLabel.text = currentAppName
         }
+        
+        updateFilenamePreview()
     }
     
     // MARK: - Icon Picker
     @objc private func chooseIcon() {
         let sheet = UIAlertController(title: L("更换应用图标", "Change App Icon"), message: nil, preferredStyle: .actionSheet)
-        sheet.addAction(UIAlertAction(title: L("从相册选取图片", "From Photo Library"), style: .default, handler: { [weak self] _ in
+        sheet.addAction(UIAlertAction(title: L("从相册选取新图片", "From Photo Library"), style: .default, handler: { [weak self] _ in
             guard let self = self else { return }
             let picker = UIImagePickerController()
             picker.delegate = self
@@ -526,7 +1130,7 @@ public class SignWorkflowViewController: UIViewController, UIDocumentPickerDeleg
         }))
         sheet.addAction(UIAlertAction(title: L("重置为原始图标", "Reset to Default"), style: .destructive, handler: { [weak self] _ in
             self?.selectedIconImage = nil
-            self?.iconPreview.image = UIImage(systemName: "app.fill")
+            self?.appIconImageView.image = UIImage(systemName: "app.fill")
         }))
         sheet.addAction(UIAlertAction(title: L("取消", "Cancel"), style: .cancel))
         present(sheet, animated: true)
@@ -536,7 +1140,7 @@ public class SignWorkflowViewController: UIViewController, UIDocumentPickerDeleg
         picker.dismiss(animated: true)
         if let img = info[.originalImage] as? UIImage {
             selectedIconImage = img
-            iconPreview.image = img
+            appIconImageView.image = img
             UINotificationFeedbackGenerator().notificationOccurred(.success)
         }
     }
@@ -550,74 +1154,55 @@ public class SignWorkflowViewController: UIViewController, UIDocumentPickerDeleg
                 guard let self = self else { return }
                 if !self.dylibsToInject.contains(dylib) {
                     self.dylibsToInject.append(dylib)
-                    self.updateDylibLabel()
+                    self.updateDylibsUI()
                 }
             }))
         }
-        sheet.addAction(UIAlertAction(title: L("从文件导入新插件", "Import from Files"), style: .default, handler: { [weak self] _ in
+        sheet.addAction(UIAlertAction(title: "📁 " + L("从「文件」导入新插件", "Import from Files"), style: .default, handler: { [weak self] _ in
             let docPicker = UIDocumentPickerViewController(documentTypes: ["public.data", "public.item"], in: .import)
             docPicker.delegate = self
             self?.present(docPicker, animated: true)
-        }))
-        sheet.addAction(UIAlertAction(title: L("清空已选插件", "Clear Selected"), style: .destructive, handler: { [weak self] _ in
-            self?.dylibsToInject.removeAll()
-            self?.updateDylibLabel()
         }))
         sheet.addAction(UIAlertAction(title: L("取消", "Cancel"), style: .cancel))
         present(sheet, animated: true)
     }
     
-    @objc private func promptRemoveDylib() {
-        let alert = UIAlertController(
-            title: L("从 Mach-O 中移除插件", "Remove Dylib from Binary"),
-            message: L("输入需要移除的动态库名称 (例如: Cycript.framework/Cycript 或 hook.dylib):", "Enter dylib name to remove:"),
-            preferredStyle: .alert
-        )
-        alert.addTextField { $0.placeholder = "hook.dylib" }
-        alert.addAction(UIAlertAction(title: L("添加至移除列表", "Add to Removal List"), style: .destructive, handler: { [weak self] _ in
-            if let text = alert.textFields?.first?.text?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty {
-                self?.dylibsToRemove.append(text)
-                self?.updateDylibLabel()
-            }
-        }))
-        alert.addAction(UIAlertAction(title: L("取消", "Cancel"), style: .cancel))
-        present(alert, animated: true)
-    }
-    
-    // MARK: - Signing Pipeline
-    @objc private func startSigning() {
+    // MARK: - Sign & Install Pipeline
+    @objc private func startSignAndInstall() {
         guard let ipa = selectedIPAURL else {
-            let alert = UIAlertController(title: L("提示", "Notice"), message: L("请先选择待签名的 IPA 文件！", "Please select an IPA file first!"), preferredStyle: .alert)
-            alert.addAction(UIAlertAction(title: L("好", "OK"), style: .default))
+            let alert = UIAlertController(title: L("提示", "Notice"), message: L("请先选择待处理的 IPA 文件！", "Please select an IPA file first!"), preferredStyle: .alert)
+            alert.addAction(UIAlertAction(title: L("选择文件", "Choose File"), style: .default, handler: { [weak self] _ in
+                self?.showIPAPickerOptions()
+            }))
+            alert.addAction(UIAlertAction(title: L("取消", "Cancel"), style: .cancel))
             present(alert, animated: true)
             return
         }
         
-        let customBundleId = bundleIdField.text?.trimmingCharacters(in: .whitespacesAndNewlines)
-        let customName = nameField.text?.trimmingCharacters(in: .whitespacesAndNewlines)
-        let customVersion = versionField.text?.trimmingCharacters(in: .whitespacesAndNewlines)
-        let customMinOS = minOSField.text?.trimmingCharacters(in: .whitespacesAndNewlines)
-        let enableFileSharing = fileSharingSwitch.isOn
-        let enableDocInPlace = docInPlaceSwitch.isOn
+        var opts = SigningPreferences.shared.makeCustomizationOptions(
+            bundleId: currentBundleId.isEmpty ? nil : currentBundleId,
+            displayName: currentAppName.isEmpty ? nil : currentAppName,
+            version: currentVersion.isEmpty ? nil : currentVersion,
+            minOS: currentMinOS.isEmpty ? nil : currentMinOS
+        )
+        opts.enableFileSharing = fileSharingSwitch.isOn
+        opts.removeURLSchemes = urlSchemeSwitch.isOn
+        opts.fixWhiteIcon = fixWhiteIconSwitch.isOn
+        opts.fixDarkIcon = fixDarkIconSwitch.isOn
+        opts.directInjection = directInjectSwitch.isOn
+        opts.removeEmbeddedProvision = removeEmbeddedSwitch.isOn
+        opts.removeWatchApp = removeWatchSwitch.isOn
+        opts.appendSignedSuffix = (selectedCertMode != .none)
         
-        let isModifyOnly = (isModifyOnlyMode || workflowModeSegment.selectedSegmentIndex == 1)
-        if isModifyOnly {
+        // Mode 1: No Certificate (Modify Only)
+        if selectedCertMode == .none {
             ProgressHUD.shared.show(in: view, title: L("正在免签定制配置并打包...", "Customizing IPA..."))
-            var opts = SigningPreferences.shared.makeCustomizationOptions(
-                bundleId: (customBundleId?.isEmpty ?? true) ? nil : customBundleId,
-                displayName: (customName?.isEmpty ?? true) ? nil : customName,
-                version: (customVersion?.isEmpty ?? true) ? nil : customVersion,
-                minOS: (customMinOS?.isEmpty ?? true) ? nil : customMinOS
-            )
-            opts.enableFileSharing = enableFileSharing
-            opts.enableDocumentInPlace = enableDocInPlace
-            
             let modConfig = IPAManager.ModifyConfig(
                 ipaURL: ipa,
                 options: opts,
-                replacementIcon: self.selectedIconImage,
-                dylibsToInject: self.dylibsToInject,
-                dylibsToRemove: self.dylibsToRemove
+                replacementIcon: selectedIconImage,
+                dylibsToInject: dylibsToInject,
+                dylibsToRemove: dylibsToRemove
             )
             
             IPAManager.modifyWithoutSigning(config: modConfig, progress: { pct, step in
@@ -630,21 +1215,12 @@ public class SignWorkflowViewController: UIViewController, UIDocumentPickerDeleg
                     ProgressHUD.shared.hide()
                     switch result {
                     case .success(let outputIPA):
+                        self.signedIPAURL = outputIPA
                         UINotificationFeedbackGenerator().notificationOccurred(.success)
-                        let alert = UIAlertController(
-                            title: L("定制完成！", "Modification Complete!"),
-                            message: "\(outputIPA.lastPathComponent)\n" + L("已保存至应用资源库（未签名包）。适用于 TrollStore 免签安装或分享导出。", "Saved to App Library. Suitable for TrollStore or direct export."),
-                            preferredStyle: .alert
-                        )
-                        alert.addAction(UIAlertAction(title: "📤 " + L("导出 / 分享 IPA", "Share / Export"), style: .default, handler: { [weak self] _ in
-                            let avc = UIActivityViewController(activityItems: [outputIPA], applicationActivities: nil)
-                            self?.present(avc, animated: true)
-                        }))
-                        alert.addAction(UIAlertAction(title: L("完成", "Done"), style: .cancel))
-                        self.present(alert, animated: true)
+                        self.presentInstallOptions(ipaURL: outputIPA, name: self.currentAppName, bundleID: self.currentBundleId)
                     case .failure(let err):
                         UINotificationFeedbackGenerator().notificationOccurred(.error)
-                        let alert = UIAlertController(title: L("定制失败", "Modification Failed"), message: err.localizedDescription, preferredStyle: .alert)
+                        let alert = UIAlertController(title: L("定制失败", "Failed"), message: err.localizedDescription, preferredStyle: .alert)
                         alert.addAction(UIAlertAction(title: L("好", "OK"), style: .default))
                         self.present(alert, animated: true)
                     }
@@ -653,7 +1229,8 @@ public class SignWorkflowViewController: UIViewController, UIDocumentPickerDeleg
             return
         }
         
-        let isAppleID = (signingMethodSegment.selectedSegmentIndex == 0)
+        // Mode 2: Real Signing (Apple ID or P12)
+        let isAppleID = (selectedCertMode == .appleID)
         let activeAccount = AppleAccountManager.shared.activeAccount
         
         if isAppleID {
@@ -672,27 +1249,11 @@ public class SignWorkflowViewController: UIViewController, UIDocumentPickerDeleg
         }
         
         ProgressHUD.shared.show(in: view, title: L("正在准备重签...", "Preparing Signing..."))
-        
-        let targetBundleID = (customBundleId != nil && !customBundleId!.isEmpty) ? customBundleId! : "com.unisign.app.\(UUID().uuidString.prefix(6))"
+        let targetBundleID = currentBundleId.isEmpty ? "com.unisign.app.\(UUID().uuidString.prefix(6))" : currentBundleId
         let deviceUDID = DeviceInfoHelper.getDeviceUDID()
         
         let executeSigning: (URL, URL) -> Void = { [weak self] p12URL, provURL in
             guard let self = self else { return }
-            
-            IPAManager.shared.progressHandler = { (step: String, pct: Double) in
-                DispatchQueue.main.async {
-                    ProgressHUD.shared.update(title: step, detail: "\(Int(pct * 100))%")
-                }
-            }
-            
-            var opts = SigningPreferences.shared.makeCustomizationOptions(
-                bundleId: (customBundleId?.isEmpty ?? true) ? nil : customBundleId,
-                displayName: (customName?.isEmpty ?? true) ? nil : customName,
-                version: (customVersion?.isEmpty ?? true) ? nil : customVersion,
-                minOS: (customMinOS?.isEmpty ?? true) ? nil : customMinOS
-            )
-            opts.enableFileSharing = enableFileSharing
-            opts.enableDocumentInPlace = enableDocInPlace
             
             let config = IPAManager.SignConfig(
                 ipaURL: ipa,
@@ -706,7 +1267,9 @@ public class SignWorkflowViewController: UIViewController, UIDocumentPickerDeleg
             )
             
             IPAManager.processAndSign(config: config, progress: { pct, step in
-                IPAManager.shared.progressHandler?(step, pct)
+                DispatchQueue.main.async {
+                    ProgressHUD.shared.update(title: step, detail: "\(Int(pct * 100))%")
+                }
             }) { [weak self] result in
                 DispatchQueue.main.async {
                     guard let self = self else { return }
@@ -715,37 +1278,22 @@ public class SignWorkflowViewController: UIViewController, UIDocumentPickerDeleg
                     switch result {
                     case .success(let outputIPA):
                         self.signedIPAURL = outputIPA
-                        self.installButton.isHidden = false
                         UINotificationFeedbackGenerator().notificationOccurred(.success)
                         
-                        let recordName = customName?.isEmpty == false ? customName! : ipa.deletingPathExtension().lastPathComponent
-                        let recordVersion = customVersion?.isEmpty == false ? customVersion! : "1.0.0"
-                        
+                        // Register signed app record
                         _ = AppLibraryManager.shared.registerSignedApp(
                             ipaURL: outputIPA,
-                            name: recordName,
+                            name: self.currentAppName,
                             bundleId: targetBundleID,
-                            version: recordVersion,
+                            version: self.currentVersion,
                             signMethod: isAppleID ? "apple_id" : "p12",
                             appleIDEmail: isAppleID ? activeAccount?.email : nil,
                             expirationDate: Date().addingTimeInterval(7 * 24 * 3600)
                         )
-                        self.updateAccountQuotaBadge()
+                        self.updateCertCardText()
                         
-                        if SigningPreferences.shared.autoInstallAfterSigning {
-                            self.installAppLocally()
-                        } else {
-                            let alert = UIAlertController(
-                                title: L("重签成功！", "Signing Successful!"),
-                                message: "\(recordName) " + L("已成功打包签名！可直接点击下方按钮进行本地无线安装，或在应用资源库查看。", "has been signed and packaged! You can install it locally now."),
-                                preferredStyle: .alert
-                            )
-                            alert.addAction(UIAlertAction(title: "📲 " + L("立即安装 (OTA)", "Install Now"), style: .default, handler: { [weak self] _ in
-                                self?.installAppLocally()
-                            }))
-                            alert.addAction(UIAlertAction(title: L("完成", "Done"), style: .cancel))
-                            self.present(alert, animated: true)
-                        }
+                        // Present reliable install options sheet
+                        self.presentInstallOptions(ipaURL: outputIPA, name: self.currentAppName, bundleID: targetBundleID)
                         
                     case .failure(let error):
                         UINotificationFeedbackGenerator().notificationOccurred(.error)
@@ -781,20 +1329,82 @@ public class SignWorkflowViewController: UIViewController, UIDocumentPickerDeleg
         }
     }
     
-    @objc private func installAppLocally() {
-        guard let signedURL = signedIPAURL else { return }
+    // MARK: - Reliable Installation Presentation
+    private func presentInstallOptions(ipaURL: URL, name: String, bundleID: String) {
+        let isSigned = (selectedCertMode != .none)
+        let title = isSigned ? ("🎉 " + L("打包签名成功！", "Build & Sign Successful!")) : ("🎉 " + L("定制打包成功！", "Custom Build Successful!"))
+        let destDesc = isSigned ? L("已存入「应用资源库 - 已签名应用」", "Saved to App Library - Signed Apps") : L("已存入「应用资源库 - 未签名应用」", "Saved to App Library - Unsigned Apps")
+        let sheet = UIAlertController(
+            title: title,
+            message: "\(name)\n\(destDesc)，" + L("请选择安装方式：", "Select install method:"),
+            preferredStyle: .actionSheet
+        )
+        
+        // 1. TrollStore 巨魔直接安装 (100% 成功率且无证书到期风险)
+        sheet.addAction(UIAlertAction(title: "⚡ " + L("使用 TrollStore (巨魔) 一键安装", "Install via TrollStore"), style: .default, handler: { [weak self] _ in
+            guard let self = self else { return }
+            let tsURLString = "apple-magnifier://install?url=\(ipaURL.path.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")"
+            if let tsURL = URL(string: tsURLString), UIApplication.shared.canOpenURL(tsURL) {
+                UIApplication.shared.open(tsURL, options: [:], completionHandler: nil)
+            } else {
+                self.openInOtherApp(ipaURL)
+            }
+        }))
+        
+        // 2. 在其他应用中打开 (TrollStore / 存入文件 / 隔空投送)
+        sheet.addAction(UIAlertAction(title: "📤 " + L("在其他应用中打开 / 存入文件 / AirDrop", "Open in... / Save to Files / AirDrop"), style: .default, handler: { [weak self] _ in
+            self?.openInOtherApp(ipaURL)
+        }))
+        
+        // 3. 本地 OTA 无线安装
+        sheet.addAction(UIAlertAction(title: "📲 " + L("尝试本机无线安装 (OTA 服务)", "Install via Local OTA Server"), style: .default, handler: { [weak self] _ in
+            self?.performOTAInstall(ipaURL: ipaURL, name: name, bundleID: bundleID)
+        }))
+        
+        // 4. 电脑端 USB 助手说明
+        sheet.addAction(UIAlertAction(title: "💻 " + L("通过电脑端 UniSign 助手 USB 极速安装", "Install via PC UniSign Helper"), style: .default, handler: { [weak self] _ in
+            let alert = UIAlertController(
+                title: L("电脑端 USB 极速直装", "PC USB Install"),
+                message: L("在电脑上双击运行 UniSign-Helper/run_helper.bat，用数据线连接手机，点击「一键直装」，即可 100% 成功秒速安装到手机！", "Run run_helper.bat on PC, connect phone via USB, and 1-click install."),
+                preferredStyle: .alert
+            )
+            alert.addAction(UIAlertAction(title: L("知道了", "Got it"), style: .default))
+            self?.present(alert, animated: true)
+        }))
+        
+        sheet.addAction(UIAlertAction(title: L("完成", "Done"), style: .cancel))
+        present(sheet, animated: true)
+    }
+    
+    private func openInOtherApp(_ url: URL) {
+        docController = UIDocumentInteractionController(url: url)
+        docController?.delegate = self
+        if !docController!.presentOpenInMenu(from: view.bounds, in: view, animated: true) {
+            let avc = UIActivityViewController(activityItems: [url], applicationActivities: nil)
+            present(avc, animated: true)
+        }
+    }
+    
+    private func performOTAInstall(ipaURL: URL, name: String, bundleID: String) {
         do {
             try LocalInstallServer.shared.start()
-            let bundleID = bundleIdField.text?.isEmpty == false ? bundleIdField.text! : "com.unisign.app"
-            let appName = nameField.text?.isEmpty == false ? nameField.text! : "UniSign App"
-            let installURL = LocalInstallServer.shared.generateInstallURL(ipaURL: signedURL, bundleID: bundleID, title: appName)
+            let installURL = LocalInstallServer.shared.generateInstallURL(ipaURL: ipaURL, bundleID: bundleID, title: name)
             UIApplication.shared.open(installURL, options: [:]) { success in
-                if success {
-                    UINotificationFeedbackGenerator().notificationOccurred(.success)
+                if !success {
+                    let alert = UIAlertController(
+                        title: L("无线安装提示", "OTA Notice"),
+                        message: L("iOS 系统限制蜂窝移动网络下可能无法连接 127.0.0.1。请确保连接同一局域网 Wi-Fi，或使用「TrollStore 巨魔安装 / 存入文件」方式安装。", "iOS may restrict 127.0.0.1 on cellular 5G. Please connect to Wi-Fi or use TrollStore / Open In."),
+                        preferredStyle: .alert
+                    )
+                    alert.addAction(UIAlertAction(title: "⚡ " + L("改用 TrollStore / 其他应用打开", "Use TrollStore / Open In"), style: .default, handler: { [weak self] _ in
+                        self?.openInOtherApp(ipaURL)
+                    }))
+                    alert.addAction(UIAlertAction(title: L("好", "OK"), style: .cancel))
+                    self.present(alert, animated: true)
                 }
             }
         } catch {
-            let alert = UIAlertController(title: L("本地安装服务异常", "Server Error"), message: error.localizedDescription, preferredStyle: .alert)
+            let alert = UIAlertController(title: L("本地服务启动失败", "Server Failed"), message: error.localizedDescription, preferredStyle: .alert)
             alert.addAction(UIAlertAction(title: L("好", "OK"), style: .default))
             present(alert, animated: true)
         }

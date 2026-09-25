@@ -301,13 +301,22 @@ public class AppLibraryViewController: UIViewController, UITableViewDelegate, UI
             self?.navigationController?.pushViewController(signVC, animated: true)
         }))
         
+        sheet.addAction(UIAlertAction(title: "⚡ " + L("使用 TrollStore (巨魔) 直接安装", "Install via TrollStore"), style: .default, handler: { [weak self] _ in
+            guard let self = self else { return }
+            let tsURLString = "apple-magnifier://install?url=\(ipa.path.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")"
+            if let tsURL = URL(string: tsURLString), UIApplication.shared.canOpenURL(tsURL) {
+                UIApplication.shared.open(tsURL, options: [:], completionHandler: nil)
+            } else {
+                self.openInOtherApp(ipa)
+            }
+        }))
+        
         sheet.addAction(UIAlertAction(title: "✏️ " + L("重命名 IPA 文件", "Rename IPA File"), style: .default, handler: { [weak self] _ in
             self?.promptRenameIPA(ipa)
         }))
         
-        sheet.addAction(UIAlertAction(title: "📤 " + L("导出 / 分享 IPA 包", "Share IPA File"), style: .default, handler: { [weak self] _ in
-            let avc = UIActivityViewController(activityItems: [ipa], applicationActivities: nil)
-            self?.present(avc, animated: true)
+        sheet.addAction(UIAlertAction(title: "📤 " + L("在其他应用中打开 / 存入文件 / AirDrop", "Open in... / Save to Files / AirDrop"), style: .default, handler: { [weak self] _ in
+            self?.openInOtherApp(ipa)
         }))
         
         sheet.addAction(UIAlertAction(title: L("删除此 IPA", "Delete IPA"), style: .destructive, handler: { [weak self] _ in
@@ -345,6 +354,16 @@ public class AppLibraryViewController: UIViewController, UITableViewDelegate, UI
         present(alert, animated: true)
     }
     
+    private var docController: UIDocumentInteractionController?
+    
+    private func openInOtherApp(_ url: URL) {
+        docController = UIDocumentInteractionController(url: url)
+        if !docController!.presentOpenInMenu(from: view.bounds, in: view, animated: true) {
+            let avc = UIActivityViewController(activityItems: [url], applicationActivities: nil)
+            present(avc, animated: true)
+        }
+    }
+    
     private func showSignedAppActionSheet(app: SignedAppRecord) {
         let sheet = UIAlertController(
             title: "\(app.name) (v\(app.version))",
@@ -352,7 +371,26 @@ public class AppLibraryViewController: UIViewController, UITableViewDelegate, UI
             preferredStyle: .actionSheet
         )
         
-        sheet.addAction(UIAlertAction(title: "📲 " + L("本地免数据线安装 (OTA)", "Install Locally (OTA)"), style: .default, handler: { [weak self] _ in
+        let ipaURL = URL(fileURLWithPath: app.filePath)
+        
+        // 1. TrollStore 巨魔一键安装 (100% 成功率且无 127.0.0.1 问题)
+        sheet.addAction(UIAlertAction(title: "⚡ " + L("使用 TrollStore (巨魔) 一键安装", "Install via TrollStore"), style: .default, handler: { [weak self] _ in
+            guard let self = self else { return }
+            let tsURLString = "apple-magnifier://install?url=\(ipaURL.path.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")"
+            if let tsURL = URL(string: tsURLString), UIApplication.shared.canOpenURL(tsURL) {
+                UIApplication.shared.open(tsURL, options: [:], completionHandler: nil)
+            } else {
+                self.openInOtherApp(ipaURL)
+            }
+        }))
+        
+        // 2. 在其他应用中打开 / 存入文件 / AirDrop
+        sheet.addAction(UIAlertAction(title: "📤 " + L("在其他应用中打开 / 存入文件 / AirDrop", "Open in... / Save to Files / AirDrop"), style: .default, handler: { [weak self] _ in
+            self?.openInOtherApp(ipaURL)
+        }))
+        
+        // 3. OTA 无线安装
+        sheet.addAction(UIAlertAction(title: "📲 " + L("本地免数据线安装 (OTA 服务)", "Install Locally (OTA)"), style: .default, handler: { [weak self] _ in
             self?.installApp(app)
         }))
         
@@ -361,10 +399,6 @@ public class AppLibraryViewController: UIViewController, UITableViewDelegate, UI
                 self?.renewApp(app)
             }))
         }
-        
-        sheet.addAction(UIAlertAction(title: "📤 " + L("导出 / 分享 IPA 包", "Share IPA File"), style: .default, handler: { [weak self] _ in
-            self?.shareApp(app)
-        }))
         
         sheet.addAction(UIAlertAction(title: L("删除已签名应用", "Delete App"), style: .destructive, handler: { [weak self] _ in
             AppLibraryManager.shared.deleteSignedApp(id: app.id)
@@ -391,9 +425,20 @@ public class AppLibraryViewController: UIViewController, UITableViewDelegate, UI
                 bundleID: app.bundleId,
                 title: app.name
             )
-            UIApplication.shared.open(installURL, options: [:]) { success in
+            UIApplication.shared.open(installURL, options: [:]) { [weak self] success in
                 if success {
                     UINotificationFeedbackGenerator().notificationOccurred(.success)
+                } else {
+                    let alert = UIAlertController(
+                        title: L("无线安装提示", "OTA Notice"),
+                        message: L("iOS 系统限制蜂窝移动网络下可能无法连接 127.0.0.1。请确保连接同一局域网 Wi-Fi，或使用「TrollStore 巨魔安装 / 存入文件」方式安装。", "iOS may restrict 127.0.0.1 on cellular 5G. Please connect to Wi-Fi or use TrollStore / Open In."),
+                        preferredStyle: .alert
+                    )
+                    alert.addAction(UIAlertAction(title: "⚡ " + L("改用 TrollStore / 其他应用打开", "Use TrollStore / Open In"), style: .default, handler: { _ in
+                        self?.openInOtherApp(ipaURL)
+                    }))
+                    alert.addAction(UIAlertAction(title: L("好", "OK"), style: .default))
+                    self?.present(alert, animated: true)
                 }
             }
         } catch {

@@ -114,15 +114,36 @@ public class AppLibraryManager {
     }
     
     public func getSignedApps() -> [SignedAppRecord] {
-        guard let data = UserDefaults.standard.data(forKey: signedRecordKey),
-              let list = try? JSONDecoder().decode([SignedAppRecord].self, from: data) else {
-            return []
+        var result: [SignedAppRecord] = []
+        if let data = UserDefaults.standard.data(forKey: signedRecordKey),
+           let list = try? JSONDecoder().decode([SignedAppRecord].self, from: data) {
+            result = list.filter { record in
+                let path = signedDir.appendingPathComponent(record.fileName).path
+                return fileManager.fileExists(atPath: path)
+            }
         }
-        // Verify physical file still exists
-        return list.filter { record in
-            let path = signedDir.appendingPathComponent(record.fileName).path
-            return fileManager.fileExists(atPath: path)
+        
+        // Fallback: Scan signed directory for any .ipa or .tipa files not yet tracked
+        if let files = try? fileManager.contentsOfDirectory(at: signedDir, includingPropertiesForKeys: [.contentModificationDateKey], options: .skipsHiddenFiles) {
+            for file in files where file.pathExtension.lowercased() == "ipa" || file.pathExtension.lowercased() == "tipa" {
+                if !result.contains(where: { $0.fileName == file.lastPathComponent }) {
+                    let plist = ZipEngine.readInfoPlist(from: file)
+                    let name = (plist?["CFBundleDisplayName"] as? String) ?? (plist?["CFBundleName"] as? String) ?? file.deletingPathExtension().lastPathComponent
+                    let bundleId = (plist?["CFBundleIdentifier"] as? String) ?? "com.unisign.signed"
+                    let version = (plist?["CFBundleShortVersionString"] as? String) ?? "1.0.0"
+                    let autoRecord = SignedAppRecord(
+                        name: name,
+                        bundleId: bundleId,
+                        version: version,
+                        expiryDate: Date().addingTimeInterval(7 * 24 * 3600),
+                        signMethod: "apple_id",
+                        fileName: file.lastPathComponent
+                    )
+                    result.append(autoRecord)
+                }
+            }
         }
+        return result
     }
     
     public func recordSignedApp(_ record: SignedAppRecord) {
@@ -156,8 +177,10 @@ public class AppLibraryManager {
         expirationDate: Date = Date().addingTimeInterval(7 * 24 * 3600)
     ) -> SignedAppRecord {
         let destURL = signedDir.appendingPathComponent(ipaURL.lastPathComponent)
-        try? fileManager.removeItem(at: destURL)
-        try? fileManager.copyItem(at: ipaURL, to: destURL)
+        if ipaURL.standardizedFileURL.path != destURL.standardizedFileURL.path {
+            try? fileManager.removeItem(at: destURL)
+            try? fileManager.copyItem(at: ipaURL, to: destURL)
+        }
         let record = SignedAppRecord(
             name: name,
             bundleId: bundleId,

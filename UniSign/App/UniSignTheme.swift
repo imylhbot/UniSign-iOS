@@ -67,6 +67,8 @@ public class GradientButton: UIButton {
         case appleBrand
         case destructive
         case secondaryGray
+        case forestGreen
+        case forestGreenOutline
     }
     
     public var buttonStyle: Style = .primaryCyber {
@@ -121,6 +123,7 @@ public class GradientButton: UIButton {
     }
     
     private func updateColors() {
+        layer.borderWidth = 0
         switch buttonStyle {
         case .primaryCyber:
             gradientLayer.colors = [
@@ -129,6 +132,8 @@ public class GradientButton: UIButton {
             ]
             gradientLayer.startPoint = CGPoint(x: 0, y: 0)
             gradientLayer.endPoint = CGPoint(x: 1, y: 1)
+            setTitleColor(.white, for: .normal)
+            tintColor = .white
         case .appleBrand:
             gradientLayer.colors = [
                 UIColor(red: 1.0, green: 0.60, blue: 0.0, alpha: 1.0).cgColor,
@@ -136,11 +141,15 @@ public class GradientButton: UIButton {
             ]
             gradientLayer.startPoint = CGPoint(x: 0, y: 0)
             gradientLayer.endPoint = CGPoint(x: 1, y: 1)
+            setTitleColor(.white, for: .normal)
+            tintColor = .white
         case .destructive:
             gradientLayer.colors = [
                 UIColor.systemRed.cgColor,
                 UIColor(red: 0.8, green: 0.1, blue: 0.2, alpha: 1.0).cgColor
             ]
+            setTitleColor(.white, for: .normal)
+            tintColor = .white
         case .secondaryGray:
             gradientLayer.colors = [
                 UIColor.systemGray5.cgColor,
@@ -149,6 +158,26 @@ public class GradientButton: UIButton {
             setTitleColor(.label, for: .normal)
             tintColor = .label
             activityIndicator.color = .label
+        case .forestGreen:
+            gradientLayer.colors = [
+                UIColor(red: 0.11, green: 0.38, blue: 0.28, alpha: 1.0).cgColor,
+                UIColor(red: 0.08, green: 0.30, blue: 0.22, alpha: 1.0).cgColor
+            ]
+            gradientLayer.startPoint = CGPoint(x: 0, y: 0)
+            gradientLayer.endPoint = CGPoint(x: 1, y: 1)
+            setTitleColor(.white, for: .normal)
+            tintColor = .white
+            activityIndicator.color = .white
+        case .forestGreenOutline:
+            gradientLayer.colors = [
+                UIColor.clear.cgColor,
+                UIColor.clear.cgColor
+            ]
+            layer.borderWidth = 1.0
+            layer.borderColor = UIColor(red: 0.11, green: 0.38, blue: 0.28, alpha: 0.5).cgColor
+            setTitleColor(UIColor(red: 0.11, green: 0.38, blue: 0.28, alpha: 1.0), for: .normal)
+            tintColor = UIColor(red: 0.11, green: 0.38, blue: 0.28, alpha: 1.0)
+            activityIndicator.color = UIColor(red: 0.11, green: 0.38, blue: 0.28, alpha: 1.0)
         }
     }
     
