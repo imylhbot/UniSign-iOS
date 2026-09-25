@@ -31,6 +31,8 @@
 		A10000162C00000100000001 /* ZipEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000162C00000100000001 /* ZipEngine.swift */; };
 		A10000172C00000100000001 /* LanguageManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000172C00000100000001 /* LanguageManager.swift */; };
 		A10000182C00000100000001 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B10000182C00000100000001 /* Assets.xcassets */; };
+		A10000192C00000100000001 /* UniSignTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000192C00000100000001 /* UniSignTheme.swift */; };
+		A10000202C00000100000001 /* AppleIDLoginViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000202C00000100000001 /* AppleIDLoginViewController.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -57,6 +59,8 @@
 		B10000162C00000100000001 /* ZipEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZipEngine.swift; sourceTree = "<group>"; };
 		B10000172C00000100000001 /* LanguageManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LanguageManager.swift; sourceTree = "<group>"; };
 		B10000182C00000100000001 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		B10000192C00000100000001 /* UniSignTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UniSignTheme.swift; sourceTree = "<group>"; };
+		B10000202C00000100000001 /* AppleIDLoginViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleIDLoginViewController.swift; sourceTree = "<group>"; };
 		C10000012C00000100000001 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
 		C10000022C00000100000001 /* Network.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Network.framework; path = System/Library/Frameworks/Network.framework; sourceTree = SDKROOT; };
 		D10000012C00000100000001 /* UniSign.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = UniSign.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -114,6 +118,7 @@
 				B10000012C00000100000001 /* AppDelegate.swift */,
 				B10000022C00000100000001 /* SceneDelegate.swift */,
 				B10000172C00000100000001 /* LanguageManager.swift */,
+				B10000192C00000100000001 /* UniSignTheme.swift */,
 				B100000F2C00000100000001 /* Info.plist */,
 			);
 			path = App;
@@ -167,6 +172,7 @@
 				B10000152C00000100000001 /* AppLibraryViewController.swift */,
 				B100000B2C00000100000001 /* SignWorkflowViewController.swift */,
 				B100000C2C00000100000001 /* CertificateManagerViewController.swift */,
+				B10000202C00000100000001 /* AppleIDLoginViewController.swift */,
 				B100000D2C00000100000001 /* SettingsViewController.swift */,
 				B100000E2C00000100000001 /* MainTabBarController.swift */,
 			);
@@ -268,6 +274,8 @@
 				A10000152C00000100000001 /* AppLibraryViewController.swift in Sources */,
 				A10000162C00000100000001 /* ZipEngine.swift in Sources */,
 				A10000172C00000100000001 /* LanguageManager.swift in Sources */,
+				A10000192C00000100000001 /* UniSignTheme.swift in Sources */,
+				A10000202C00000100000001 /* AppleIDLoginViewController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

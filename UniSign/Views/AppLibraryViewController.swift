@@ -8,7 +8,10 @@ public class AppLibraryViewController: UIViewController, UITableViewDelegate, UI
         L("插件库", "Dylibs")
     ])
     private let tableView = UITableView(frame: .zero, style: .insetGrouped)
+    private let emptyView = CardView()
+    private let emptyIcon = UIImageView()
     private let emptyLabel = UILabel()
+    private let emptyImportButton = GradientButton(title: "", style: .primaryCyber, icon: UIImage(systemName: "plus.circle.fill"))
     
     private var unsignedIPAs: [URL] = []
     private var signedApps: [SignedAppRecord] = []
@@ -16,7 +19,7 @@ public class AppLibraryViewController: UIViewController, UITableViewDelegate, UI
     
     public override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .systemGroupedBackground
+        view.backgroundColor = UniSignTheme.pageBackground
         setupUI()
         updateTexts()
         refreshData()
@@ -29,7 +32,12 @@ public class AppLibraryViewController: UIViewController, UITableViewDelegate, UI
     }
     
     private func setupUI() {
-        navigationItem.rightBarButtonItem = UIBarButtonItem(barButtonSystemItem: .add, target: self, action: #selector(importNewItem))
+        navigationItem.rightBarButtonItem = UIBarButtonItem(
+            image: UIImage(systemName: "plus.circle.fill"),
+            style: .plain,
+            target: self,
+            action: #selector(importNewItem)
+        )
         
         segmentedControl.selectedSegmentIndex = 0
         segmentedControl.addTarget(self, action: #selector(segmentChanged), for: .valueChanged)
@@ -39,29 +47,68 @@ public class AppLibraryViewController: UIViewController, UITableViewDelegate, UI
         tableView.translatesAutoresizingMaskIntoConstraints = false
         tableView.delegate = self
         tableView.dataSource = self
+        tableView.backgroundColor = .clear
         tableView.rowHeight = UITableView.automaticDimension
-        tableView.estimatedRowHeight = 90
+        tableView.estimatedRowHeight = 84
+        tableView.separatorStyle = .singleLine
         view.addSubview(tableView)
+        
+        setupEmptyView()
+        
+        NSLayoutConstraint.activate([
+            segmentedControl.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 12),
+            segmentedControl.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+            segmentedControl.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            segmentedControl.heightAnchor.constraint(equalToConstant: 36),
+            
+            tableView.topAnchor.constraint(equalTo: segmentedControl.bottomAnchor, constant: 8),
+            tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        ])
+    }
+    
+    private func setupEmptyView() {
+        emptyView.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(emptyView)
+        
+        let stack = UIStackView()
+        stack.axis = .vertical
+        stack.spacing = 14
+        stack.alignment = .center
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        emptyView.addSubview(stack)
+        
+        emptyIcon.image = UIImage(systemName: "shippingbox.fill")
+        emptyIcon.tintColor = .systemBlue
+        emptyIcon.contentMode = .scaleAspectFit
+        emptyIcon.translatesAutoresizingMaskIntoConstraints = false
+        emptyIcon.widthAnchor.constraint(equalToConstant: 50).isActive = true
+        emptyIcon.heightAnchor.constraint(equalToConstant: 50).isActive = true
+        stack.addArrangedSubview(emptyIcon)
         
         emptyLabel.numberOfLines = 0
         emptyLabel.textAlignment = .center
         emptyLabel.textColor = .secondaryLabel
         emptyLabel.font = .systemFont(ofSize: 14)
-        emptyLabel.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(emptyLabel)
+        stack.addArrangedSubview(emptyLabel)
+        
+        emptyImportButton.translatesAutoresizingMaskIntoConstraints = false
+        emptyImportButton.heightAnchor.constraint(equalToConstant: 44).isActive = true
+        emptyImportButton.widthAnchor.constraint(equalToConstant: 180).isActive = true
+        emptyImportButton.addTarget(self, action: #selector(importNewItem), for: .touchUpInside)
+        stack.addArrangedSubview(emptyImportButton)
         
         NSLayoutConstraint.activate([
-            segmentedControl.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 10),
-            segmentedControl.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
-            segmentedControl.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            emptyView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            emptyView.centerYAnchor.constraint(equalTo: view.centerYAnchor, constant: 20),
+            emptyView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 24),
+            emptyView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -24),
             
-            tableView.topAnchor.constraint(equalTo: segmentedControl.bottomAnchor, constant: 10),
-            tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-            
-            emptyLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            emptyLabel.centerYAnchor.constraint(equalTo: view.centerYAnchor)
+            stack.topAnchor.constraint(equalTo: emptyView.topAnchor, constant: 28),
+            stack.bottomAnchor.constraint(equalTo: emptyView.bottomAnchor, constant: -28),
+            stack.leadingAnchor.constraint(equalTo: emptyView.leadingAnchor, constant: 20),
+            stack.trailingAnchor.constraint(equalTo: emptyView.trailingAnchor, constant: -20)
         ])
     }
     
@@ -75,7 +122,8 @@ public class AppLibraryViewController: UIViewController, UITableViewDelegate, UI
         segmentedControl.setTitle(L("未签名包", "Unsigned IPAs"), forSegmentAt: 0)
         segmentedControl.setTitle(L("已签名应用", "Signed Apps"), forSegmentAt: 1)
         segmentedControl.setTitle(L("插件库", "Dylibs"), forSegmentAt: 2)
-        emptyLabel.text = L("暂无文件\n点击右上角 '+' 即可从文件 App 导入", "No files found.\nTap '+' above to import from Files app.")
+        emptyLabel.text = L("当前分类下暂无文件\n点击下方按钮即可直接从「文件」App 导入", "No files found.\nTap below to import files.")
+        emptyImportButton.setTitle(L("从文件导入", "Import Files"), for: .normal)
     }
     
     private func refreshData() {
@@ -85,12 +133,19 @@ public class AppLibraryViewController: UIViewController, UITableViewDelegate, UI
         
         let count: Int
         switch segmentedControl.selectedSegmentIndex {
-        case 0: count = unsignedIPAs.count
-        case 1: count = signedApps.count
-        case 2: count = dylibs.count
-        default: count = 0
+        case 0:
+            count = unsignedIPAs.count
+            emptyIcon.image = UIImage(systemName: "shippingbox.fill")
+        case 1:
+            count = signedApps.count
+            emptyIcon.image = UIImage(systemName: "checkmark.seal.fill")
+        case 2:
+            count = dylibs.count
+            emptyIcon.image = UIImage(systemName: "puzzlepiece.extension.fill")
+        default:
+            count = 0
         }
-        emptyLabel.isHidden = count > 0
+        emptyView.isHidden = count > 0
         tableView.reloadData()
     }
     
@@ -120,6 +175,7 @@ public class AppLibraryViewController: UIViewController, UITableViewDelegate, UI
             }
         }
         refreshData()
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
     }
     
     // MARK: - UITableView DataSource & Delegate
@@ -135,18 +191,25 @@ public class AppLibraryViewController: UIViewController, UITableViewDelegate, UI
     
     public func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = UITableViewCell(style: .subtitle, reuseIdentifier: "LibraryCell")
-        cell.accessoryType = .disclosureIndicator
+        cell.backgroundColor = UniSignTheme.cardBackground
+        cell.layer.cornerRadius = 14
+        cell.layer.masksToBounds = true
+        cell.textLabel?.font = .systemFont(ofSize: 16, weight: .bold)
         
         switch segmentedControl.selectedSegmentIndex {
         case 0:
             let ipa = unsignedIPAs[indexPath.row]
-            cell.imageView?.image = UIImage(systemName: "shippingbox")
+            cell.imageView?.image = UIImage(systemName: "shippingbox.circle.fill")
             cell.imageView?.tintColor = .systemBlue
             cell.textLabel?.text = ipa.lastPathComponent
             
             let fileSize = (try? FileManager.default.attributesOfItem(atPath: ipa.path)[.size] as? Int64) ?? 0
             let mb = Double(fileSize) / (1024 * 1024)
             cell.detailTextLabel?.text = String(format: L("未签原生包 • %.1f MB", "Raw IPA • %.1f MB"), mb)
+            cell.detailTextLabel?.textColor = .secondaryLabel
+            
+            let badge = PillBadge(text: L("待签名", "Ready"), style: .info)
+            cell.accessoryView = badge
             
         case 1:
             let app = signedApps[indexPath.row]
@@ -154,17 +217,31 @@ public class AppLibraryViewController: UIViewController, UITableViewDelegate, UI
             cell.imageView?.tintColor = app.isExpired ? .systemRed : .systemGreen
             cell.textLabel?.text = "\(app.name) (v\(app.version))"
             
-            let signTag = app.signMethod == "apple_id" ? "Apple ID (\(app.appleIDEmail ?? ""))" : L("P12 证书签名", "P12 Certificate")
-            let countdown = app.isExpired ? L("⚠️ 已过期", "EXPIRED") : "\(app.daysRemaining) " + L("天后到期", "days left")
-            cell.detailTextLabel?.text = "\(signTag) • \(countdown)\nBundle: \(app.bundleId)"
+            let signTag = app.signMethod == "apple_id" ? "Apple ID (\(app.appleIDEmail ?? ""))" : L("P12 商业签名", "P12 Cert")
+            cell.detailTextLabel?.text = "\(signTag)\nBundle: \(app.bundleId)"
+            cell.detailTextLabel?.textColor = .secondaryLabel
             cell.detailTextLabel?.numberOfLines = 2
+            
+            let badge: PillBadge
+            if app.isExpired {
+                badge = PillBadge(text: L("已过期", "Expired"), style: .danger)
+            } else if app.daysRemaining <= 1 {
+                badge = PillBadge(text: L("剩 1 天", "1 Day"), style: .warning)
+            } else {
+                badge = PillBadge(text: "\(app.daysRemaining) " + L("天有效", "Days"), style: .success)
+            }
+            cell.accessoryView = badge
             
         case 2:
             let dylib = dylibs[indexPath.row]
-            cell.imageView?.image = UIImage(systemName: "puzzlepiece.extension")
+            cell.imageView?.image = UIImage(systemName: "puzzlepiece.extension.fill")
             cell.imageView?.tintColor = .systemPurple
             cell.textLabel?.text = dylib.lastPathComponent
-            cell.detailTextLabel?.text = L("Mach-O 动态库插件 (.dylib)", "Mach-O Dynamic Library (.dylib)")
+            cell.detailTextLabel?.text = L("Mach-O 动态库插件", "Dynamic Library Plugin")
+            cell.detailTextLabel?.textColor = .secondaryLabel
+            
+            let badge = PillBadge(text: L("插件", "Tweak"), style: .info)
+            cell.accessoryView = badge
             
         default:
             break
@@ -190,7 +267,7 @@ public class AppLibraryViewController: UIViewController, UITableViewDelegate, UI
             let dylib = dylibs[indexPath.row]
             let alert = UIAlertController(
                 title: dylib.lastPathComponent,
-                message: L("已导入的动态库插件，支持在签名页面自由勾选注入。", "Imported tweak plugin. Ready to inject into any IPA."),
+                message: L("已导入的动态库插件，可在「签名与定制」页面自由选择注入到任何 IPA。", "Imported tweak plugin. Selectable for injection during signing."),
                 preferredStyle: .actionSheet
             )
             alert.addAction(UIAlertAction(title: L("删除插件", "Delete Plugin"), style: .destructive, handler: { [weak self] _ in
@@ -206,42 +283,28 @@ public class AppLibraryViewController: UIViewController, UITableViewDelegate, UI
     }
     
     private func showSignedAppActionSheet(app: SignedAppRecord) {
-        let statusStr = app.isExpired ? L("已过期", "Expired") : "\(app.daysRemaining) " + L("天后到期", "days remaining")
         let sheet = UIAlertController(
-            title: app.name,
-            message: "Bundle ID: \(app.bundleId)\n" + L("状态", "Status") + ": \(statusStr)",
+            title: "\(app.name) (v\(app.version))",
+            message: "\(L("状态", "Status")): \(app.isExpired ? L("已过期", "Expired") : "\(app.daysRemaining) " + L("天后到期", "days remaining"))\nBundle ID: \(app.bundleId)",
             preferredStyle: .actionSheet
         )
         
-        // 1. Install
-        sheet.addAction(UIAlertAction(title: L("🚀 本地安装应用 (OTA 免越狱)", "🚀 Install App (OTA)"), style: .default, handler: { _ in
-            let ipaURL = AppLibraryManager.shared.signedDir.appendingPathComponent(app.fileName)
-            LocalInstallServer.shared.startServing(ipaURL: ipaURL, bundleID: app.bundleId, version: app.version, title: app.name) { result in
-                DispatchQueue.main.async {
-                    if case .success(let url) = result {
-                        UIApplication.shared.open(url, options: [:], completionHandler: nil)
-                    }
-                }
-            }
+        sheet.addAction(UIAlertAction(title: "📲 " + L("本地免数据线安装 (OTA)", "Install Locally (OTA)"), style: .default, handler: { [weak self] _ in
+            self?.installApp(app)
         }))
         
-        // 2. 1-Click Renew (if Apple ID)
         if app.signMethod == "apple_id" {
-            sheet.addAction(UIAlertAction(title: L("🔄 一键续期 (刷新7天有效期)", "🔄 1-Click Renew (7-Day Extension)"), style: .default, handler: { [weak self] _ in
-                self?.performRenewal(for: app)
+            sheet.addAction(UIAlertAction(title: "⚡️ " + L("一键重新续签 7 天", "Renew 7 Days"), style: .default, handler: { [weak self] _ in
+                self?.renewApp(app)
             }))
         }
         
-        // 3. Share / Export
-        sheet.addAction(UIAlertAction(title: L("📤 导出 / 分享 IPA 包", "📤 Share / Export IPA"), style: .default, handler: { [weak self] _ in
-            let ipaURL = AppLibraryManager.shared.signedDir.appendingPathComponent(app.fileName)
-            let activity = UIActivityViewController(activityItems: [ipaURL], applicationActivities: nil)
-            self?.present(activity, animated: true)
+        sheet.addAction(UIAlertAction(title: "📤 " + L("导出 / 分享 IPA 包", "Share IPA File"), style: .default, handler: { [weak self] _ in
+            self?.shareApp(app)
         }))
         
-        // 4. Delete
-        sheet.addAction(UIAlertAction(title: L("删除应用", "Delete"), style: .destructive, handler: { [weak self] _ in
-            AppLibraryManager.shared.removeSignedApp(id: app.id)
+        sheet.addAction(UIAlertAction(title: L("删除已签名应用", "Delete App"), style: .destructive, handler: { [weak self] _ in
+            AppLibraryManager.shared.deleteSignedApp(id: app.id)
             self?.refreshData()
         }))
         
@@ -249,42 +312,76 @@ public class AppLibraryViewController: UIViewController, UITableViewDelegate, UI
         present(sheet, animated: true)
     }
     
-    private func performRenewal(for app: SignedAppRecord) {
-        let alert = UIAlertController(
-            title: L("正在续期...", "Renewing..."),
-            message: L("正在向苹果服务器重新申请描述文件并静默重签...", "Requesting fresh Apple certificate & renewing profile..."),
-            preferredStyle: .alert
-        )
-        present(alert, animated: true)
+    private func installApp(_ app: SignedAppRecord) {
+        let ipaURL = URL(fileURLWithPath: app.filePath)
+        guard FileManager.default.fileExists(atPath: ipaURL.path) else {
+            let alert = UIAlertController(title: L("错误", "Error"), message: L("找不到对应的 IPA 文件！", "IPA file not found!"), preferredStyle: .alert)
+            alert.addAction(UIAlertAction(title: L("好", "OK"), style: .default))
+            present(alert, animated: true)
+            return
+        }
         
-        RenewalService.shared.renewApp(record: app, progress: { _, msg in
-            DispatchQueue.main.async {
-                alert.message = msg
-            }
-        }) { [weak self] result in
-            DispatchQueue.main.async {
-                alert.dismiss(animated: true) {
-                    switch result {
-                    case .success(let updated):
-                        let successAlert = UIAlertController(
-                            title: L("续期成功！", "Renewed Successfully!"),
-                            message: "\(updated.name) " + L("已成功续期 7 天有效时长。", "has been renewed with fresh 7-day validity."),
-                            preferredStyle: .alert
-                        )
-                        successAlert.addAction(UIAlertAction(title: L("好", "OK"), style: .default))
-                        self?.present(successAlert, animated: true)
-                        self?.refreshData()
-                    case .failure(let err):
-                        let errAlert = UIAlertController(
-                            title: L("续期失败", "Renewal Failed"),
-                            message: err.localizedDescription,
-                            preferredStyle: .alert
-                        )
-                        errAlert.addAction(UIAlertAction(title: L("好", "OK"), style: .default))
-                        self?.present(errAlert, animated: true)
-                    }
+        do {
+            try LocalInstallServer.shared.start()
+            let installURL = LocalInstallServer.shared.generateInstallURL(
+                ipaURL: ipaURL,
+                bundleID: app.bundleId,
+                title: app.name
+            )
+            UIApplication.shared.open(installURL, options: [:]) { success in
+                if success {
+                    UINotificationFeedbackGenerator().notificationOccurred(.success)
                 }
             }
+        } catch {
+            let alert = UIAlertController(title: L("安装服务启动失败", "Server Start Failed"), message: error.localizedDescription, preferredStyle: .alert)
+            alert.addAction(UIAlertAction(title: L("好", "OK"), style: .default))
+            present(alert, animated: true)
+        }
+    }
+    
+    private func renewApp(_ app: SignedAppRecord) {
+        ProgressHUD.shared.show(in: view, title: L("正在一键续期...", "Renewing..."), detail: app.name)
+        RenewalService.shared.renewSignedApp(app) { [weak self] result in
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                ProgressHUD.shared.hide()
+                switch result {
+                case .success(let renewed):
+                    UINotificationFeedbackGenerator().notificationOccurred(.success)
+                    let alert = UIAlertController(title: L("续期成功", "Renewed"), message: "\(renewed.name) " + L("已成功续期 7 天！", "has been renewed for 7 days!"), preferredStyle: .alert)
+                    alert.addAction(UIAlertAction(title: L("好", "OK"), style: .default))
+                    self.present(alert, animated: true)
+                    self.refreshData()
+                case .failure(let err):
+                    UINotificationFeedbackGenerator().notificationOccurred(.error)
+                    let alert = UIAlertController(title: L("续期失败", "Renewal Failed"), message: err.localizedDescription, preferredStyle: .alert)
+                    alert.addAction(UIAlertAction(title: L("好", "OK"), style: .default))
+                    self.present(alert, animated: true)
+                }
+            }
+        }
+    }
+    
+    private func shareApp(_ app: SignedAppRecord) {
+        let ipaURL = URL(fileURLWithPath: app.filePath)
+        let avc = UIActivityViewController(activityItems: [ipaURL], applicationActivities: nil)
+        present(avc, animated: true)
+    }
+    
+    public func tableView(_ tableView: UITableView, commit editingStyle: UITableViewCell.EditingStyle, forRowAt indexPath: IndexPath) {
+        if editingStyle == .delete {
+            switch segmentedControl.selectedSegmentIndex {
+            case 0:
+                AppLibraryManager.shared.deleteUnsignedIPA(url: unsignedIPAs[indexPath.row])
+            case 1:
+                AppLibraryManager.shared.deleteSignedApp(id: signedApps[indexPath.row].id)
+            case 2:
+                AppLibraryManager.shared.deleteDylib(url: dylibs[indexPath.row])
+            default:
+                break
+            }
+            refreshData()
         }
     }
     

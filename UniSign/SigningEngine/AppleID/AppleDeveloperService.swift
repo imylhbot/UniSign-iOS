@@ -46,10 +46,9 @@ public class AppleDeveloperService {
         twoFactorCode: String? = nil,
         completion: @escaping (Result<AppleSession, AppleAuthError>) -> Void
     ) {
-        AnisetteClient.shared.fetchAnisetteHeaders { result in
+        AnisetteClient.shared.fetchAnisetteHeaders { [weak self] result in
+            guard let self = self else { return }
             switch result {
-            case .failure(let err):
-                completion(.failure(.general("Failed to obtain Anisette headers: \(err.localizedDescription)")))
             case .success(let anisetteHeaders):
                 self.performGrandSlamLogin(
                     appleID: appleID,

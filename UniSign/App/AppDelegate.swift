@@ -11,8 +11,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             // SceneDelegate handles window configuration on iOS 13+
         } else {
             window = UIWindow(frame: UIScreen.main.bounds)
-            window?.rootViewController = MainTabBarController()
             window?.makeKeyAndVisible()
+        }
+        
+        // Trigger lightweight network warm-up for domestic network permission prompt
+        if let checkURL = URL(string: "http://captive.apple.com/hotspot-detect.html") {
+            URLSession.shared.dataTask(with: checkURL).resume()
         }
         return true
     }
