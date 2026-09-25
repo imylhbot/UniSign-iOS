@@ -54,13 +54,43 @@ public class LocalInstallServer {
         self.isRunning = true
     }
     
-    /// Generates local itms-services manifest URL for 1-click installation
+    /// Generates local itms-services manifest URL or LAN download URL
     public func generateInstallURL(ipaURL: URL, bundleID: String, title: String, version: String = "1.0.0") -> URL {
         self.currentIPAURL = ipaURL
         self.currentBundleID = bundleID
         self.currentTitle = title
         self.currentVersion = version
-        return URL(string: "itms-services://?action=download-manifest&url=http://127.0.0.1:\(port)/manifest.plist")!
+        let host = LocalInstallServer.getWiFiIPAddress() ?? "127.0.0.1"
+        return URL(string: "http://\(host):\(port)/")!
+    }
+    
+    /// Gets current Wi-Fi LAN IP address (en0)
+    public static func getWiFiIPAddress() -> String? {
+        var address: String?
+        var ifaddr: UnsafeMutablePointer<ifaddrs>?
+        guard getifaddrs(&ifaddr) == 0, let firstAddr = ifaddr else { return nil }
+        defer { freeifaddrs(ifaddr) }
+        
+        for ptr in sequence(first: firstAddr, by: { $0.pointee.ifa_next }) {
+            let flags = Int32(ptr.pointee.ifa_flags)
+            let addr = ptr.pointee.ifa_addr.pointee
+            
+            if addr.sa_family == UInt8(AF_INET) && (flags & IFF_LOOPBACK) == 0 {
+                let name = String(cString: ptr.pointee.ifa_name)
+                if name == "en0" {
+                    var hostname = [CChar](repeating: 0, count: Int(NI_MAXHOST))
+                    getnameinfo(ptr.pointee.ifa_addr, socklen_t(addr.sa_len), &hostname, socklen_t(hostname.count), nil, socklen_t(0), NI_NUMERICHOST)
+                    address = String(cString: hostname)
+                    break
+                }
+            }
+        }
+        return address
+    }
+    
+    public func getShareURL() -> String {
+        let host = LocalInstallServer.getWiFiIPAddress() ?? "127.0.0.1"
+        return "http://\(host):\(port)"
     }
     
     /// Starts serving the specified IPA for local installation
@@ -161,12 +191,55 @@ public class LocalInstallServer {
                     connection.cancel()
                 }))
             } else {
-                let ok = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 13\r\n\r\nUniSign Ready"
-                connection.send(content: ok.data(using: .utf8), contentContext: .defaultMessage, isComplete: true, completion: .contentProcessed({ _ in
+                let html = self.generateDownloadHTML()
+                let response = "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: \(html.utf8.count)\r\nConnection: close\r\n\r\n\(html)"
+                connection.send(content: response.data(using: .utf8), contentContext: .defaultMessage, isComplete: true, completion: .contentProcessed({ _ in
                     connection.cancel()
                 }))
             }
         }
+    }
+    
+    private func generateDownloadHTML() -> String {
+        return """
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>UniSign 局域网传输中心</title>
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0F172A; color: #F8FAFC; text-align: center; padding: 40px 20px; margin: 0; }
+            .card { background: #1E293B; border-radius: 20px; max-width: 480px; margin: 0 auto; padding: 32px 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border: 1px solid #334155; }
+            .icon { font-size: 52px; margin-bottom: 12px; }
+            h1 { font-size: 22px; margin: 0 0 8px 0; color: #38BDF8; font-weight: bold; }
+            p { font-size: 14px; color: #94A3B8; line-height: 1.6; margin: 0 0 24px 0; }
+            .btn { display: inline-block; background: linear-gradient(135deg, #10B981, #059669); color: white; text-decoration: none; padding: 14px 28px; border-radius: 12px; font-weight: bold; font-size: 16px; margin: 8px 0; box-shadow: 0 4px 15px rgba(16,185,129,0.3); }
+            .guide { text-align: left; background: #0F172A; padding: 18px; border-radius: 12px; font-size: 13px; color: #CBD5E1; margin-top: 24px; border: 1px solid #334155; }
+            .guide ol { margin: 8px 0 0 0; padding-left: 20px; line-height: 1.6; }
+            .guide li { margin-bottom: 6px; }
+            .badge { display: inline-block; background: #0284C7; color: white; font-size: 11px; padding: 2px 8px; border-radius: 10px; margin-top: 4px; }
+          </style>
+        </head>
+        <body>
+          <div class="card">
+            <div class="icon">📦</div>
+            <h1>\(currentTitle)</h1>
+            <div><span class="badge">v\(currentVersion)</span></div>
+            <p style="margin-top: 10px;">Bundle ID: <code>\(currentBundleID)</code><br>应用已签名完成，支持本地直接传输！</p>
+            <a href="/app.ipa" class="btn" download="\(currentTitle).ipa">📥 一键下载已签名 IPA</a>
+            <div class="guide">
+              <strong style="color: #38BDF8;">💻 电脑端 100% 极速直装指南：</strong>
+              <ol>
+                <li>在电脑上双击运行 <code>UniSign-Helper/run_helper.bat</code>。</li>
+                <li>用数据线将 iPhone 连接到电脑。</li>
+                <li>下载上方 IPA 并在电脑端点击「一键直装」秒速完成安装！</li>
+              </ol>
+            </div>
+          </div>
+        </body>
+        </html>
+        """
     }
     
     private func generateManifestXML() -> String {

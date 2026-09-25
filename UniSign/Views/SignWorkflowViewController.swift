@@ -1335,41 +1335,70 @@ public class SignWorkflowViewController: UIViewController, UIDocumentPickerDeleg
         let destDesc = isSigned ? L("已存入「应用资源库 - 已签名应用」", "Saved to App Library - Signed Apps") : L("已存入「应用资源库 - 未签名应用」", "Saved to App Library - Unsigned Apps")
         let sheet = UIAlertController(
             title: title,
-            message: "\(name)\n\(destDesc)，" + L("请选择安装方式：", "Select install method:"),
+            message: "\(name)\n\(destDesc)，" + L("请选择安装或导出方式：", "Select install or export method:"),
             preferredStyle: .actionSheet
         )
         
-        // 1. TrollStore 巨魔直接安装 (100% 成功率且无证书到期风险)
-        sheet.addAction(UIAlertAction(title: "⚡ " + L("使用 TrollStore (巨魔) 一键安装", "Install via TrollStore"), style: .default, handler: { [weak self] _ in
-            guard let self = self else { return }
-            let tsURLString = "apple-magnifier://install?url=\(ipaURL.path.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")"
-            if let tsURL = URL(string: tsURLString), UIApplication.shared.canOpenURL(tsURL) {
-                UIApplication.shared.open(tsURL, options: [:], completionHandler: nil)
-            } else {
-                self.openInOtherApp(ipaURL)
-            }
+        // 1. 导出 / 分享 IPA 文件
+        sheet.addAction(UIAlertAction(title: "📤 " + L("导出 / 分享 IPA 文件", "Share IPA File"), style: .default, handler: { [weak self] _ in
+            let avc = UIActivityViewController(activityItems: [ipaURL], applicationActivities: nil)
+            self?.present(avc, animated: true)
         }))
         
-        // 2. 在其他应用中打开 (TrollStore / 存入文件 / 隔空投送)
-        sheet.addAction(UIAlertAction(title: "📤 " + L("在其他应用中打开 / 存入文件 / AirDrop", "Open in... / Save to Files / AirDrop"), style: .default, handler: { [weak self] _ in
+        // 2. 在其他应用中打开 / 存入「文件」App
+        sheet.addAction(UIAlertAction(title: "📁 " + L("在其他应用中打开 / 存入「文件」App", "Open in... / Save to Files"), style: .default, handler: { [weak self] _ in
             self?.openInOtherApp(ipaURL)
         }))
         
-        // 3. 本地 OTA 无线安装
-        sheet.addAction(UIAlertAction(title: "📲 " + L("尝试本机无线安装 (OTA 服务)", "Install via Local OTA Server"), style: .default, handler: { [weak self] _ in
-            self?.performOTAInstall(ipaURL: ipaURL, name: name, bundleID: bundleID)
-        }))
-        
-        // 4. 电脑端 USB 助手说明
-        sheet.addAction(UIAlertAction(title: "💻 " + L("通过电脑端 UniSign 助手 USB 极速安装", "Install via PC UniSign Helper"), style: .default, handler: { [weak self] _ in
+        // 3. 电脑端 USB 助手极速直装 (推荐，彻底免除 127.0.0.1 困扰)
+        sheet.addAction(UIAlertAction(title: "💻 " + L("通过电脑端 USB 助手极速直装 (推荐)", "Install via PC USB Helper"), style: .default, handler: { [weak self] _ in
             let alert = UIAlertController(
-                title: L("电脑端 USB 极速直装", "PC USB Install"),
-                message: L("在电脑上双击运行 UniSign-Helper/run_helper.bat，用数据线连接手机，点击「一键直装」，即可 100% 成功秒速安装到手机！", "Run run_helper.bat on PC, connect phone via USB, and 1-click install."),
+                title: "💻 " + L("电脑端 USB 助手秒速直装", "PC USB 1-Click Install"),
+                message: L("1. 在电脑端解压并运行 UniSign-Helper-Windows（或双击 run_helper.bat）。\n2. 手机用数据线连接电脑（支持全系 iOS 13~18，无需越狱）。\n3. 将已签名的 IPA 拖入电脑端，点击「一键直装」，即可 100% 成功秒速安装到手机上，完全免除系统证书验证与 127.0.0.1 错误！", "Run UniSign-Helper on PC, connect phone via USB, and 1-click install."),
                 preferredStyle: .alert
             )
             alert.addAction(UIAlertAction(title: L("知道了", "Got it"), style: .default))
             self?.present(alert, animated: true)
         }))
+        
+        // 4. 局域网 Wi-Fi 网页投送下载 (电脑浏览器输入地址直接下载)
+        sheet.addAction(UIAlertAction(title: "🌐 " + L("开启局域网 Wi-Fi 网页投送下载", "LAN Wi-Fi Web Transfer"), style: .default, handler: { [weak self] _ in
+            guard let self = self else { return }
+            do {
+                try LocalInstallServer.shared.start()
+                let shareURL = LocalInstallServer.shared.getShareURL()
+                _ = LocalInstallServer.shared.generateInstallURL(ipaURL: ipaURL, bundleID: bundleID, title: name)
+                
+                let alert = UIAlertController(
+                    title: "🌐 " + L("局域网传输已就绪", "LAN Transfer Ready"),
+                    message: "\(L("请在同 Wi-Fi 下的电脑或其它设备浏览器中打开：", "Open this address in any browser on the same Wi-Fi:\n"))\n\(shareURL)\n\n" + L("网页将提供已签名 IPA 的一键下载，并支持拖入电脑端直接安装！", "Download IPA directly from the webpage."),
+                    preferredStyle: .alert
+                )
+                alert.addAction(UIAlertAction(title: L("复制链接", "Copy Link"), style: .default, handler: { _ in
+                    UIPasteboard.general.string = shareURL
+                    UINotificationFeedbackGenerator().notificationOccurred(.success)
+                }))
+                alert.addAction(UIAlertAction(title: L("完成", "Done"), style: .cancel))
+                self.present(alert, animated: true)
+            } catch {
+                let alert = UIAlertController(title: L("服务启动异常", "Server Error"), message: error.localizedDescription, preferredStyle: .alert)
+                alert.addAction(UIAlertAction(title: L("好", "OK"), style: .default))
+                self.present(alert, animated: true)
+            }
+        }))
+        
+        // 5. 巨魔安装 (仅在设备存在巨魔时展示)
+        let tsURL = URL(string: "apple-magnifier://")
+        if let ts = tsURL, UIApplication.shared.canOpenURL(ts) {
+            sheet.addAction(UIAlertAction(title: "⚡ " + L("使用 TrollStore (巨魔) 一键安装", "Install via TrollStore"), style: .default, handler: { [weak self] _ in
+                let tsInstall = "apple-magnifier://install?url=\(ipaURL.path.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")"
+                if let url = URL(string: tsInstall) {
+                    UIApplication.shared.open(url, options: [:], completionHandler: nil)
+                } else {
+                    self?.openInOtherApp(ipaURL)
+                }
+            }))
+        }
         
         sheet.addAction(UIAlertAction(title: L("完成", "Done"), style: .cancel))
         present(sheet, animated: true)
@@ -1381,31 +1410,6 @@ public class SignWorkflowViewController: UIViewController, UIDocumentPickerDeleg
         if !docController!.presentOpenInMenu(from: view.bounds, in: view, animated: true) {
             let avc = UIActivityViewController(activityItems: [url], applicationActivities: nil)
             present(avc, animated: true)
-        }
-    }
-    
-    private func performOTAInstall(ipaURL: URL, name: String, bundleID: String) {
-        do {
-            try LocalInstallServer.shared.start()
-            let installURL = LocalInstallServer.shared.generateInstallURL(ipaURL: ipaURL, bundleID: bundleID, title: name)
-            UIApplication.shared.open(installURL, options: [:]) { success in
-                if !success {
-                    let alert = UIAlertController(
-                        title: L("无线安装提示", "OTA Notice"),
-                        message: L("iOS 系统限制蜂窝移动网络下可能无法连接 127.0.0.1。请确保连接同一局域网 Wi-Fi，或使用「TrollStore 巨魔安装 / 存入文件」方式安装。", "iOS may restrict 127.0.0.1 on cellular 5G. Please connect to Wi-Fi or use TrollStore / Open In."),
-                        preferredStyle: .alert
-                    )
-                    alert.addAction(UIAlertAction(title: "⚡ " + L("改用 TrollStore / 其他应用打开", "Use TrollStore / Open In"), style: .default, handler: { [weak self] _ in
-                        self?.openInOtherApp(ipaURL)
-                    }))
-                    alert.addAction(UIAlertAction(title: L("好", "OK"), style: .cancel))
-                    self.present(alert, animated: true)
-                }
-            }
-        } catch {
-            let alert = UIAlertController(title: L("本地服务启动失败", "Server Failed"), message: error.localizedDescription, preferredStyle: .alert)
-            alert.addAction(UIAlertAction(title: L("好", "OK"), style: .default))
-            present(alert, animated: true)
         }
     }
     

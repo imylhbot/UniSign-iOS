@@ -245,6 +245,10 @@ public class PillBadge: UIView {
         super.init(coder: coder)
     }
     
+    public func configure(text: String, style: Style) {
+        update(text: text, style: style)
+    }
+    
     public func update(text: String, style: Style) {
         label.text = text
         switch style {

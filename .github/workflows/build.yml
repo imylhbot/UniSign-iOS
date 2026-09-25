@@ -1,4 +1,4 @@
-name: Manual Build & Release UniSign IPA
+name: Build & Release UniSign iOS & PC Helper
 
 # Triggers: Push to main or manually via GitHub Actions web UI
 on:
@@ -13,14 +13,15 @@ on:
       release_title:
         description: 'Release Title'
         required: false
-        default: 'UniSign iOS Release'
+        default: 'UniSign iOS & PC Helper Release'
 
 # Grant GITHUB_TOKEN write access to create releases and upload assets
 permissions:
   contents: write
 
 jobs:
-  build:
+  build-ios:
+    name: Build iOS IPA
     runs-on: macos-14
     permissions:
       contents: write
@@ -72,24 +73,86 @@ jobs:
           path: UniSign.ipa
           retention-days: 14
 
-      - name: Create GitHub Release and Upload IPA
-        if: github.event_name == 'workflow_dispatch'
+  build-pc-helper:
+    name: Build Windows PC Helper
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install PySide6 cryptography requests pycryptodome pyinstaller
+
+      - name: Build UniSign-Helper.exe
+        run: |
+          cd UniSign-Helper
+          pyinstaller --onefile --noconsole --name "UniSign-Helper" unisign_helper_gui.py
+
+      - name: Package Windows ZIP
+        shell: pwsh
+        run: |
+          cd UniSign-Helper
+          New-Item -ItemType Directory -Force -Path package
+          Copy-Item dist\UniSign-Helper.exe package\
+          Copy-Item run_helper.bat package\
+          Copy-Item README.md package\
+          Compress-Archive -Path package\* -DestinationPath ..\UniSign-Helper-Windows.zip -Force
+
+      - name: Upload Windows Helper to Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: UniSign-Helper-Windows
+          path: UniSign-Helper-Windows.zip
+          retention-days: 14
+
+  release:
+    name: Create GitHub Release
+    needs: [build-ios, build-pc-helper]
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download iOS IPA Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: UniSign-IPA
+
+      - name: Download Windows PC Helper Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: UniSign-Helper-Windows
+
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         continue-on-error: true
         with:
           tag_name: ${{ github.event.inputs.version_tag || 'v1.0.0' }}
-          name: ${{ github.event.inputs.release_title || 'UniSign iOS Release' }} (${{ github.event.inputs.version_tag || 'v1.0.0' }})
+          name: ${{ github.event.inputs.release_title || 'UniSign iOS & PC Helper Release' }} (${{ github.event.inputs.version_tag || 'v1.0.0' }})
           body: |
-            ## UniSign-iOS 安装包发布
-            
+            ## UniSign-iOS & PC 助手官方发布
+
             - **版本**: ${{ github.event.inputs.version_tag || 'v1.0.0' }}
-            - **兼容性**: iOS 13.0 及以上设备
-            - **特性**: 纯手机端本地免越狱重签、多 Apple ID 切换、7天免费证书一键续期、3-app 配额限制统计、P12 有效期检测、插件注入与文件访问开启。
-            
-            ### 📱 安装方式：
-            - 下载下方 Assets 中的 `UniSign.ipa`。
-            - 使用 **TrollStore（巨魔）**、**AltStore**、**SideStore** 或 **牛蛙助手** 直接安装到手机即可使用。
-          files: UniSign.ipa
+            - **iOS 客户端**: `UniSign.ipa`（iOS 13.0+，支持纯手机端重签、多账号切换、7天续期、批量续期、配置定制）。
+            - **PC 电脑端助手**: `UniSign-Helper-Windows.zip`（Windows 10/11，解压即用，支持 USB 一键直装已签名 IPA、iOS 16+ 开发者模式一键激活）。
+
+            ### 💻 PC 客户端使用方法：
+            1. 下载 `UniSign-Helper-Windows.zip` 并解压。
+            2. 运行 `UniSign-Helper.exe`（或双击 `run_helper.bat`）。
+            3. 数据线连接手机，拖入已签名 IPA，点击「一键直装」秒速完成安装！
+          files: |
+            UniSign.ipa
+            UniSign-Helper-Windows.zip
           draft: false
           prerelease: false
         env:

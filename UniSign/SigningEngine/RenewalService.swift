@@ -102,4 +102,71 @@ public class RenewalService {
             }
         }
     }
+    
+    /// Batch renews all Apple ID signed apps sequentially
+    public func renewAllSignedApps(
+        progress: @escaping (Int, Int, String) -> Void,
+        completion: @escaping ([SignedAppRecord], [String]) -> Void
+    ) {
+        let apps = AppLibraryManager.shared.getSignedApps().filter { $0.signMethod == "apple_id" }
+        guard !apps.isEmpty else {
+            completion([], [])
+            return
+        }
+        
+        var renewed: [SignedAppRecord] = []
+        var failures: [String] = []
+        
+        func processNext(index: Int) {
+            if index >= apps.count {
+                DispatchQueue.main.async {
+                    completion(renewed, failures)
+                }
+                return
+            }
+            let app = apps[index]
+            DispatchQueue.main.async {
+                progress(index + 1, apps.count, "正在续签 (\(index + 1)/\(apps.count)): \(app.name)...")
+            }
+            renewApp(record: app, progress: { _, _ in }) { res in
+                switch res {
+                case .success(let updated):
+                    renewed.append(updated)
+                case .failure(let err):
+                    failures.append("\(app.name): \(err.localizedDescription)")
+                }
+                processNext(index: index + 1)
+            }
+        }
+        processNext(index: 0)
+    }
+    
+    /// Automatically renews any app that will expire within given hours (default 24h / 1 day)
+    public func autoRenewExpiringAppsIfNeeded(withinHours: Int = 24, completion: (([SignedAppRecord]) -> Void)? = nil) {
+        let apps = AppLibraryManager.shared.getSignedApps().filter { $0.signMethod == "apple_id" }
+        let threshold = Date().addingTimeInterval(TimeInterval(withinHours * 3600))
+        let expiringApps = apps.filter { $0.expiryDate <= threshold }
+        guard !expiringApps.isEmpty else {
+            completion?([])
+            return
+        }
+        
+        var renewed: [SignedAppRecord] = []
+        func processNext(index: Int) {
+            if index >= expiringApps.count {
+                DispatchQueue.main.async {
+                    completion?(renewed)
+                }
+                return
+            }
+            let app = expiringApps[index]
+            renewApp(record: app, progress: { _, _ in }) { res in
+                if case .success(let updated) = res {
+                    renewed.append(updated)
+                }
+                processNext(index: index + 1)
+            }
+        }
+        processNext(index: 0)
+    }
 }
