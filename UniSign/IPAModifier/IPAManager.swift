@@ -77,12 +77,12 @@ public class IPAManager {
         completion: @escaping (Result<URL, Error>) -> Void
     ) {
         var opts = PlistModifier.CustomizationOptions()
-        opts.newBundleID = newBundleId
-        opts.newDisplayName = newDisplayName
-        opts.newVersion = newVersion
-        opts.newMinimumOSVersion = newMinOSVersion
+        opts.bundleIdentifier = newBundleId
+        opts.displayName = newDisplayName
+        opts.versionString = newVersion
+        opts.minimumOSVersion = newMinOSVersion
         opts.enableFileSharing = enableFileSharing
-        opts.enableOpeningDocumentsInPlace = enableOpeningDocumentsInPlace
+        opts.enableDocumentInPlace = enableOpeningDocumentsInPlace
         
         let config = SignConfig(
             ipaURL: sourceIPA,

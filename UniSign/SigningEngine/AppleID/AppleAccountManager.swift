@@ -82,7 +82,7 @@ public class AppleAccountManager {
     
     public func removeAccount(id: String) {
         accounts.removeAll(where: { $0.id == id })
-        if let first = accounts.first, !accounts.contains(where: { $0.isActive }) {
+        if !accounts.isEmpty && !accounts.contains(where: { $0.isActive }) {
             accounts[0].isActive = true
         }
         saveAccounts()

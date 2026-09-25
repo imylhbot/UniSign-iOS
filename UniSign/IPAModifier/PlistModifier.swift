@@ -35,6 +35,28 @@ public class PlistModifier {
             self.removeDeviceCapabilities = removeDeviceCapabilities
             self.customKeys = customKeys
         }
+        
+        // MARK: - Compatibility Aliases
+        public var newBundleID: String? {
+            get { bundleIdentifier }
+            set { bundleIdentifier = newValue }
+        }
+        public var newDisplayName: String? {
+            get { displayName }
+            set { displayName = newValue }
+        }
+        public var newVersion: String? {
+            get { versionString }
+            set { versionString = newValue }
+        }
+        public var newMinimumOSVersion: String? {
+            get { minimumOSVersion }
+            set { minimumOSVersion = newValue }
+        }
+        public var enableOpeningDocumentsInPlace: Bool {
+            get { enableDocumentInPlace }
+            set { enableDocumentInPlace = newValue }
+        }
     }
     
     public enum PlistError: LocalizedError {

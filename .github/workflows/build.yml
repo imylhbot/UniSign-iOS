@@ -1,7 +1,9 @@
 name: Manual Build & Release UniSign IPA
 
-# Only manually triggered via GitHub Actions web UI
+# Triggers: Push to main or manually via GitHub Actions web UI
 on:
+  push:
+    branches: [ main ]
   workflow_dispatch:
     inputs:
       version_tag:
@@ -71,15 +73,16 @@ jobs:
           retention-days: 14
 
       - name: Create GitHub Release and Upload IPA
+        if: github.event_name == 'workflow_dispatch'
         uses: softprops/action-gh-release@v2
         continue-on-error: true
         with:
-          tag_name: ${{ github.event.inputs.version_tag }}
-          name: ${{ github.event.inputs.release_title }} (${{ github.event.inputs.version_tag }})
+          tag_name: ${{ github.event.inputs.version_tag || 'v1.0.0' }}
+          name: ${{ github.event.inputs.release_title || 'UniSign iOS Release' }} (${{ github.event.inputs.version_tag || 'v1.0.0' }})
           body: |
             ## UniSign-iOS 安装包发布
             
-            - **版本**: ${{ github.event.inputs.version_tag }}
+            - **版本**: ${{ github.event.inputs.version_tag || 'v1.0.0' }}
             - **兼容性**: iOS 13.0 及以上设备
             - **特性**: 纯手机端本地免越狱重签、多 Apple ID 切换、7天免费证书一键续期、3-app 配额限制统计、P12 有效期检测、插件注入与文件访问开启。
             

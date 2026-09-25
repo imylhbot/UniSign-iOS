@@ -49,7 +49,7 @@ public class AnisetteClient {
     /// Traverses the mirror pool with timeout and automatically falls back to local synthesis.
     public func fetchAnisetteHeaders(completion: @escaping (Result<[String: String], Never>) -> Void) {
         if let custom = customServerString, let url = URL(string: custom) {
-            tryFetchFromURL(url, timeout: 5.0) { [weak self] result in
+            tryFetchFromURL(url, timeout: 5.0) { result in
                 switch result {
                 case .success(let headers):
                     completion(.success(headers))
