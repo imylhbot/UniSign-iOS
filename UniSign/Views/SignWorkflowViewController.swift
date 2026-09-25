@@ -391,10 +391,17 @@ public class SignWorkflowViewController: UIViewController, UIDocumentPickerDeleg
         let isAppleID = (signingMethodSegment.selectedSegmentIndex == 0)
         let activeAccount = AppleAccountManager.shared.getActiveAccount()
         
-        if isAppleID && activeAccount == nil {
-            showAlert("No active Apple ID found. Please add an Apple ID in the Certificates tab first, or switch to P12.")
-            signButton.isEnabled = true
-            return
+        if isAppleID {
+            guard let active = activeAccount else {
+                showAlert("No active Apple ID found. Please add an Apple ID in the Certificates tab first, or switch to P12.")
+                signButton.isEnabled = true
+                return
+            }
+            if AppleAccountManager.shared.hasReachedQuota(for: active.email) {
+                showAlert("⚠️ Apple ID Quota Full (3/3): The active Apple ID (\(active.email)) already has 3 active signed apps. Apple free accounts allow max 3 apps per device. Please delete an app from the Library or switch to another Apple ID in the Certs tab.")
+                signButton.isEnabled = true
+                return
+            }
         }
         
         let dummyP12 = FileManager.default.temporaryDirectory.appendingPathComponent("dev.p12")

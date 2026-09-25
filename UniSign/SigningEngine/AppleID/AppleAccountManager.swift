@@ -3,7 +3,7 @@ import Foundation
 public struct AppleAccount: Codable, Identifiable, Equatable {
     public let id: String
     public var email: String
-    public var password: String // Stored locally for silent 1-click renewal
+    public var password: String
     public var teamID: String?
     public var teamName: String?
     public var lastUsedDate: Date
@@ -28,12 +28,13 @@ public struct AppleAccount: Codable, Identifiable, Equatable {
     }
 }
 
-/// Manages multiple Apple ID accounts, persistence, and active account selection
+/// Manages multiple Apple ID accounts, persistence, active account selection, and 3-app quota tracking
 public class AppleAccountManager {
     public static let shared = AppleAccountManager()
     
     private let storageKey = "UniSign_SavedAppleAccounts"
     private var accounts: [AppleAccount] = []
+    public static let maxAppsPerAppleID: Int = 3
     
     public init() {
         loadAccounts()
@@ -76,6 +77,25 @@ public class AppleAccountManager {
             accounts[0].isActive = true
         }
         saveAccounts()
+    }
+    
+    // MARK: - Quota & App Tracking (3 Apps Limit)
+    
+    /// Returns the active number of apps signed by this specific Apple ID
+    public func activeAppsCount(for email: String) -> Int {
+        return signedApps(for: email).filter { !$0.isExpired }.count
+    }
+    
+    /// Returns all apps signed with this Apple ID
+    public func signedApps(for email: String) -> [SignedAppRecord] {
+        return AppLibraryManager.shared.getSignedApps().filter {
+            $0.appleIDEmail?.lowercased() == email.lowercased()
+        }
+    }
+    
+    /// Checks if the Apple ID has reached Apple's 3-app free sideloading limit
+    public func hasReachedQuota(for email: String) -> Bool {
+        return activeAppsCount(for: email) >= AppleAccountManager.maxAppsPerAppleID
     }
     
     private func loadAccounts() {

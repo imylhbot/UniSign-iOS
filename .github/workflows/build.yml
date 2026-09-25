@@ -26,10 +26,6 @@ jobs:
           sudo xcode-select -s /Applications/Xcode_15.4.app/Contents/Developer
           xcodebuild -version
 
-      - name: Install Dependencies
-        run: |
-          brew install openssl@3
-          echo "OpenSSL installed"
 
       - name: Build UniSign (Ad-Hoc / Sideloadable)
         run: |

@@ -14,7 +14,7 @@ public class CertificateManagerViewController: UIViewController, UIDocumentPicke
     
     // Apple ID Section Views
     private let appleIDView = UIStackView()
-    private let appleTableView = UITableView(frame: .zero, style: .plain)
+    private let appleTableView = UITableView(frame: .zero, style: .insetGrouped)
     private let addAccountButton = UIButton(type: .system)
     
     // UDID Section Views
@@ -56,9 +56,9 @@ public class CertificateManagerViewController: UIViewController, UIDocumentPicke
             segmentedControl.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
             
             containerView.topAnchor.constraint(equalTo: segmentedControl.bottomAnchor, constant: 16),
-            containerView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
-            containerView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
-            containerView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -16)
+            containerView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            containerView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            containerView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor)
         ])
         
         setupP12Section()
@@ -76,8 +76,8 @@ public class CertificateManagerViewController: UIViewController, UIDocumentPicke
         
         NSLayoutConstraint.activate([
             p12View.topAnchor.constraint(equalTo: containerView.topAnchor),
-            p12View.leadingAnchor.constraint(equalTo: containerView.leadingAnchor),
-            p12View.trailingAnchor.constraint(equalTo: containerView.trailingAnchor)
+            p12View.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 16),
+            p12View.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -16)
         ])
         
         importP12Button.setTitle("1. Import .p12 Certificate", for: .normal)
@@ -118,7 +118,7 @@ public class CertificateManagerViewController: UIViewController, UIDocumentPicke
     // MARK: - 2. Apple ID Section
     private func setupAppleIDSection() {
         appleIDView.axis = .vertical
-        appleIDView.spacing = 12
+        appleIDView.spacing = 10
         appleIDView.translatesAutoresizingMaskIntoConstraints = false
         containerView.addSubview(appleIDView)
         
@@ -129,18 +129,28 @@ public class CertificateManagerViewController: UIViewController, UIDocumentPicke
             appleIDView.bottomAnchor.constraint(equalTo: containerView.bottomAnchor)
         ])
         
+        let btnWrapper = UIView()
+        btnWrapper.translatesAutoresizingMaskIntoConstraints = false
         addAccountButton.setTitle("+ Add Apple ID Account", for: .normal)
         addAccountButton.backgroundColor = .systemOrange
         addAccountButton.setTitleColor(.white, for: .normal)
         addAccountButton.layer.cornerRadius = 10
+        addAccountButton.translatesAutoresizingMaskIntoConstraints = false
         addAccountButton.heightAnchor.constraint(equalToConstant: 44).isActive = true
         addAccountButton.addTarget(self, action: #selector(promptAddAppleAccount), for: .touchUpInside)
-        appleIDView.addArrangedSubview(addAccountButton)
+        btnWrapper.addSubview(addAccountButton)
+        
+        NSLayoutConstraint.activate([
+            addAccountButton.topAnchor.constraint(equalTo: btnWrapper.topAnchor),
+            addAccountButton.bottomAnchor.constraint(equalTo: btnWrapper.bottomAnchor),
+            addAccountButton.leadingAnchor.constraint(equalTo: btnWrapper.leadingAnchor, constant: 16),
+            addAccountButton.trailingAnchor.constraint(equalTo: btnWrapper.trailingAnchor, constant: -16)
+        ])
+        appleIDView.addArrangedSubview(btnWrapper)
         
         appleTableView.delegate = self
         appleTableView.dataSource = self
-        appleTableView.layer.cornerRadius = 10
-        appleTableView.backgroundColor = .secondarySystemGroupedBackground
+        appleTableView.backgroundColor = .clear
         appleIDView.addArrangedSubview(appleTableView)
     }
     
@@ -153,8 +163,8 @@ public class CertificateManagerViewController: UIViewController, UIDocumentPicke
         
         NSLayoutConstraint.activate([
             udidView.topAnchor.constraint(equalTo: containerView.topAnchor),
-            udidView.leadingAnchor.constraint(equalTo: containerView.leadingAnchor),
-            udidView.trailingAnchor.constraint(equalTo: containerView.trailingAnchor)
+            udidView.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 16),
+            udidView.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -16)
         ])
         
         let titleLabel = UILabel()
@@ -243,20 +253,18 @@ public class CertificateManagerViewController: UIViewController, UIDocumentPicke
         
         do {
             let info = try ZSignBridge.inspectP12(p12.path, password: p12PasswordField.text ?? "")
-            if let info = info {
-                let df = DateFormatter()
-                df.dateStyle = .medium
-                let expStr = info.expirationDate != nil ? df.string(from: info.expirationDate!) : "Unknown"
-                
-                var remainingDaysText = ""
-                if let expDate = info.expirationDate {
-                    let diff = Calendar.current.dateComponents([.day], from: Date(), to: expDate).day ?? 0
-                    remainingDaysText = diff > 0 ? "\(diff) days remaining" : "EXPIRED"
-                }
-                
-                certStatusLabel.text = "Valid Certificate:\nName: \(info.commonName ?? "Developer")\nExpires: \(expStr) (\(remainingDaysText))\nStatus: \(info.isExpired ? "EXPIRED" : "ACTIVE")"
-                certStatusLabel.textColor = info.isExpired ? .systemRed : .systemGreen
+            let df = DateFormatter()
+            df.dateStyle = .medium
+            let expStr = info.expirationDate != nil ? df.string(from: info.expirationDate!) : "Unknown"
+            
+            var remainingDaysText = ""
+            if let expDate = info.expirationDate {
+                let diff = Calendar.current.dateComponents([.day], from: Date(), to: expDate).day ?? 0
+                remainingDaysText = diff > 0 ? "\(diff) days remaining" : "EXPIRED"
             }
+            
+            certStatusLabel.text = "Valid Certificate:\nName: \(info.commonName ?? "Developer")\nExpires: \(expStr) (\(remainingDaysText))\nStatus: \(info.isExpired ? "EXPIRED" : "ACTIVE")"
+            certStatusLabel.textColor = info.isExpired ? .systemRed : .systemGreen
         } catch {
             certStatusLabel.text = "Verification failed: \(error.localizedDescription)"
             certStatusLabel.textColor = .systemRed
@@ -282,7 +290,7 @@ public class CertificateManagerViewController: UIViewController, UIDocumentPicke
     }
     
     @objc private func promptAddAppleAccount() {
-        let alert = UIAlertController(title: "Add Apple ID", message: "Enter credentials for 7-day on-device signing:", preferredStyle: .alert)
+        let alert = UIAlertController(title: "Add Apple ID", message: "Enter credentials for 7-day on-device signing (Max 3 apps per ID):", preferredStyle: .alert)
         alert.addTextField { $0.placeholder = "Apple ID (Email)" }
         alert.addTextField { $0.placeholder = "Password"; $0.isSecureTextEntry = true }
         alert.addTextField { $0.placeholder = "2FA Code (if prompted)" }
@@ -318,17 +326,50 @@ public class CertificateManagerViewController: UIViewController, UIDocumentPicke
     public func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = UITableViewCell(style: .subtitle, reuseIdentifier: "AppleAccCell")
         let acc = appleAccounts[indexPath.row]
+        let count = AppleAccountManager.shared.activeAppsCount(for: acc.email)
+        let isFull = count >= AppleAccountManager.maxAppsPerAppleID
+        
         cell.textLabel?.text = acc.email
-        cell.detailTextLabel?.text = "Team: \(acc.teamName ?? acc.teamID ?? "Personal Team") • \(acc.isActive ? "ACTIVE" : "Tap to Switch")"
-        cell.accessoryType = acc.isActive ? .checkmark : .none
+        
+        let quotaText = isFull ? "⚠️ Quota: 3/3 Full" : "Quota: \(count)/3 Apps"
+        let activeText = acc.isActive ? "• [ACTIVE SIGNER]" : "• Tap to Switch"
+        cell.detailTextLabel?.text = "Team: \(acc.teamName ?? acc.teamID ?? "Personal Team") • \(quotaText) \(activeText)"
+        cell.detailTextLabel?.textColor = isFull ? .systemRed : .secondaryLabel
+        cell.accessoryType = acc.isActive ? .checkmark : .detailButton
         return cell
+    }
+    
+    public func tableView(_ tableView: UITableView, accessoryButtonTappedForRowWith indexPath: IndexPath) {
+        showAppsForAccount(appleAccounts[indexPath.row])
     }
     
     public func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
         let acc = appleAccounts[indexPath.row]
-        AppleAccountManager.shared.setActiveAccount(id: acc.id)
-        reloadAppleAccounts()
+        
+        let sheet = UIAlertController(title: acc.email, message: "Quota: \(AppleAccountManager.shared.activeAppsCount(for: acc.email))/3 active apps", preferredStyle: .actionSheet)
+        sheet.addAction(UIAlertAction(title: "Set as Active Signing Account", style: .default, handler: { [weak self] _ in
+            AppleAccountManager.shared.setActiveAccount(id: acc.id)
+            self?.reloadAppleAccounts()
+        }))
+        sheet.addAction(UIAlertAction(title: "View Signed Apps (\(AppleAccountManager.shared.activeAppsCount(for: acc.email)))", style: .default, handler: { [weak self] _ in
+            self?.showAppsForAccount(acc)
+        }))
+        sheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        present(sheet, animated: true)
+    }
+    
+    private func showAppsForAccount(_ acc: AppleAccount) {
+        let signedApps = AppleAccountManager.shared.signedApps(for: acc.email)
+        let msg: String
+        if signedApps.isEmpty {
+            msg = "No apps currently signed with this Apple ID."
+        } else {
+            msg = signedApps.map { "• \($0.name) (v\($0.version)) - \($0.isExpired ? "Expired" : "\($0.daysRemaining)d left")" }.joined(separator: "\n")
+        }
+        let alert = UIAlertController(title: "Apps for \(acc.email)", message: msg, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        present(alert, animated: true)
     }
     
     public func tableView(_ tableView: UITableView, commit editingStyle: UITableViewCell.EditingStyle, forRowAt indexPath: IndexPath) {
