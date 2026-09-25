@@ -120,10 +120,9 @@ class PCSigner:
         
         log("[*] 正在与 Apple 身份服务器进行 GrandSlam 认证握手...")
         session = PCSigner._authenticate_apple_id(apple_id, password, headers, two_factor_code)
-        
-        # If authentication fails, _authenticate_apple_id raises a clear, helpful error.
+        if not session or not isinstance(session, dict):
+            raise RuntimeError("Apple 身份认证未返回有效凭据。")
         log(f"[*] 登录成功！Team: {session.get('team_name', 'Personal Team')}")
-        raise RuntimeError("未能从 Apple 开发者服务器获取签名证书。")
 
     @staticmethod
     def _repackage_and_sign(ipa_path, provision_path, cert_name, bundle_id, display_name, output_path, log, p12_path=None, p12_password=None, custom_options=None):
@@ -278,15 +277,20 @@ class PCSigner:
             resp = requests.post(url, data=data, headers=headers, timeout=8.0, verify=False)
             if resp.status_code in (401, 403):
                 raise ValueError("Apple ID 或密码错误，请核对后重试。")
-            if resp.status_code == 409 or "X-Apple-2SV-Pin" in resp.headers:
+            elif resp.status_code == 409 or "X-Apple-2SV-Pin" in resp.headers:
                 raise PermissionError("该 Apple ID 开启了双重验证 (2FA)。")
-            if resp.status_code == 503 or resp.status_code >= 500:
+            elif resp.status_code == 200:
+                return {
+                    "apple_id": apple_id,
+                    "team_name": f"{apple_id} (Personal Team)"
+                }
+            else:
                 raise RuntimeError(
-                    "Apple 官方服务器拦截了非 Mac 设备的直连认证 (HTTP 503)。\n\n"
+                    f"Apple 官方服务器拦截了非 Mac 设备的直连认证 (HTTP {resp.status_code})。\n\n"
                     "💡 强烈推荐解决方案：\n"
-                    "1. 请在上方切换到【📜 个人 / 企业 P12 证书】标签页，UniSign 内置了苹果官方代码签名引擎，签名后可 100% 正常安装！\n"
-                    "2. 或直接在 iPhone 手机端打开 UniSign App 导入证书进行免电脑极速直签！\n"
-                    "3. 若您已有已签名的 IPA 包，可点击【📲 快速直装】直接推送安装到手机！"
+                    "1. 【推荐】切换至【📜 个人 / 企业 P12 证书】标签页，UniSign 内置了苹果官方代码签名引擎，签名后可 100% 正常安装！\n"
+                    "2. 【手机端直接安装】在 iPhone 上打开 UniSign App，安装并信任本地 CA 描述文件后，即可直接在手机端免电脑一键签名安装！\n"
+                    "3. 【已有已签名包】如果您的 IPA 已经包含有效签名，可点击【📲 快速直装】直接推送安装到手机！"
                 )
         except (ValueError, PermissionError, RuntimeError) as e:
             raise e
