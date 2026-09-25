@@ -33,6 +33,7 @@ public class CertificateManagerViewController: UIViewController, UIDocumentPicke
     private let udidCard = CardView()
     private let udidLabel = UILabel()
     private let copyUDIDButton = GradientButton(title: "", style: .primaryCyber, icon: UIImage(systemName: "doc.on.doc.fill"))
+    private let safariUDIDButton = GradientButton(title: "", style: .modernEmerald, icon: UIImage(systemName: "safari.fill"))
     private let editUDIDButton = UIButton(type: .system)
     private let udidTitleLabel = UILabel()
     private let udidIconView = UIImageView()
@@ -48,6 +49,7 @@ public class CertificateManagerViewController: UIViewController, UIDocumentPicke
         updateTexts()
         reloadAppleAccounts()
         NotificationCenter.default.addObserver(self, selector: #selector(languageDidChange), name: LanguageManager.languageChangedNotification, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(onUDIDUpdated), name: NSNotification.Name("UniSignUDIDUpdatedNotification"), object: nil)
     }
     
     public override func viewWillAppear(_ animated: Bool) {
@@ -100,6 +102,7 @@ public class CertificateManagerViewController: UIViewController, UIDocumentPicke
         addAccountButton.setTitle(L("+ 添加 Apple ID (每账号限 3 个应用)", "+ Add Apple ID (Max 3 apps per ID)"), for: .normal)
         udidTitleLabel.text = L("本机设备识别码 (UDID)", "Device UDID")
         copyUDIDButton.setTitle(L("复制设备 UDID", "Copy Device UDID"), for: .normal)
+        safariUDIDButton.setTitle(L("⚡ Safari 一键获取真实物理 UDID", "⚡ Get Real Device UDID via Safari"), for: .normal)
         editUDIDButton.setTitle(L("✏️ 手动输入 / 自定义 UDID", "✏️ Customize / Override UDID"), for: .normal)
     }
     
@@ -295,6 +298,10 @@ public class CertificateManagerViewController: UIViewController, UIDocumentPicke
         copyUDIDButton.addTarget(self, action: #selector(copyUDIDAction), for: .touchUpInside)
         udidStack.addArrangedSubview(copyUDIDButton)
         
+        safariUDIDButton.heightAnchor.constraint(equalToConstant: 48).isActive = true
+        safariUDIDButton.addTarget(self, action: #selector(safariUDIDAction), for: .touchUpInside)
+        udidStack.addArrangedSubview(safariUDIDButton)
+        
         editUDIDButton.setTitleColor(.secondaryLabel, for: .normal)
         editUDIDButton.titleLabel?.font = .systemFont(ofSize: 14)
         editUDIDButton.heightAnchor.constraint(equalToConstant: 32).isActive = true
@@ -306,6 +313,17 @@ public class CertificateManagerViewController: UIViewController, UIDocumentPicke
     
     private func updateUDIDDisplay() {
         udidLabel.text = DeviceInfoHelper.getDeviceUDID()
+    }
+    
+    @objc private func onUDIDUpdated() {
+        DispatchQueue.main.async { [weak self] in
+            self?.updateUDIDDisplay()
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+        }
+    }
+    
+    @objc private func safariUDIDAction() {
+        DeviceInfoHelper.openUDIDAcquisitionInSafari()
     }
     
     @objc private func copyUDIDAction() {

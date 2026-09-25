@@ -7,10 +7,13 @@ import UIKit
 public class AnisetteClient {
     public static let shared = AnisetteClient()
     
-    /// Public Anisette mirror endpoints pool (including international and domestic accessible mirrors)
+    /// Public Anisette mirror endpoints pool (including official SideStore and domestic accessible mirrors)
     public static let mirrorServers: [String] = [
-        "https://anisette.apsteam.top/",
         "https://ani.sidestore.io/",
+        "https://ani.sidestore.app/",
+        "https://ani.sidestore.zip/",
+        "https://ani.846969.xyz/",
+        "https://anisette.apsteam.top/",
         "https://anisette.niceios.com/",
         "https://side.dhinak.net/ani/",
         "https://anisette.kdt.dev/"
@@ -141,6 +144,10 @@ public class AnisetteClient {
         }
         if headers["X-Apple-I-TimeZone"] == nil {
             headers["X-Apple-I-TimeZone"] = TimeZone.current.identifier
+        }
+        // Ensure X-MMe-Client-Info uses akd instead of dt.Xcode (prevents Apple 503 block)
+        if let clientInfo = headers["X-MMe-Client-Info"], clientInfo.contains("Xcode") {
+            headers["X-MMe-Client-Info"] = "<MacBookPro13,2> <macOS;13.1;22C65> <com.apple.AuthKit/1 (com.apple.akd/1.0)>"
         }
     }
     

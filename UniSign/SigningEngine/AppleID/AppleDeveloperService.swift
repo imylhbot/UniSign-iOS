@@ -76,7 +76,7 @@ public class AppleDeveloperService {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
-        request.setValue("Xcode", forHTTPHeaderField: "User-Agent")
+        request.setValue("akd/1.0 (Macintosh; OS X 10.15.7)", forHTTPHeaderField: "User-Agent")
         
         // Attach Anisette headers
         for (k, v) in headers {

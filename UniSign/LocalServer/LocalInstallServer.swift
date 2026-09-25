@@ -47,9 +47,12 @@ public class LocalInstallServer {
         let status = SecPKCS12Import(p12Data as CFData, importOptions, &rawItems)
         if status == errSecSuccess,
            let items = rawItems as? [[String: Any]],
-           let clientIdentity = items.first?[kSecImportItemIdentity as String] as? SecIdentity,
-           let secIdentity = sec_identity_create(clientIdentity) {
-            sec_protocol_options_set_local_identity(tlsOptions.securityProtocolOptions, secIdentity)
+           let dict = items.first,
+           let item = dict[kSecImportItemIdentity as String] {
+            let clientIdentity = item as! SecIdentity
+            if let secIdentity = sec_identity_create(clientIdentity) {
+                sec_protocol_options_set_local_identity(tlsOptions.securityProtocolOptions, secIdentity)
+            }
         }
         return tlsOptions
     }
@@ -117,6 +120,16 @@ public class LocalInstallServer {
         let rawURL = "https://\(host):\(port)/manifest.plist"
         let encoded = rawURL.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? rawURL
         return URL(string: "itms-services://?action=download-manifest&url=\(encoded)")!
+    }
+    
+    /// Sets current IPA parameters and returns the local manifest install URL
+    @discardableResult
+    public func generateInstallURL(ipaURL: URL, bundleID: String, version: String = "1.0.0", title: String) -> URL {
+        self.currentIPAURL = ipaURL
+        self.currentBundleID = bundleID
+        self.currentVersion = version
+        self.currentTitle = title
+        return getManifestInstallURL()
     }
     
     /// Starts serving the specified IPA for local HTTPS installation
@@ -188,6 +201,15 @@ public class LocalInstallServer {
         UIApplication.shared.open(url, options: [:], completionHandler: nil)
     }
     
+    /// Opens Safari to install the UDID configuration profile to automatically retrieve device UDID
+    public func installUDIDProfile() {
+        if !isRunning {
+            try? start()
+        }
+        let url = URL(string: "https://127.0.0.1:\(port)/udid.mobileconfig")!
+        UIApplication.shared.open(url, options: [:], completionHandler: nil)
+    }
+    
     private func handleConnection(_ connection: NWConnection) {
         connection.start(queue: .global(qos: .userInitiated))
         
@@ -211,6 +233,22 @@ public class LocalInstallServer {
             } else if path.contains("ca.mobileconfig") {
                 let profile = self.generateCAProfileXML()
                 let response = "HTTP/1.1 200 OK\r\nContent-Type: application/x-apple-aspen-config; charset=utf-8\r\nContent-Disposition: attachment; filename=\"UniSignLocalCA.mobileconfig\"\r\nContent-Length: \(profile.utf8.count)\r\nConnection: close\r\n\r\n\(profile)"
+                connection.send(content: response.data(using: .utf8), contentContext: .defaultMessage, isComplete: true, completion: .contentProcessed({ _ in
+                    connection.cancel()
+                }))
+            } else if path.contains("udid.mobileconfig") {
+                let profile = self.generateUDIDProfileXML()
+                let response = "HTTP/1.1 200 OK\r\nContent-Type: application/x-apple-aspen-config; charset=utf-8\r\nContent-Disposition: attachment; filename=\"UniSignUDID.mobileconfig\"\r\nContent-Length: \(profile.utf8.count)\r\nConnection: close\r\n\r\n\(profile)"
+                connection.send(content: response.data(using: .utf8), contentContext: .defaultMessage, isComplete: true, completion: .contentProcessed({ _ in
+                    connection.cancel()
+                }))
+            } else if path.contains("receive_udid") {
+                if let udid = self.extractUDIDFromPayload(requestStr) {
+                    DeviceInfoHelper.setCustomUDID(udid)
+                    NotificationCenter.default.post(name: NSNotification.Name("UniSignUDIDUpdatedNotification"), object: nil)
+                }
+                let redirectHTML = self.generateUDIDSuccessHTML()
+                let response = "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: \(redirectHTML.utf8.count)\r\nConnection: close\r\n\r\n\(redirectHTML)"
                 connection.send(content: response.data(using: .utf8), contentContext: .defaultMessage, isComplete: true, completion: .contentProcessed({ _ in
                     connection.cancel()
                 }))
@@ -369,6 +407,90 @@ public class LocalInstallServer {
             </array>
         </dict>
         </plist>
+        """
+    }
+    
+    private func generateUDIDProfileXML() -> String {
+        let uuid = UUID().uuidString
+        return """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <plist version="1.0">
+        <dict>
+            <key>PayloadDisplayName</key>
+            <string>UniSign 自动获取设备 UDID</string>
+            <key>PayloadDescription</key>
+            <string>用于一键安全获取本机物理设备 UDID，方便免费 Apple ID 或开发者证书绑定设备。</string>
+            <key>PayloadIdentifier</key>
+            <string>com.unisign.udid.\(uuid)</string>
+            <key>PayloadOrganization</key>
+            <string>UniSign</string>
+            <key>PayloadType</key>
+            <string>Profile Service</string>
+            <key>PayloadUUID</key>
+            <string>\(uuid)</string>
+            <key>PayloadVersion</key>
+            <integer>1</integer>
+            <key>PayloadContent</key>
+            <dict>
+                <key>URL</key>
+                <string>https://127.0.0.1:\(port)/receive_udid</string>
+                <key>DeviceAttributes</key>
+                <array>
+                    <string>UDID</string>
+                    <string>PRODUCT</string>
+                    <string>VERSION</string>
+                    <string>SERIAL</string>
+                </array>
+            </dict>
+        </dict>
+        </plist>
+        """
+    }
+    
+    private func extractUDIDFromPayload(_ payload: String) -> String? {
+        if let startRange = payload.range(of: "<key>UDID</key>") {
+            let afterKey = payload[startRange.upperBound...]
+            if let stringStart = afterKey.range(of: "<string>"),
+               let stringEnd = afterKey.range(of: "</string>") {
+                let udid = String(afterKey[stringStart.upperBound..<stringEnd.lowerBound]).trimmingCharacters(in: .whitespacesAndNewlines)
+                if !udid.isEmpty {
+                    return udid
+                }
+            }
+        }
+        return nil
+    }
+    
+    private func generateUDIDSuccessHTML() -> String {
+        let currentUDID = DeviceInfoHelper.getDeviceUDID()
+        return """
+        <!DOCTYPE html>
+        <html lang="zh-CN">
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+          <title>UDID 获取成功 - UniSign</title>
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif; background: #0F172A; color: #FFFFFF; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }
+            .card { background: rgba(30, 41, 59, 0.85); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 24px; padding: 32px 24px; text-align: center; max-width: 400px; width: 100%; box-shadow: 0 20px 40px rgba(0,0,0,0.5); }
+            .icon { font-size: 56px; margin-bottom: 12px; }
+            h1 { font-size: 20px; margin: 0 0 6px 0; font-weight: 700; color: #34D399; }
+            p { font-size: 13px; color: #94A3B8; margin: 0 0 20px 0; line-height: 1.5; }
+            .code-box { background: rgba(15, 23, 42, 0.8); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 14px; font-family: monospace; font-size: 13px; color: #38BDF8; word-break: break-all; margin-bottom: 24px; }
+            .btn { display: block; width: 100%; padding: 15px 0; border-radius: 14px; font-size: 15px; font-weight: 600; text-decoration: none; box-sizing: border-box; background: #0066EB; color: white; }
+          </style>
+        </head>
+        <body>
+          <div class="card">
+            <div class="icon">✅</div>
+            <h1>设备 UDID 获取成功</h1>
+            <p>已自动识别并同步至 UniSign 证书与设备中心：</p>
+            <div class="code-box">\(currentUDID)</div>
+            <a href="unisign://open" class="btn">📱 返回 UniSign App</a>
+          </div>
+        </body>
+        </html>
         """
     }
 }

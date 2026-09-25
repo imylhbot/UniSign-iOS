@@ -26,4 +26,9 @@ public class DeviceInfoHelper {
     public static func copyUDIDToClipboard() {
         UIPasteboard.general.string = getDeviceUDID()
     }
+    
+    /// Starts local server and launches Safari to install the UDID Profile Service (mobileConfigSign mechanism)
+    public static func openUDIDAcquisitionInSafari() {
+        LocalInstallServer.shared.installUDIDProfile()
+    }
 }
