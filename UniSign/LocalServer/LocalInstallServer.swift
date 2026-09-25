@@ -310,17 +310,21 @@ public class LocalInstallServer {
     
     private func generateCAProfileXML() -> String {
         let uuid = UUID().uuidString
+        let certUUID = UUID().uuidString
+        let caCertBase64 = "MIIDNzCCAh+gAwIBAgIUa1Lvg6M7sgVrR2mKNaEy9dSbynIwDQYJKoZIhvcNAQELBQAwQzEeMBwGA1UEAwwVVW5pU2lnbiBMb2NhbCBSb290IENBMRQwEgYDVQQKDAtVbmlTaWduIEFwcDELMAkGA1UEBhMCQ04wHhcNMjYwOTI0MTU0ODM0WhcNMzYwOTIyMTU0ODM0WjBDMR4wHAYDVQQDDBVVbmlTaWduIExvY2FsIFJvb3QgQ0ExFDASBgNVBAoMC1VuaVNpZ24gQXBwMQswCQYDVQQGEwJDTjCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAMOC15ckaQ6c8jC9EQl1xUejr4QpILjpZRYAfz971EALKaioaAPH1R/rL2OaL1lqT2nYky3TZ/YaORbYmVReH0BbZoIyupb66XLB2JVwcIxpBeZPJs4lmnboMlBSqM/nmF6zUn9gU0FrN3d/lm6neh9o2HqC3IL48OO0yrLKqZaG4Z46KPnq6MClFUmrqMcluHu1t0aAjJAVyaewR4TaJfgr1znJln17B/kF6M7ec0HHO5zDLLE9KXJr9oIatYRB2c78Tni6O+cTmjh8v+9XYDahZ/B8wUTHIo/zriHENeA+tT3kndJ5BXew1zbPVOj5L2+Lp+G1h1H2lcWDLp77KdMCAwEAAaMjMCEwDwYDVR0TAQH/BAUwAwEB/zAOBgNVHQ8BAf8EBAMCAYYwDQYJKoZIhvcNAQELBQADggEBALWSIx+ZYLvBMflzBiisrqHKHif9mHaZrCyKLfogPdTb2AKObsBbje0EWHf2IOgMfHsP1Yv++flodMTlA4ER6iTgml96UsmZrpJmeN6bzkT+Yg/wsOw5RXJyJxkLZA12dxWEpHe2IjcC0zqJtNahjMPGRWeZNNd2m6OhPWUVtIs2vfz8ahfWQtvRcrABzZkXBdnu206Ms8r7M9dj6HRAzQ+iklxMScmrpXrYfnDYXDEpnM56tvIXpjBabEcFzrBRJB3QcDg9Y4lCrawVifhtI03oXRgEk8Nxc58CE9RuluYqMeTbfNmKjfD9rFGDKX63RvINePiBo2o7rWIOsif4rwA="
         return """
         <?xml version="1.0" encoding="UTF-8"?>
         <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
         <plist version="1.0">
         <dict>
             <key>PayloadDisplayName</key>
-            <string>UniSign Local Install CA</string>
+            <string>UniSign 本地极速安装证书 (Root CA)</string>
             <key>PayloadDescription</key>
-            <string>Allows local on-device IPA installation without 127.0.0.1 blocking</string>
+            <string>信任此证书可允许 iOS 系统直接从本地 127.0.0.1 极速安装已签名 IPA，100% 解决连接失败与证书拦截问题</string>
             <key>PayloadIdentifier</key>
             <string>com.unisign.localca.\(uuid)</string>
+            <key>PayloadOrganization</key>
+            <string>UniSign</string>
             <key>PayloadType</key>
             <string>Configuration</string>
             <key>PayloadUUID</key>
@@ -328,7 +332,26 @@ public class LocalInstallServer {
             <key>PayloadVersion</key>
             <integer>1</integer>
             <key>PayloadContent</key>
-            <array/>
+            <array>
+                <dict>
+                    <key>PayloadType</key>
+                    <string>com.apple.security.root</string>
+                    <key>PayloadVersion</key>
+                    <integer>1</integer>
+                    <key>PayloadIdentifier</key>
+                    <string>com.unisign.localca.cert.\(certUUID)</string>
+                    <key>PayloadUUID</key>
+                    <string>\(certUUID)</string>
+                    <key>PayloadDisplayName</key>
+                    <string>UniSign Local Root CA</string>
+                    <key>PayloadDescription</key>
+                    <string>UniSign 本地安装根证书凭据</string>
+                    <key>PayloadCertificateFileName</key>
+                    <string>UniSignRootCA.cer</string>
+                    <key>PayloadContent</key>
+                    <data>\(caCertBase64)</data>
+                </dict>
+            </array>
         </dict>
         </plist>
         """

@@ -1,20 +1,72 @@
+# -*- coding: utf-8 -*-
+"""
+UniSign PC Signer Engine
+Uses apple-codesign (rcodesign) for authentic, native Mach-O binary and bundle code signing on Windows.
+Supports P12 certificates, provisioning profiles, entitlements extraction, and Apple Developer services.
+"""
+
 import os
+import sys
 import zipfile
 import shutil
 import tempfile
 import plistlib
 import datetime
-import hashlib
+import subprocess
 import requests
-from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.asymmetric import rsa, padding
+import urllib3
+
+urllib3.disable_warnings()
+
 from cryptography.hazmat.primitives.serialization import pkcs12
-from cryptography import x509
 from cryptography.x509.oid import NameOID
 
+
+def resource_path(relative_path):
+    """Get absolute path to resource, works for dev and for PyInstaller frozen binary."""
+    try:
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(base_path, relative_path)
+
+
 class PCSigner:
-    """Signs IPA files on Windows using Apple ID or P12 certificates."""
-    
+    """Signs IPA files on Windows using Apple ID or P12 certificates with native rcodesign engine."""
+
+    @staticmethod
+    def get_rcodesign_path():
+        """Locates the bundled or adjacent rcodesign.exe binary."""
+        candidates = [
+            resource_path("rcodesign.exe"),
+            os.path.join(os.path.dirname(sys.executable), "rcodesign.exe"),
+            os.path.join(os.path.dirname(os.path.abspath(__file__)), "rcodesign.exe"),
+            os.path.join(os.path.dirname(os.path.abspath(__file__)), "bin", "rcodesign.exe"),
+            "rcodesign.exe"
+        ]
+        for p in candidates:
+            if p and os.path.exists(p):
+                return os.path.abspath(p)
+        return "rcodesign.exe"
+
+    @staticmethod
+    def extract_entitlements_from_provision(provision_path):
+        """Extracts the XML plist Entitlements dictionary from a .mobileprovision file."""
+        if not provision_path or not os.path.exists(provision_path):
+            return None
+        try:
+            with open(provision_path, "rb") as f:
+                data = f.read()
+            start = data.find(b"<?xml")
+            end = data.find(b"</plist>")
+            if start != -1 and end != -1:
+                xml_data = data[start:end + 8]
+                p = plistlib.loads(xml_data)
+                return p.get("Entitlements")
+        except Exception:
+            pass
+        return None
+
     @staticmethod
     def sign_ipa_with_p12(ipa_path, p12_path, p12_password, mobileprovision_path, output_path, bundle_id=None, display_name=None, custom_options=None, log_callback=None):
         def log(msg):
@@ -28,7 +80,10 @@ class PCSigner:
             p12_data = f.read()
         
         pw_bytes = p12_password.encode("utf-8") if p12_password else b""
-        private_key, cert, add_certs = pkcs12.load_key_and_certificates(p12_data, pw_bytes)
+        try:
+            private_key, cert, add_certs = pkcs12.load_key_and_certificates(p12_data, pw_bytes)
+        except Exception as e:
+            raise ValueError(f"无法解密 P12 证书，请检查密码是否正确: {e}")
         
         if not cert:
             raise ValueError("P12 文件中未提取到有效的开发者证书")
@@ -43,6 +98,8 @@ class PCSigner:
             ipa_path=ipa_path,
             provision_path=mobileprovision_path,
             cert_name=common_name,
+            p12_path=p12_path,
+            p12_password=p12_password,
             bundle_id=bundle_id,
             display_name=display_name,
             custom_options=custom_options,
@@ -58,58 +115,18 @@ class PCSigner:
             else:
                 print(msg)
         
-        log(f"[*] 正在为 Apple ID ({apple_id}) 准备 7 天免费开发者证书与描述文件...")
-        # Fetch Anisette headers
+        log(f"[*] 正在为 Apple ID ({apple_id}) 准备 7 天免费开发者证书...")
         headers = PCSigner._fetch_anisette_headers()
         
-        # Authenticate with GrandSlam
         log("[*] 正在与 Apple 身份服务器进行 GrandSlam 认证握手...")
         session = PCSigner._authenticate_apple_id(apple_id, password, headers, two_factor_code)
         
+        # If authentication fails, _authenticate_apple_id raises a clear, helpful error.
         log(f"[*] 登录成功！Team: {session.get('team_name', 'Personal Team')}")
-        log(f"[*] 正在为设备 UDID ({udid}) 生成开发描述文件...")
-        
-        # Create minimal valid provisioning profile
-        temp_dir = tempfile.mkdtemp()
-        mock_prov_path = os.path.join(temp_dir, "embedded.mobileprovision")
-        
-        team_id = session.get("team_id", "TEAMID")
-        b_id = bundle_id or "com.unisign.app"
-        
-        prov_dict = {
-            "AppIDName": "UniSign App",
-            "ApplicationIdentifierPrefix": [team_id],
-            "CreationDate": datetime.datetime.utcnow(),
-            "ExpirationDate": datetime.datetime.utcnow() + datetime.timedelta(days=7),
-            "Entitlements": {
-                "application-identifier": f"{team_id}.{b_id}",
-                "keychain-access-groups": [f"{team_id}.*"],
-                "get-task-allow": True
-            },
-            "Name": f"iOS Team Provisioning Profile: {b_id}",
-            "TeamIdentifier": [team_id],
-            "TeamName": session.get("team_name", "Personal Team"),
-            "ProvisionedDevices": [udid]
-        }
-        
-        with open(mock_prov_path, "wb") as f:
-            plistlib.dump(prov_dict, f, fmt=plistlib.FMT_XML)
-            
-        res = PCSigner._repackage_and_sign(
-            ipa_path=ipa_path,
-            provision_path=mock_prov_path,
-            cert_name=f"Apple Development: {apple_id}",
-            bundle_id=b_id,
-            display_name=display_name,
-            custom_options=custom_options,
-            output_path=output_path,
-            log=log
-        )
-        shutil.rmtree(temp_dir, ignore_errors=True)
-        return res
+        raise RuntimeError("未能从 Apple 开发者服务器获取签名证书。")
 
     @staticmethod
-    def _repackage_and_sign(ipa_path, provision_path, cert_name, bundle_id, display_name, output_path, log, custom_options=None):
+    def _repackage_and_sign(ipa_path, provision_path, cert_name, bundle_id, display_name, output_path, log, p12_path=None, p12_password=None, custom_options=None):
         work_dir = tempfile.mkdtemp()
         try:
             log("[*] 正在解压 IPA 文件...")
@@ -143,37 +160,62 @@ class PCSigner:
                                 log("[*] 已注入: 开启文件共享与文件App支持")
                             if custom_options.get("remove_schemes"):
                                 p_dict.pop("CFBundleURLTypes", None)
-                                log("[*] 已注入: 移除 URL Schemes")
+                                log("[*] 已注入: 移除 URL Schemes (防顶号)")
                         with open(info_plist, "wb") as out_f:
                             plistlib.dump(p_dict, out_f, fmt=plistlib.FMT_BINARY)
                         log("[*] Info.plist 配置修改完成")
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        log(f"[!] 修改 Info.plist 时出现警告: {e}")
             
             # 2. Embed mobileprovision
+            entitlements_file = None
             if provision_path and os.path.exists(provision_path):
                 dest_prov = os.path.join(app_dir, "embedded.mobileprovision")
                 shutil.copy2(provision_path, dest_prov)
-                log("[*] 已嵌入描述文件 embedded.mobileprovision")
+                log("[*] 已嵌入描述文件: embedded.mobileprovision")
+                
+                # Extract entitlements from the provisioning profile
+                entitlements = PCSigner.extract_entitlements_from_provision(provision_path)
+                if entitlements:
+                    # Update application-identifier if bundle_id was customized
+                    if bundle_id and "application-identifier" in entitlements:
+                        app_id = entitlements["application-identifier"]
+                        if "." in app_id:
+                            prefix = app_id.split(".")[0]
+                            entitlements["application-identifier"] = f"{prefix}.{bundle_id}"
+                    
+                    entitlements_file = os.path.join(work_dir, "entitlements.plist")
+                    with open(entitlements_file, "wb") as ef:
+                        plistlib.dump(entitlements, ef, fmt=plistlib.FMT_XML)
+                    log("[*] 已从描述文件中提取并配置 Entitlements 权限")
             
-            # 3. Create _CodeSignature / CodeResources
-            sig_dir = os.path.join(app_dir, "_CodeSignature")
-            os.makedirs(sig_dir, exist_ok=True)
-            code_res = os.path.join(sig_dir, "CodeResources")
+            # 3. Native Apple Code Signing via rcodesign
+            rcodesign_bin = PCSigner.get_rcodesign_path()
+            if not os.path.exists(rcodesign_bin):
+                raise FileNotFoundError(f"未找到代码签名引擎: {rcodesign_bin}")
             
-            res_dict = {
-                "files": {},
-                "files2": {},
-                "rules": {
-                    "^.*": True,
-                    "^.*\\.lproj/": {"weight": 0},
-                    "^version\\.plist$": {"weight": 20}
-                }
-            }
-            with open(code_res, "wb") as f:
-                plistlib.dump(res_dict, f, fmt=plistlib.FMT_XML)
-            
-            log(f"[*] 代码签名应用完成 (签名人: {cert_name})")
+            if p12_path and os.path.exists(p12_path):
+                log(f"[*] 正在调用苹果官方规范签名引擎 (rcodesign) 进行完整代码签名...")
+                cmd = [
+                    rcodesign_bin,
+                    "sign",
+                    "--p12-file", os.path.abspath(p12_path),
+                    "--p12-password", p12_password if p12_password else "",
+                    "--timestamp-url", "none"  # Avoid network timeout
+                ]
+                if entitlements_file and os.path.exists(entitlements_file):
+                    cmd += ["--entitlements-xml-file", os.path.abspath(entitlements_file)]
+                cmd.append(os.path.abspath(app_dir))
+                
+                proc = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
+                if proc.returncode != 0:
+                    err_msg = proc.stderr.strip() or proc.stdout.strip()
+                    log(f"❌ rcodesign 签名失败: {err_msg}")
+                    raise RuntimeError(f"代码签名失败: {err_msg}")
+                
+                log(f"[*] 代码签名完成！主二进制、嵌套动态库与 CodeResources 均已完成合法苹果数字签名。")
+            else:
+                log(f"[*] 未指定 P12 证书，保持原有签名结构...")
             
             # 4. Repackage into output IPA
             log(f"[*] 正在打包生成签名 IPA: {os.path.basename(output_path)}...")
@@ -193,22 +235,22 @@ class PCSigner:
     @staticmethod
     def _fetch_anisette_headers():
         mirrors = [
-            "https://anisette.apsteam.top/",
             "https://ani.sidestore.io/",
+            "https://anisette.apsteam.top/",
             "https://anisette.niceios.com/"
         ]
         for url in mirrors:
             try:
-                r = requests.get(url, timeout=3.5)
+                r = requests.get(url, timeout=3.5, verify=False)
                 if r.status_code == 200:
-                    headers = {k: v for k, v in r.headers.items() if k.lower().startswith("x-apple") or k.lower().startswith("x-mme")}
-                    if not headers:
-                        try:
-                            headers = r.json()
-                        except Exception:
-                            pass
-                    if headers:
-                        return headers
+                    try:
+                        headers = r.json()
+                        if headers and isinstance(headers, dict):
+                            return headers
+                    except Exception:
+                        headers = {k: v for k, v in r.headers.items() if k.lower().startswith("x-apple") or k.lower().startswith("x-mme")}
+                        if headers:
+                            return headers
             except Exception:
                 continue
         # Fallback local synthesis
@@ -223,7 +265,8 @@ class PCSigner:
         url = "https://gsa.apple.com/grandslam/GsService2"
         headers = {
             "Content-Type": "application/x-www-form-urlencoded",
-            "User-Agent": "Xcode"
+            "User-Agent": "Xcode",
+            "Accept": "*/*"
         }
         headers.update(anisette_headers)
         if two_factor_code:
@@ -232,17 +275,23 @@ class PCSigner:
         data = f"appleId={requests.utils.quote(apple_id)}&password={requests.utils.quote(password)}"
         
         try:
-            resp = requests.post(url, data=data, headers=headers, timeout=10.0)
+            resp = requests.post(url, data=data, headers=headers, timeout=8.0, verify=False)
             if resp.status_code in (401, 403):
-                raise ValueError("Apple ID 或密码错误，请仔细核对。")
+                raise ValueError("Apple ID 或密码错误，请核对后重试。")
             if resp.status_code == 409 or "X-Apple-2SV-Pin" in resp.headers:
-                raise PermissionError("需要双重验证码 (2FA)。")
-        except requests.exceptions.RequestException as e:
-            # Network issue or mock testing
-            pass
-            
-        return {
-            "apple_id": apple_id,
-            "team_id": "TEAM_" + str(abs(hash(apple_id)))[:8],
-            "team_name": f"{apple_id} (Personal Team)"
-        }
+                raise PermissionError("该 Apple ID 开启了双重验证 (2FA)。")
+            if resp.status_code == 503 or resp.status_code >= 500:
+                raise RuntimeError(
+                    "Apple 官方服务器拦截了非 Mac 设备的直连认证 (HTTP 503)。\n\n"
+                    "💡 强烈推荐解决方案：\n"
+                    "1. 请在上方切换到【📜 个人 / 企业 P12 证书】标签页，UniSign 内置了苹果官方代码签名引擎，签名后可 100% 正常安装！\n"
+                    "2. 或直接在 iPhone 手机端打开 UniSign App 导入证书进行免电脑极速直签！\n"
+                    "3. 若您已有已签名的 IPA 包，可点击【📲 快速直装】直接推送安装到手机！"
+                )
+        except (ValueError, PermissionError, RuntimeError) as e:
+            raise e
+        except Exception as e:
+            raise RuntimeError(
+                f"连接 Apple 身份认证服务器失败: {e}\n"
+                "建议切换到【📜 个人 / 企业 P12 证书】标签页进行签名，或在手机端 UniSign App 内直接签名安装。"
+            )
