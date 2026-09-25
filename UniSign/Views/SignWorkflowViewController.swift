@@ -27,8 +27,8 @@ public class SignWorkflowViewController: UIViewController, UIDocumentPickerDeleg
     private var docController: UIDocumentInteractionController?
     
     // Extracted / customized metadata
-    private var currentAppName: String = "UniSign"
-    private var currentBundleId: String = "com.unisign.app"
+    private var currentAppName: String = "SoulSign"
+    private var currentBundleId: String = "com.soulsign.app"
     private var currentVersion: String = "1.0.0"
     private var currentMinOS: String = "13.0"
     private var currentWorkspaceNote: String = ""
@@ -964,7 +964,7 @@ public class SignWorkflowViewController: UIViewController, UIDocumentPickerDeleg
             }
         }))
         alert.addAction(UIAlertAction(title: L("恢复默认", "Reset"), style: .destructive, handler: { [weak self] _ in
-            SigningPreferences.shared.filenameTemplate = "[name]_[version]_[timestamp]-UniSign"
+            SigningPreferences.shared.filenameTemplate = "[name]_[version]_[timestamp]-SoulSign"
             self?.updateFilenamePreview()
         }))
         alert.addAction(UIAlertAction(title: L("取消", "Cancel"), style: .cancel))

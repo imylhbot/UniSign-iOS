@@ -41,15 +41,31 @@ class PCSigner:
     @staticmethod
     def get_rcodesign_path():
         """Locates the bundled or adjacent rcodesign.exe binary."""
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        exe_dir = os.path.dirname(sys.executable)
+        cwd = os.getcwd()
         candidates = [
             resource_path("rcodesign.exe"),
-            os.path.join(os.path.dirname(sys.executable), "rcodesign.exe"),
-            os.path.join(os.path.dirname(os.path.abspath(__file__)), "rcodesign.exe"),
-            os.path.join(os.path.dirname(os.path.abspath(__file__)), "bin", "rcodesign.exe"),
+            resource_path("bin/apple-codesign-0.29.0-x86_64-pc-windows-msvc/rcodesign.exe"),
+            resource_path("bin/rcodesign.exe"),
+            os.path.join(exe_dir, "rcodesign.exe"),
+            os.path.join(exe_dir, "..", "rcodesign.exe"),
+            os.path.join(exe_dir, "bin", "rcodesign.exe"),
+            os.path.join(exe_dir, "bin", "apple-codesign-0.29.0-x86_64-pc-windows-msvc", "rcodesign.exe"),
+            os.path.join(base_dir, "rcodesign.exe"),
+            os.path.join(base_dir, "bin", "rcodesign.exe"),
+            os.path.join(base_dir, "bin", "apple-codesign-0.29.0-x86_64-pc-windows-msvc", "rcodesign.exe"),
+            os.path.join(base_dir, "..", "rcodesign.exe"),
+            os.path.join(cwd, "rcodesign.exe"),
+            os.path.join(cwd, "UniSign-Helper", "rcodesign.exe"),
+            os.path.join(cwd, "SoulSign-Helper", "rcodesign.exe"),
+            os.path.join(cwd, "bin", "rcodesign.exe"),
+            shutil.which("rcodesign.exe"),
+            shutil.which("rcodesign"),
             "rcodesign.exe"
         ]
         for p in candidates:
-            if p and os.path.exists(p):
+            if p and os.path.exists(p) and os.path.isfile(p):
                 return os.path.abspath(p)
         return "rcodesign.exe"
 

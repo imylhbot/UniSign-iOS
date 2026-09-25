@@ -1,4 +1,4 @@
-name: Build & Release UniSign iOS & PC Helper
+name: Build & Release SoulSign iOS & PC Helper
 
 # Triggers: Manually via GitHub Actions web UI (workflow_dispatch)
 on:
@@ -11,7 +11,7 @@ on:
       release_title:
         description: 'Release Title'
         required: false
-        default: 'UniSign iOS & PC Helper Release'
+        default: 'SoulSign iOS & PC Helper Release'
 
 # Grant GITHUB_TOKEN write access to create releases and upload assets
 permissions:
@@ -33,7 +33,7 @@ jobs:
           sudo xcode-select -s /Applications/Xcode_15.4.app/Contents/Developer
           xcodebuild -version
 
-      - name: Build UniSign (Ad-Hoc / Sideloadable)
+      - name: Build SoulSign (Ad-Hoc / Sideloadable)
         run: |
           set -o pipefail
           xcodebuild build \
@@ -60,15 +60,18 @@ jobs:
           echo "Found app at: $APP_PATH"
           mkdir -p Payload
           cp -r "$APP_PATH" Payload/
-          zip -r -9 UniSign.ipa Payload
+          zip -r -9 SoulSign.ipa Payload
+          cp SoulSign.ipa UniSign.ipa
           rm -rf Payload
-          echo "UniSign.ipa created successfully!"
+          echo "SoulSign.ipa & UniSign.ipa created successfully!"
 
       - name: Upload IPA to Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: UniSign-IPA
-          path: UniSign.ipa
+          name: SoulSign-IPA
+          path: |
+            SoulSign.ipa
+            UniSign.ipa
           retention-days: 14
 
   build-pc-helper:
@@ -86,29 +89,34 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install PySide6 cryptography requests pycryptodome pyinstaller
+          pip install PySide6 cryptography requests pycryptodome pyinstaller pillow
 
-      - name: Build UniSign-Helper.exe
+      - name: Build SoulSign-Helper.exe
         run: |
           cd UniSign-Helper
-          pyinstaller --onefile --noconsole --clean --icon="unisign.ico" --add-data "unisign.ico;." --add-data "unisign.png;." --name "UniSign-Helper" unisign_helper_gui.py
+          pyinstaller --onefile --noconsole --clean --icon="soulsign.ico" --add-data "soulsign.ico;." --add-data "soulsign.png;." --add-data "unisign.ico;." --add-data "unisign.png;." --name "SoulSign-Helper" unisign_helper_gui.py
 
       - name: Package Windows ZIP
         shell: pwsh
         run: |
           cd UniSign-Helper
           New-Item -ItemType Directory -Force -Path package
-          Copy-Item dist\UniSign-Helper.exe package\
+          Copy-Item dist\SoulSign-Helper.exe package\
+          Copy-Item dist\SoulSign-Helper.exe package\UniSign-Helper.exe
           Copy-Item run_helper.bat package\
           Copy-Item README.md package\
-          Copy-Item unisign.ico package\
-          Compress-Archive -Path package\* -DestinationPath ..\UniSign-Helper-Windows.zip -Force
+          Copy-Item soulsign.ico package\
+          Copy-Item soulsign.png package\
+          Compress-Archive -Path package\* -DestinationPath ..\SoulSign-Helper-Windows.zip -Force
+          Copy-Item ..\SoulSign-Helper-Windows.zip ..\UniSign-Helper-Windows.zip
 
       - name: Upload Windows Helper to Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: UniSign-Helper-Windows
-          path: UniSign-Helper-Windows.zip
+          name: SoulSign-Helper-Windows
+          path: |
+            SoulSign-Helper-Windows.zip
+            UniSign-Helper-Windows.zip
           retention-days: 14
 
   release:
@@ -125,32 +133,34 @@ jobs:
       - name: Download iOS IPA Artifact
         uses: actions/download-artifact@v4
         with:
-          name: UniSign-IPA
+          name: SoulSign-IPA
 
       - name: Download Windows PC Helper Artifact
         uses: actions/download-artifact@v4
         with:
-          name: UniSign-Helper-Windows
+          name: SoulSign-Helper-Windows
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         continue-on-error: true
         with:
           tag_name: ${{ github.event.inputs.version_tag || 'v1.0.0' }}
-          name: ${{ github.event.inputs.release_title || 'UniSign iOS & PC Helper Release' }} (${{ github.event.inputs.version_tag || 'v1.0.0' }})
+          name: ${{ github.event.inputs.release_title || 'SoulSign iOS & PC Helper Release' }} (${{ github.event.inputs.version_tag || 'v1.0.0' }})
           body: |
-            ## UniSign-iOS & PC 助手官方发布
+            ## ⚡ SoulSign-iOS & PC 助手官方发布
 
             - **版本**: ${{ github.event.inputs.version_tag || 'v1.0.0' }}
-            - **iOS 客户端**: `UniSign.ipa`（iOS 13.0+，支持纯手机端重签、多账号切换、7天续期、批量续期、配置定制）。
-            - **PC 电脑端助手**: `UniSign-Helper-Windows.zip`（Windows 10/11，解压即用，支持 USB 一键直装已签名 IPA、iOS 16+ 开发者模式一键激活）。
+            - **iOS 客户端**: `SoulSign.ipa`（iOS 13.0+，支持纯手机端重签、多账号切换、7天自动续期、P12 离线签名、Safari 真实 UDID 一键读取、HTTPS 本地 OTA 安装、动态库 Dylib 注入定制）。
+            - **PC 电脑端助手**: `SoulSign-Helper-Windows.zip`（Windows 10/11，解压即用，支持 USB 一键直装已签名 IPA、rcodesign 官方签名引擎集成、免费 Apple ID 7 天自动自签、iOS 16+ 开发者模式一键激活）。
 
             ### 💻 PC 客户端使用方法：
-            1. 下载 `UniSign-Helper-Windows.zip` 并解压。
-            2. 运行 `UniSign-Helper.exe`（或双击 `run_helper.bat`）。
-            3. 数据线连接手机，拖入已签名 IPA，点击「一键直装」秒速完成安装！
+            1. 下载 `SoulSign-Helper-Windows.zip` 并解压。
+            2. 运行 `SoulSign-Helper.exe`（或双击 `run_helper.bat`）。
+            3. 数据线连接手机并信任电脑，拖入待签或已签名 IPA，点击「一键签名并安装」秒速完成！
           files: |
+            SoulSign.ipa
             UniSign.ipa
+            SoulSign-Helper-Windows.zip
             UniSign-Helper-Windows.zip
           draft: false
           prerelease: false

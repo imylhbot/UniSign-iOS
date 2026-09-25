@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-UniSign 电脑助手 Pro (UniSign Helper Pro Desktop)
+SoulSign 电脑助手 Pro (SoulSign Helper Pro Desktop)
 专业级 iOS 免越狱本地代码签名 · USB 极速安装 · iOS 16+ 开发者模式一键激活
 """
 
@@ -19,7 +19,7 @@ import json
 if sys.platform == "win32":
     try:
         import ctypes
-        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("com.unisign.desktop.helper.v2")
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("com.soulsign.desktop.helper.v2")
     except Exception:
         pass
 
@@ -353,7 +353,7 @@ class IPhoneMockupWidget(QWidget):
             # Text labels
             painter.setPen(QPen(QColor("#FFFFFF")))
             painter.setFont(QFont("Segoe UI", 8, QFont.Bold))
-            painter.drawText(screen_rect.adjusted(0, 100, 0, -60), Qt.AlignCenter, "UniSign Pro")
+            painter.drawText(screen_rect.adjusted(0, 100, 0, -60), Qt.AlignCenter, "SoulSign Pro")
             
             painter.setFont(QFont("Segoe UI", 7))
             painter.setPen(QPen(QColor("#E2E8F0")))
@@ -387,16 +387,18 @@ class IPhoneMockupWidget(QWidget):
 class UniSignHelperApp(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("UniSign 电脑助手 Pro · iOS 免越狱直签与设备管理套件")
+        self.setWindowTitle("SoulSign 电脑助手 Pro · iOS 免越狱直签与设备管理套件")
         self.resize(1180, 840)
         self.setMinimumSize(960, 680)
         
         # Set App Window & Taskbar Icon
-        ico_file = resource_path("unisign.ico")
-        if os.path.exists(ico_file):
-            app_icon = QIcon(ico_file)
-            self.setWindowIcon(app_icon)
-            QApplication.setWindowIcon(app_icon)
+        for icon_candidate in ["soulsign.ico", "unisign.ico", "soulsign.png", "unisign.png"]:
+            ico_file = resource_path(icon_candidate)
+            if os.path.exists(ico_file):
+                app_icon = QIcon(ico_file)
+                self.setWindowIcon(app_icon)
+                QApplication.setWindowIcon(app_icon)
+                break
             
         self.signals = WorkerSignals()
         self.signals.log.connect(self.append_log)
@@ -576,10 +578,21 @@ class UniSignHelperApp(QMainWindow):
         header_layout = QHBoxLayout(header_widget)
         header_layout.setContentsMargins(20, 10, 20, 10)
 
+        # Header Logo
+        for logo_name in ["soulsign.png", "unisign.png", "soulsign.ico", "unisign.ico"]:
+            logo_path = resource_path(logo_name)
+            if os.path.exists(logo_path):
+                logo_lbl = QLabel()
+                pixmap = QPixmap(logo_path).scaled(44, 44, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                logo_lbl.setPixmap(pixmap)
+                header_layout.addWidget(logo_lbl)
+                header_layout.addSpacing(6)
+                break
+
         title_col = QVBoxLayout()
         title_row = QHBoxLayout()
         
-        h_title = QLabel("⚡ UniSign 助手 Pro")
+        h_title = QLabel("SoulSign 助手 Pro")
         h_title.setObjectName("header_title")
         title_row.addWidget(h_title)
         
@@ -984,7 +997,7 @@ class UniSignHelperApp(QMainWindow):
         guide_layout.setContentsMargins(18, 18, 18, 18)
         
         guide_text = QLabel("""
-<h3>💡 UniSign 电脑助手使用指南与常见问题</h3>
+<h3>💡 SoulSign 电脑助手使用指南与常见问题</h3>
 <ol>
   <li><b>USB 手机连接：</b>请使用原装或 MFi 认证数据线将 iPhone 连接至电脑，亮屏解锁并点击【信任此电脑】。</li>
   <li><b>免费 Apple ID 签名：</b>单 Apple ID 账号可同时安装运行最多 3 个 App，签名凭据有效期为 7 天。7天后只需重新一键签名即可无缝续期。</li>
@@ -1047,7 +1060,7 @@ class UniSignHelperApp(QMainWindow):
         if default_ipa:
             self.drop_area.set_ipa(default_ipa)
 
-        self.append_log("[INFO] UniSign 电脑助手 Pro 已启动。")
+        self.append_log("[INFO] SoulSign 电脑助手 Pro 已启动。")
         self.append_log("[INFO] 正在监听 USB 端口 27015 (Apple Mobile Device Service)...")
 
     def make_tool_card(self, title, desc, btn_text, action):
@@ -1083,6 +1096,9 @@ class UniSignHelperApp(QMainWindow):
 
     def find_default_ipa(self):
         candidates = [
+            os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "SoulSign.ipa")),
+            os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "build", "SoulSign.ipa")),
+            os.path.abspath("SoulSign.ipa"),
             os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "UniSign.ipa")),
             os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "build", "UniSign.ipa")),
             os.path.abspath("UniSign.ipa")
@@ -1218,7 +1234,7 @@ class UniSignHelperApp(QMainWindow):
 
     def export_all_specs(self):
         if self.current_device:
-            specs = f"""=== UniSign 助手设备硬件报告 ===
+            specs = f"""=== SoulSign 助手设备硬件报告 ===
 设备名称: {self.current_device.get('DeviceName', '')}
 产品型号: {self.current_device.get('FriendlyModel', '')} ({self.current_device.get('ProductType', '')})
 系统版本: iOS {self.current_device.get('ProductVersion', '')} ({self.current_device.get('BuildVersion', '')})
@@ -1269,7 +1285,7 @@ class UniSignHelperApp(QMainWindow):
             self.edit_prov_path.setText(path)
 
     def get_config_file(self):
-        config_dir = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "UniSign")
+        config_dir = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "SoulSign")
         os.makedirs(config_dir, exist_ok=True)
         return os.path.join(config_dir, "config.json")
 
@@ -1509,8 +1525,8 @@ class UniSignHelperApp(QMainWindow):
                     "未越狱的 iPhone 只允许运行包含您本机设备 UDID 的正规签名证书。\n"
                     "当前 IPA 尚未签名或证书与设备不匹配，因此在系统安装校验阶段被拦截。\n\n"
                     "👉 <b>推荐解决办法</b>：\n"
-                    "1. 切换至<b>【📜 个人 / 企业 P12 证书】</b>标签页，导入匹配您设备的 P12 证书与描述文件，UniSign 助手内置了苹果官方代码签名引擎，将为您完成 100% 真实签名与安装！\n"
-                    "2. 或直接在 <b>iPhone 手机端打开 UniSign App</b>，通过安装本地 CA 描述文件一键自签安装！"
+                    "1. 切换至<b>【📜 个人 / 企业 P12 证书】</b>标签页，导入匹配您设备的 P12 证书与描述文件，SoulSign 助手内置了苹果官方代码签名引擎，将为您完成 100% 真实签名与安装！\n"
+                    "2. 或直接在 <b>iPhone 手机端打开 SoulSign App</b>，通过安装本地 CA 描述文件一键自签安装！"
                 )
                 btn_p12 = msg_box.addButton("去导入 P12 证书签名", QMessageBox.AcceptRole)
                 msg_box.addButton("知道了", QMessageBox.RejectRole)
@@ -1528,10 +1544,12 @@ if __name__ == "__main__":
     app.setStyle("Fusion")
     
     # Load and apply custom application icon
-    ico_file = resource_path("unisign.ico")
-    if os.path.exists(ico_file):
-        app_icon = QIcon(ico_file)
-        app.setWindowIcon(app_icon)
+    for icon_name in ["soulsign.ico", "unisign.ico", "soulsign.png", "unisign.png"]:
+        ico_file = resource_path(icon_name)
+        if os.path.exists(ico_file):
+            app_icon = QIcon(ico_file)
+            app.setWindowIcon(app_icon)
+            break
         
     window = UniSignHelperApp()
     window.show()

@@ -69,6 +69,7 @@ public class GradientButton: UIButton {
         case secondaryGray
         case forestGreen
         case forestGreenOutline
+        case modernEmerald
     }
     
     public var buttonStyle: Style = .primaryCyber {
@@ -178,6 +179,16 @@ public class GradientButton: UIButton {
             setTitleColor(UIColor(red: 0.11, green: 0.38, blue: 0.28, alpha: 1.0), for: .normal)
             tintColor = UIColor(red: 0.11, green: 0.38, blue: 0.28, alpha: 1.0)
             activityIndicator.color = UIColor(red: 0.11, green: 0.38, blue: 0.28, alpha: 1.0)
+        case .modernEmerald:
+            gradientLayer.colors = [
+                UIColor(red: 0.06, green: 0.72, blue: 0.50, alpha: 1.0).cgColor,
+                UIColor(red: 0.02, green: 0.58, blue: 0.41, alpha: 1.0).cgColor
+            ]
+            gradientLayer.startPoint = CGPoint(x: 0, y: 0)
+            gradientLayer.endPoint = CGPoint(x: 1, y: 1)
+            setTitleColor(.white, for: .normal)
+            tintColor = .white
+            activityIndicator.color = .white
         }
     }
     
