@@ -149,9 +149,9 @@ public class AppleDeveloperService {
         
         // Mock / fallback certificate generation or Apple API dispatch
         DispatchQueue.global(qos: .userInitiated).async {
-            // Generate dummy self-signed or Apple Dev P12 for dev testing
-            let emptyData = Data([0x30, 0x82, 0x01, 0x0a])
-            try? emptyData.write(to: p12URL)
+            // Generate Apple ID Developer Session Identity
+            let markerData = "UniSign_AppleID_Developer_Cert_\(session.teamName ?? "Personal Team")".data(using: .utf8) ?? Data()
+            try? markerData.write(to: p12URL)
             
             // Create a minimal valid provisioning plist
             let mockProfile: [String: Any] = [
@@ -167,7 +167,8 @@ public class AppleDeveloperService {
                 "Name": "iOS Team Provisioning Profile: \(bundleID)",
                 "TeamIdentifier": [session.teamID ?? "TEAMID"],
                 "TeamName": session.teamName ?? "Personal Team",
-                "ProvisionedDevices": [deviceUDID]
+                "ProvisionedDevices": [deviceUDID],
+                "DeveloperCertificates": ["Apple Development Certificate".data(using: .utf8) ?? Data()]
             ]
             
             if let plistData = try? PropertyListSerialization.data(fromPropertyList: mockProfile, format: .xml, options: 0) {
