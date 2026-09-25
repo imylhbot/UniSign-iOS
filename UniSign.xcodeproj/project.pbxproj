@@ -28,6 +28,9 @@
 		A10000132C00000100000001 /* RenewalService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000132C00000100000001 /* RenewalService.swift */; };
 		A10000142C00000100000001 /* DeviceInfoHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000142C00000100000001 /* DeviceInfoHelper.swift */; };
 		A10000152C00000100000001 /* AppLibraryViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000152C00000100000001 /* AppLibraryViewController.swift */; };
+		A10000162C00000100000001 /* ZipEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000162C00000100000001 /* ZipEngine.swift */; };
+		A10000172C00000100000001 /* LanguageManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000172C00000100000001 /* LanguageManager.swift */; };
+		A10000182C00000100000001 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B10000182C00000100000001 /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -51,6 +54,9 @@
 		B10000132C00000100000001 /* RenewalService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RenewalService.swift; sourceTree = "<group>"; };
 		B10000142C00000100000001 /* DeviceInfoHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceInfoHelper.swift; sourceTree = "<group>"; };
 		B10000152C00000100000001 /* AppLibraryViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLibraryViewController.swift; sourceTree = "<group>"; };
+		B10000162C00000100000001 /* ZipEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZipEngine.swift; sourceTree = "<group>"; };
+		B10000172C00000100000001 /* LanguageManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LanguageManager.swift; sourceTree = "<group>"; };
+		B10000182C00000100000001 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		C10000012C00000100000001 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
 		C10000022C00000100000001 /* Network.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Network.framework; path = System/Library/Frameworks/Network.framework; sourceTree = SDKROOT; };
 		D10000012C00000100000001 /* UniSign.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = UniSign.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -67,6 +73,17 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXResourcesBuildPhase section */
+		E10000022C00000100000001 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000182C00000100000001 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXGroup section */
 		F10000012C00000100000001 = {
@@ -86,6 +103,7 @@
 				F10000052C00000100000001 /* IPAModifier */,
 				F10000062C00000100000001 /* LocalServer */,
 				F10000072C00000100000001 /* Views */,
+				B10000182C00000100000001 /* Assets.xcassets */,
 			);
 			path = UniSign;
 			sourceTree = "<group>";
@@ -95,6 +113,7 @@
 			children = (
 				B10000012C00000100000001 /* AppDelegate.swift */,
 				B10000022C00000100000001 /* SceneDelegate.swift */,
+				B10000172C00000100000001 /* LanguageManager.swift */,
 				B100000F2C00000100000001 /* Info.plist */,
 			);
 			path = App;
@@ -128,6 +147,7 @@
 				B10000052C00000100000001 /* MachOModifier.swift */,
 				B10000062C00000100000001 /* IconReplacer.swift */,
 				B10000072C00000100000001 /* IPAManager.swift */,
+				B10000162C00000100000001 /* ZipEngine.swift */,
 				B10000122C00000100000001 /* AppLibraryManager.swift */,
 			);
 			path = IPAModifier;
@@ -179,6 +199,7 @@
 			buildPhases = (
 				310000012C00000100000001 /* Sources */,
 				E10000012C00000100000001 /* Frameworks */,
+				E10000022C00000100000001 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -245,6 +266,8 @@
 				A10000132C00000100000001 /* RenewalService.swift in Sources */,
 				A10000142C00000100000001 /* DeviceInfoHelper.swift in Sources */,
 				A10000152C00000100000001 /* AppLibraryViewController.swift in Sources */,
+				A10000162C00000100000001 /* ZipEngine.swift in Sources */,
+				A10000172C00000100000001 /* LanguageManager.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

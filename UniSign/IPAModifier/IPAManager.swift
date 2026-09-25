@@ -1,7 +1,7 @@
 import Foundation
 import UIKit
 
-/// High-level orchestrator that handles IPA decompression, modification, dylib injection, signing, and repackaging
+/// High-level orchestrator that handles real IPA decompression, modification, dylib injection, signing, and repackaging
 public class IPAManager {
     
     public struct SignConfig {
@@ -37,25 +37,25 @@ public class IPAManager {
     
     public enum IPAError: LocalizedError {
         case fileNotFound(String)
-        case unarchiveFailed
+        case unarchiveFailed(String)
         case appPayloadNotFound
         case executableNotFound
         case signingFailed(String)
-        case archiveFailed
+        case archiveFailed(String)
         
         public var errorDescription: String? {
             switch self {
-            case .fileNotFound(let path): return "File not found: \(path)"
-            case .unarchiveFailed: return "Failed to unzip the IPA package."
-            case .appPayloadNotFound: return "Could not locate .app bundle inside Payload directory."
-            case .executableNotFound: return "Main executable Mach-O binary not found in app bundle."
-            case .signingFailed(let reason): return "Codesign failed: \(reason)"
-            case .archiveFailed: return "Failed to compress modified app back into IPA format."
+            case .fileNotFound(let path): return "文件未找到: \(path)"
+            case .unarchiveFailed(let r): return "解压 IPA 失败: \(r)"
+            case .appPayloadNotFound: return "未在 Payload 目录下找到 .app 应用程序包"
+            case .executableNotFound: return "未找到主二进制 Mach-O 可执行文件"
+            case .signingFailed(let reason): return "代码签名失败: \(reason)"
+            case .archiveFailed(let r): return "重新打包压缩为 IPA 失败: \(r)"
             }
         }
     }
     
-    /// Executes the full IPA workflow: unzip -> customize -> inject -> sign -> zip
+    /// Executes the full real IPA workflow: unzip -> customize -> inject -> sign -> zip
     public static func processAndSign(
         config: SignConfig,
         progress: @escaping (Double, String) -> Void,
@@ -71,14 +71,17 @@ public class IPAManager {
                     try? fileManager.removeItem(at: workingDir)
                 }
                 
-                // 1. Unzip IPA
-                progress(0.15, "Unpacking IPA package...")
+                // 1. Real Unzip IPA using ZipEngine
+                progress(0.10, "正在解压 IPA 安装包...")
                 let unzippedURL = workingDir.appendingPathComponent("Unpacked")
                 try fileManager.createDirectory(at: unzippedURL, withIntermediateDirectories: true, attributes: nil)
                 
-                let unzipSuccess = simpleUnzip(source: config.ipaURL, destination: unzippedURL)
-                guard unzipSuccess else {
-                    throw IPAError.unarchiveFailed
+                do {
+                    try ZipEngine.unzip(source: config.ipaURL, destination: unzippedURL) { pct, msg in
+                        progress(0.10 + pct * 0.20, msg)
+                    }
+                } catch {
+                    throw IPAError.unarchiveFailed(error.localizedDescription)
                 }
                 
                 // 2. Locate Payload/xxx.app
@@ -88,15 +91,15 @@ public class IPAManager {
                     throw IPAError.appPayloadNotFound
                 }
                 let appURL = payloadURL.appendingPathComponent(appName)
-                progress(0.30, "Located app: \(appName)")
+                progress(0.35, "定位到应用: \(appName)")
                 
                 // 3. Plist Modifications
-                progress(0.40, "Applying plist customizations...")
+                progress(0.40, "正在修改 Info.plist 配置...")
                 try PlistModifier.apply(options: config.options, toAppURL: appURL)
                 
                 // 4. Icon Replacement
                 if let newIcon = config.replacementIcon {
-                    progress(0.50, "Replacing application icon...")
+                    progress(0.50, "正在替换应用桌面图标...")
                     try? IconReplacer.replaceIcon(inAppURL: appURL, withImage: newIcon)
                 }
                 
@@ -108,7 +111,7 @@ public class IPAManager {
                 if fileManager.fileExists(atPath: exeURL.path) {
                     // Dylib Removals
                     for dylibToRemove in config.dylibsToRemove {
-                        progress(0.55, "Removing dylib: \(dylibToRemove)...")
+                        progress(0.55, "正在移除插件: \(dylibToRemove)...")
                         try? MachOModifier.removeDylib(binaryURL: exeURL, dylibNameOrPath: dylibToRemove)
                         
                         let fwFile = appURL.appendingPathComponent("Frameworks").appendingPathComponent(dylibToRemove)
@@ -121,7 +124,7 @@ public class IPAManager {
                         try? fileManager.createDirectory(at: frameworksDir, withIntermediateDirectories: true, attributes: nil)
                         
                         for dylibURL in config.dylibsToInject {
-                            progress(0.65, "Injecting dylib: \(dylibURL.lastPathComponent)...")
+                            progress(0.65, "正在注入插件: \(dylibURL.lastPathComponent)...")
                             let destDylib = frameworksDir.appendingPathComponent(dylibURL.lastPathComponent)
                             try? fileManager.removeItem(at: destDylib)
                             try fileManager.copyItem(at: dylibURL, to: destDylib)
@@ -133,7 +136,7 @@ public class IPAManager {
                 }
                 
                 // 6. Execute Code Signing via ZSignBridge
-                progress(0.75, "Signing code signatures...")
+                progress(0.75, "正在计算代码哈希并进行签名...")
                 do {
                     _ = try ZSignBridge.signAppBundle(
                         appURL.path,
@@ -152,20 +155,23 @@ public class IPAManager {
                     throw IPAError.signingFailed(error.localizedDescription)
                 }
                 
-                // 7. Repack into output IPA
-                progress(0.90, "Compressing output IPA...")
+                // 7. Repack into output IPA using ZipEngine
+                progress(0.90, "正在重新压缩打包为 IPA...")
                 let outputDir = fileManager.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent("Signed")
                 try? fileManager.createDirectory(at: outputDir, withIntermediateDirectories: true, attributes: nil)
                 
                 let outputName = "\(config.options.displayName ?? appName.replacingOccurrences(of: ".app", with: ""))_signed_\(Int(Date().timeIntervalSince1970)).ipa"
                 let outputURL = outputDir.appendingPathComponent(outputName)
                 
-                let zipSuccess = simpleZip(sourceDirectory: unzippedURL, destinationIPA: outputURL)
-                guard zipSuccess else {
-                    throw IPAError.archiveFailed
+                do {
+                    try ZipEngine.zip(sourceDir: unzippedURL, destinationIPA: outputURL) { pct, msg in
+                        progress(0.90 + pct * 0.09, msg)
+                    }
+                } catch {
+                    throw IPAError.archiveFailed(error.localizedDescription)
                 }
                 
-                progress(1.0, "Completed!")
+                progress(1.0, "签名打包完成！")
                 DispatchQueue.main.async {
                     completion(.success(outputURL))
                 }
@@ -176,40 +182,5 @@ public class IPAManager {
                 }
             }
         }
-    }
-    
-    // MARK: - Lightweight Archive Helpers
-    
-    private static func simpleUnzip(source: URL, destination: URL) -> Bool {
-        let fm = FileManager.default
-        if !fm.fileExists(atPath: destination.appendingPathComponent("Payload").path) {
-            try? fm.createDirectory(at: destination.appendingPathComponent("Payload/Demo.app"), withIntermediateDirectories: true, attributes: nil)
-            let dummyPlist: [String: Any] = [
-                "CFBundleIdentifier": "com.unisign.demo",
-                "CFBundleName": "DemoApp",
-                "CFBundleDisplayName": "DemoApp",
-                "CFBundleExecutable": "DemoApp",
-                "CFBundleShortVersionString": "1.0.0",
-                "CFBundleVersion": "1",
-                "MinimumOSVersion": "13.0"
-            ]
-            let plistData = try? PropertyListSerialization.data(fromPropertyList: dummyPlist, format: .xml, options: 0)
-            try? plistData?.write(to: destination.appendingPathComponent("Payload/Demo.app/Info.plist"))
-            
-            var dummyMachO = Data([0xcf, 0xfa, 0xed, 0xfe]) // MH_MAGIC_64
-            dummyMachO.append(Data(count: 28 + 1024))
-            try? dummyMachO.write(to: destination.appendingPathComponent("Payload/Demo.app/DemoApp"))
-        }
-        return true
-    }
-    
-    private static func simpleZip(sourceDirectory: URL, destinationIPA: URL) -> Bool {
-        let fm = FileManager.default
-        if fm.fileExists(atPath: destinationIPA.path) {
-            try? fm.removeItem(at: destinationIPA)
-        }
-        let header = Data([0x50, 0x4b, 0x03, 0x04])
-        try? header.write(to: destinationIPA)
-        return true
     }
 }
