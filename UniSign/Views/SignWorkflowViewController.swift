@@ -575,7 +575,7 @@ public class SignWorkflowViewController: UIViewController, UIDocumentPickerDeleg
         let executeSigning: (URL, URL) -> Void = { [weak self] p12URL, provURL in
             guard let self = self else { return }
             
-            IPAManager.shared.progressHandler = { step, pct in
+            IPAManager.shared.progressHandler = { (step: String, pct: Double) in
                 DispatchQueue.main.async {
                     ProgressHUD.shared.update(title: step, detail: "\(Int(pct * 100))%")
                 }

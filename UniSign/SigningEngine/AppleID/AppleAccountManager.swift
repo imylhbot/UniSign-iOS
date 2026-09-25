@@ -33,19 +33,28 @@ public class AppleAccountManager {
     public static let shared = AppleAccountManager()
     
     private let storageKey = "UniSign_SavedAppleAccounts"
-    private var accounts: [AppleAccount] = []
+    private var _accounts: [AppleAccount] = []
     public static let maxAppsPerAppleID: Int = 3
+    
+    public var accounts: [AppleAccount] {
+        get { return _accounts }
+        set { _accounts = newValue }
+    }
+    
+    public var activeAccount: AppleAccount? {
+        return getActiveAccount()
+    }
     
     public init() {
         loadAccounts()
     }
     
     public func getAllAccounts() -> [AppleAccount] {
-        return accounts
+        return _accounts
     }
     
     public func getActiveAccount() -> AppleAccount? {
-        return accounts.first(where: { $0.isActive }) ?? accounts.first
+        return _accounts.first(where: { $0.isActive }) ?? _accounts.first
     }
     
     public func addOrUpdateAccount(_ account: AppleAccount) {
@@ -96,6 +105,10 @@ public class AppleAccountManager {
     /// Checks if the Apple ID has reached Apple's 3-app free sideloading limit
     public func hasReachedQuota(for email: String) -> Bool {
         return activeAppsCount(for: email) >= AppleAccountManager.maxAppsPerAppleID
+    }
+    
+    public func hasReachedQuota(email: String) -> Bool {
+        return hasReachedQuota(for: email)
     }
     
     private func loadAccounts() {

@@ -8,6 +8,21 @@ public class ZSignCertificateInfo {
     public var teamName: String?
     public var expirationDate: Date?
     public var isExpired: Bool = false
+    
+    public var daysRemaining: Int {
+        guard let exp = expirationDate else { return 0 }
+        let diff = Calendar.current.dateComponents([.day], from: Date(), to: exp)
+        return max(0, diff.day ?? 0)
+    }
+    
+    public var isValid: Bool {
+        return !isExpired && (daysRemaining > 0 || (expirationDate != nil && expirationDate! > Date()))
+    }
+    
+    public var subject: String {
+        return commonName ?? teamName ?? "Apple Development Certificate"
+    }
+    
     public init() {}
 }
 
@@ -79,6 +94,19 @@ public class ZSignBridge {
         }
         
         return info
+    }
+    
+    /// Overload returning dictionary with p12Path argument label
+    public static func inspectP12(p12Path: String, password: String) throws -> [String: Any] {
+        let info: ZSignCertificateInfo = try inspectP12(p12Path, password: password)
+        return [
+            "isValid": info.isValid,
+            "daysRemaining": info.daysRemaining,
+            "subject": info.subject,
+            "commonName": info.commonName ?? "",
+            "teamId": info.teamId ?? "",
+            "teamName": info.teamName ?? ""
+        ]
     }
     
     /// Inspects and extracts the embedded property list from a .mobileprovision file

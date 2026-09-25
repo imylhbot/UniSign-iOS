@@ -55,6 +55,51 @@ public class IPAManager {
         }
     }
     
+    public static let shared = IPAManager()
+    public var progressHandler: ((String, Double) -> Void)?
+    
+    public init() {}
+    
+    public func modifyAndSignIPA(
+        sourceIPA: URL,
+        p12URL: URL,
+        p12Password: String,
+        mobileprovisionURL: URL?,
+        newBundleId: String?,
+        newDisplayName: String?,
+        newVersion: String?,
+        newMinOSVersion: String?,
+        enableFileSharing: Bool,
+        enableOpeningDocumentsInPlace: Bool,
+        newIconImage: UIImage?,
+        dylibsToInject: [URL],
+        dylibsToRemove: [String],
+        completion: @escaping (Result<URL, Error>) -> Void
+    ) {
+        var opts = PlistModifier.CustomizationOptions()
+        opts.newBundleID = newBundleId
+        opts.newDisplayName = newDisplayName
+        opts.newVersion = newVersion
+        opts.newMinimumOSVersion = newMinOSVersion
+        opts.enableFileSharing = enableFileSharing
+        opts.enableOpeningDocumentsInPlace = enableOpeningDocumentsInPlace
+        
+        let config = SignConfig(
+            ipaURL: sourceIPA,
+            p12URL: p12URL,
+            p12Password: p12Password,
+            provisionURL: mobileprovisionURL,
+            options: opts,
+            replacementIcon: newIconImage,
+            dylibsToInject: dylibsToInject,
+            dylibsToRemove: dylibsToRemove
+        )
+        
+        Self.processAndSign(config: config, progress: { [weak self] pct, step in
+            self?.progressHandler?(step, pct)
+        }, completion: completion)
+    }
+    
     /// Executes the full real IPA workflow: unzip -> customize -> inject -> sign -> zip
     public static func processAndSign(
         config: SignConfig,
