@@ -852,7 +852,7 @@ public class SignWorkflowViewController: UIViewController, UIDocumentPickerDeleg
     @objc private func toggleLoadControl() {
         isLoadControlEnabled.toggle()
         loadControlChip.setTitle(isLoadControlEnabled ? "✓ LoadControl" : "✖ LoadControl", for: .normal)
-        UINotificationFeedbackGenerator().notificationOccurred(.selectionChanged)
+        UISelectionFeedbackGenerator().selectionChanged()
     }
     
     @objc private func toggleDepsExpanded() {
@@ -1189,7 +1189,6 @@ public class SignWorkflowViewController: UIViewController, UIDocumentPickerDeleg
         opts.removeURLSchemes = urlSchemeSwitch.isOn
         opts.fixWhiteIcon = fixWhiteIconSwitch.isOn
         opts.fixDarkIcon = fixDarkIconSwitch.isOn
-        opts.directInjection = directInjectSwitch.isOn
         opts.removeEmbeddedProvision = removeEmbeddedSwitch.isOn
         opts.removeWatchApp = removeWatchSwitch.isOn
         opts.appendSignedSuffix = (selectedCertMode != .none)

@@ -47,6 +47,11 @@ public class SigningPreferences {
         set { defaults.set(newValue, forKey: Keys.directInjectPlugin) }
     }
     
+    public var directInjection: Bool {
+        get { directInjectPlugin }
+        set { directInjectPlugin = newValue }
+    }
+    
     public var removeURLSchemes: Bool {
         get { defaults.bool(forKey: Keys.removeURLSchemes) }
         set { defaults.set(newValue, forKey: Keys.removeURLSchemes) }
