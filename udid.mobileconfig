@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>PayloadDisplayName</key>
+    <string>SoulSign 自动获取真机 UDID</string>
+    <key>PayloadDescription</key>
+    <string>用于一键安全获取当前 iPhone / iPad 的真实物理硬件 UDID 与序列号，方便免费 Apple ID 与个人证书绑定设备。</string>
+    <key>PayloadIdentifier</key>
+    <string>com.soulsign.udid.service</string>
+    <key>PayloadOrganization</key>
+    <string>SoulSign</string>
+    <key>PayloadType</key>
+    <string>Profile Service</string>
+    <key>PayloadUUID</key>
+    <string>A5199622-4D78-4D46-B4B2-9F1C5F03A342</string>
+    <key>PayloadVersion</key>
+    <integer>1</integer>
+    <key>PayloadContent</key>
+    <dict>
+        <key>URL</key>
+        <string>https://udid.soul-sign.com/receive_udid</string>
+        <key>DeviceAttributes</key>
+        <array>
+            <string>UDID</string>
+            <string>PRODUCT</string>
+            <string>VERSION</string>
+            <string>SERIAL</string>
+            <string>IMEI</string>
+        </array>
+    </dict>
+</dict>
+</plist>

@@ -39,34 +39,86 @@ class PCSigner:
     """Signs IPA files on Windows using Apple ID or P12 certificates with native rcodesign engine."""
 
     @staticmethod
-    def get_rcodesign_path():
-        """Locates the bundled or adjacent rcodesign.exe binary."""
+    def get_rcodesign_path(auto_download=True, log_callback=None):
+        """Locates the bundled, local, or auto-downloaded rcodesign.exe binary."""
+        def log(m):
+            if log_callback:
+                log_callback(m)
+            else:
+                print(m)
+
         base_dir = os.path.dirname(os.path.abspath(__file__))
         exe_dir = os.path.dirname(sys.executable)
         cwd = os.getcwd()
+        appdata_bin = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "SoulSign", "bin")
+
         candidates = [
             resource_path("rcodesign.exe"),
-            resource_path("bin/apple-codesign-0.29.0-x86_64-pc-windows-msvc/rcodesign.exe"),
-            resource_path("bin/rcodesign.exe"),
-            os.path.join(exe_dir, "rcodesign.exe"),
-            os.path.join(exe_dir, "..", "rcodesign.exe"),
-            os.path.join(exe_dir, "bin", "rcodesign.exe"),
-            os.path.join(exe_dir, "bin", "apple-codesign-0.29.0-x86_64-pc-windows-msvc", "rcodesign.exe"),
             os.path.join(base_dir, "rcodesign.exe"),
-            os.path.join(base_dir, "bin", "rcodesign.exe"),
-            os.path.join(base_dir, "bin", "apple-codesign-0.29.0-x86_64-pc-windows-msvc", "rcodesign.exe"),
-            os.path.join(base_dir, "..", "rcodesign.exe"),
+            os.path.join(exe_dir, "rcodesign.exe"),
+            os.path.join(appdata_bin, "rcodesign.exe"),
             os.path.join(cwd, "rcodesign.exe"),
             os.path.join(cwd, "UniSign-Helper", "rcodesign.exe"),
             os.path.join(cwd, "SoulSign-Helper", "rcodesign.exe"),
-            os.path.join(cwd, "bin", "rcodesign.exe"),
+            os.path.join(exe_dir, "..", "rcodesign.exe"),
+            os.path.join(base_dir, "..", "rcodesign.exe"),
+            os.path.join(base_dir, "bin", "rcodesign.exe"),
+            os.path.join(exe_dir, "bin", "rcodesign.exe"),
             shutil.which("rcodesign.exe"),
-            shutil.which("rcodesign"),
-            "rcodesign.exe"
+            shutil.which("rcodesign")
         ]
         for p in candidates:
             if p and os.path.exists(p) and os.path.isfile(p):
                 return os.path.abspath(p)
+
+        if not auto_download:
+            return "rcodesign.exe"
+
+        # Auto-download rcodesign.exe if missing
+        try:
+            log("[*] 正在自动下载并配置 Apple 原生代码签名引擎 (rcodesign)...")
+            import urllib.request
+            import zipfile
+            import io
+
+            os.makedirs(appdata_bin, exist_ok=True)
+            target_bin = os.path.join(appdata_bin, "rcodesign.exe")
+
+            urls = [
+                "https://github.com/indygreg/apple-platform-rs/releases/download/apple-codesign%2F0.29.0/apple-codesign-0.29.0-x86_64-pc-windows-msvc.zip",
+                "https://ghproxy.net/https://github.com/indygreg/apple-platform-rs/releases/download/apple-codesign%2F0.29.0/apple-codesign-0.29.0-x86_64-pc-windows-msvc.zip"
+            ]
+
+            downloaded = False
+            for url in urls:
+                try:
+                    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+                    with urllib.request.urlopen(req, timeout=30) as resp:
+                        zip_data = resp.read()
+                    with zipfile.ZipFile(io.BytesIO(zip_data)) as zf:
+                        for name in zf.namelist():
+                            if name.endswith("rcodesign.exe"):
+                                with zf.open(name) as src, open(target_bin, "wb") as dst:
+                                    dst.write(src.read())
+                                downloaded = True
+                                break
+                    if downloaded:
+                        break
+                except Exception:
+                    continue
+
+            if downloaded and os.path.exists(target_bin):
+                # Also try copying to base_dir for next time
+                try:
+                    local_target = os.path.join(base_dir, "rcodesign.exe")
+                    shutil.copy2(target_bin, local_target)
+                except Exception:
+                    pass
+                log("[√] Apple 代码签名引擎 (rcodesign.exe) 下载就绪！")
+                return os.path.abspath(target_bin)
+        except Exception as e:
+            log(f"[!] 自动下载签名引擎时出现提示: {e}")
+
         return "rcodesign.exe"
 
     @staticmethod
@@ -304,7 +356,7 @@ class PCSigner:
                     log("[*] 已从描述文件中提取并配置 Entitlements 权限")
             
             # 3. Native Apple Code Signing via rcodesign
-            rcodesign_bin = PCSigner.get_rcodesign_path()
+            rcodesign_bin = PCSigner.get_rcodesign_path(auto_download=True, log_callback=log)
             if not os.path.exists(rcodesign_bin):
                 raise FileNotFoundError(f"未找到代码签名引擎: {rcodesign_bin}")
             

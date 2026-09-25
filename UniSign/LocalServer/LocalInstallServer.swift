@@ -186,27 +186,47 @@ public class LocalInstallServer {
         }
     }
     
+    private var backgroundTaskID: UIBackgroundTaskIdentifier = .invalid
+    
+    private func beginBackgroundKeepAlive() {
+        if backgroundTaskID != .invalid {
+            UIApplication.shared.endBackgroundTask(backgroundTaskID)
+        }
+        backgroundTaskID = UIApplication.shared.beginBackgroundTask(withName: "SoulSign.LocalInstallServer") { [weak self] in
+            guard let self = self else { return }
+            UIApplication.shared.endBackgroundTask(self.backgroundTaskID)
+            self.backgroundTaskID = .invalid
+        }
+    }
+    
     public func stop() {
         listener?.cancel()
         listener = nil
         isRunning = false
+        if backgroundTaskID != .invalid {
+            UIApplication.shared.endBackgroundTask(backgroundTaskID)
+            backgroundTaskID = .invalid
+        }
     }
     
     /// Opens Safari to install the Local CA configuration profile for trusted HTTPS installation
     public func installLocalCAProfile() {
+        beginBackgroundKeepAlive()
         if !isRunning {
             try? start()
         }
-        let url = URL(string: "https://127.0.0.1:\(port)/ca.mobileconfig")!
+        // Direct local HTTP download - avoids TLS handshake failure before CA is installed
+        let url = URL(string: "http://127.0.0.1:\(port)/ca.mobileconfig")!
         UIApplication.shared.open(url, options: [:], completionHandler: nil)
     }
     
     /// Opens Safari to install the UDID configuration profile to automatically retrieve device UDID
     public func installUDIDProfile() {
+        beginBackgroundKeepAlive()
         if !isRunning {
             try? start()
         }
-        let url = URL(string: "https://127.0.0.1:\(port)/udid.mobileconfig")!
+        let url = URL(string: "http://127.0.0.1:\(port)/udid.mobileconfig")!
         UIApplication.shared.open(url, options: [:], completionHandler: nil)
     }
     
@@ -371,13 +391,13 @@ public class LocalInstallServer {
         <plist version="1.0">
         <dict>
             <key>PayloadDisplayName</key>
-            <string>UniSign 本地极速安装证书 (Root CA)</string>
+            <string>SoulSign 本地极速安装证书 (Root CA)</string>
             <key>PayloadDescription</key>
             <string>信任此证书可允许 iOS 系统直接从本地安全 HTTPS 极速安装已签名 IPA，100% 解决连接失败与证书拦截问题</string>
             <key>PayloadIdentifier</key>
-            <string>com.unisign.localca.\(uuid)</string>
+            <string>com.soulsign.localca.\(uuid)</string>
             <key>PayloadOrganization</key>
-            <string>UniSign</string>
+            <string>SoulSign</string>
             <key>PayloadType</key>
             <string>Configuration</string>
             <key>PayloadUUID</key>
@@ -392,15 +412,15 @@ public class LocalInstallServer {
                     <key>PayloadVersion</key>
                     <integer>1</integer>
                     <key>PayloadIdentifier</key>
-                    <string>com.unisign.localca.cert.\(certUUID)</string>
+                    <string>com.soulsign.localca.cert.\(certUUID)</string>
                     <key>PayloadUUID</key>
                     <string>\(certUUID)</string>
                     <key>PayloadDisplayName</key>
-                    <string>UniSign Local Root CA</string>
+                    <string>SoulSign Local Root CA</string>
                     <key>PayloadDescription</key>
-                    <string>UniSign 本地安装根证书凭据</string>
+                    <string>SoulSign 本地安装根证书凭据</string>
                     <key>PayloadCertificateFileName</key>
-                    <string>UniSignRootCA.cer</string>
+                    <string>SoulSignRootCA.cer</string>
                     <key>PayloadContent</key>
                     <data>\(LocalInstallServer.caCertBase64)</data>
                 </dict>
@@ -418,13 +438,13 @@ public class LocalInstallServer {
         <plist version="1.0">
         <dict>
             <key>PayloadDisplayName</key>
-            <string>UniSign 自动获取设备 UDID</string>
+            <string>SoulSign 自动获取真机 UDID</string>
             <key>PayloadDescription</key>
             <string>用于一键安全获取本机物理设备 UDID，方便免费 Apple ID 或开发者证书绑定设备。</string>
             <key>PayloadIdentifier</key>
-            <string>com.unisign.udid.\(uuid)</string>
+            <string>com.soulsign.udid.\(uuid)</string>
             <key>PayloadOrganization</key>
-            <string>UniSign</string>
+            <string>SoulSign</string>
             <key>PayloadType</key>
             <string>Profile Service</string>
             <key>PayloadUUID</key>
@@ -434,7 +454,7 @@ public class LocalInstallServer {
             <key>PayloadContent</key>
             <dict>
                 <key>URL</key>
-                <string>https://127.0.0.1:\(port)/receive_udid</string>
+                <string>http://127.0.0.1:\(port)/receive_udid</string>
                 <key>DeviceAttributes</key>
                 <array>
                     <string>UDID</string>
@@ -470,7 +490,7 @@ public class LocalInstallServer {
         <head>
           <meta charset="utf-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-          <title>UDID 获取成功 - UniSign</title>
+          <title>UDID 获取成功 - SoulSign</title>
           <style>
             body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif; background: #0F172A; color: #FFFFFF; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }
             .card { background: rgba(30, 41, 59, 0.85); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 24px; padding: 32px 24px; text-align: center; max-width: 400px; width: 100%; box-shadow: 0 20px 40px rgba(0,0,0,0.5); }
@@ -485,9 +505,9 @@ public class LocalInstallServer {
           <div class="card">
             <div class="icon">✅</div>
             <h1>设备 UDID 获取成功</h1>
-            <p>已自动识别并同步至 UniSign 证书与设备中心：</p>
+            <p>已自动识别并同步至 SoulSign 证书与设备中心：</p>
             <div class="code-box">\(currentUDID)</div>
-            <a href="unisign://open" class="btn">📱 返回 UniSign App</a>
+            <a href="soulsign://open" class="btn">📱 返回 SoulSign App</a>
           </div>
         </body>
         </html>

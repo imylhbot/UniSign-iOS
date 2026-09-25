@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>PayloadDisplayName</key>
+    <string>SoulSign 本地安装证书 (Root CA)</string>
+    <key>PayloadDescription</key>
+    <string>信任此根证书可允许 iOS 手机直接从本地局域网/本机 HTTPS 无缝安装已签名 IPA，解决证书拦截与连接失败问题。</string>
+    <key>PayloadIdentifier</key>
+    <string>com.soulsign.localca</string>
+    <key>PayloadOrganization</key>
+    <string>SoulSign</string>
+    <key>PayloadType</key>
+    <string>Configuration</string>
+    <key>PayloadUUID</key>
+    <string>3A9851F2-9904-4F3D-BEF2-51E162CCDA47</string>
+    <key>PayloadVersion</key>
+    <integer>1</integer>
+    <key>PayloadContent</key>
+    <array>
+        <dict>
+            <key>PayloadType</key>
+            <string>com.apple.security.root</string>
+            <key>PayloadVersion</key>
+            <integer>1</integer>
+            <key>PayloadIdentifier</key>
+            <string>com.soulsign.localca.cert</string>
+            <key>PayloadUUID</key>
+            <string>8E8C9467-5421-4CA9-A1B9-CE7C4D383419</string>
+            <key>PayloadDisplayName</key>
+            <string>SoulSign Local Root CA</string>
+            <key>PayloadDescription</key>
+            <string>SoulSign 本地极速安装根证书凭据</string>
+            <key>PayloadCertificateFileName</key>
+            <string>SoulSignRootCA.cer</string>
+            <key>PayloadContent</key>
+            <data>MIIDNzCCAh+gAwIBAgIUXWIrB4ylX9eFqfewfVq9aE2vDi8wDQYJKoZIhvcNAQELBQAwQzEeMBwGA1UEAwwVVW5pU2lnbiBMb2NhbCBSb290IENBMRQwEgYDVQQKDAtVbmlTaWduIEFwcDELMAkGA1UEBhMCQ04wHhcNMjYwOTI0MTYxMTE0WhcNMzYwOTIyMTYxMTE0WjBDMR4wHAYDVQQDDBVVbmlTaWduIExvY2FsIFJvb3QgQ0ExFDASBgNVBAoMC1VuaVNpZ24gQXBwMQswCQYDVQQGEwJDTjCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAKIsEUZAcGnCvPp0nB50tpOsCFU0KWya4Xlnc3bKoDzllf/Op1O2iy9A9GCDydg6Q/sXLWRXZTaoaPd5xd4pQljYoAa4o718mCoaUPe3+YKpTRlAK5EtsLjX4oWRXRyEAU9nXhXPr5bGxd0Ae/f+AT6QsFg7GGHv2kGAsCmkpRt260mY/t4mOrB71solNK1zZgAh7jkd98iBGo2YoDnR3d7o4NXUfGqh4Id7atwaljV7Zw2bzEjirlCltG17Gwlcg/IILM9IScIrtQgj2b6IoByI7R/6mwopu3/j/TJJ/Za5MGsEQp5066niUsM163hAOgB0M6CEB9aqWE4HN/OnXOcCAwEAAaMjMCEwDwYDVR0TAQH/BAUwAwEB/zAOBgNVHQ8BAf8EBAMCAaYwDQYJKoZIhvcNAQELBQADggEBADdXlOlBt8nMLwy3liC6g+hBVSI5gdbF7RDumu3eDQkLBuGJ4CqTOAEAE3OdrAqawFhX4nqMlfm7gHPzxyTXbNRh5l+JKVkhfQpqzwgx9mEOJfYcpkLGAhAv/TNmWNsfnF7hR/g5QKtiN9qG8Oonja1Q4byj92Zazfv1MWSMaLcFQgaOqxIt73hHShy2B67sjuEDYospznHcDoDBoBxSr1LPNxS+aDV8XjYiclP4+ZWQezHgt/LBUOHH8YQYR0eKoiuqpi3Ttd9b7cnRDxFQgCXFrUFkiGj0kIMTLEm8Fvqydp9DrH86xlQK6Cu07SODcnhsOaxRorDGIejkt3o3pCY=</data>
+        </dict>
+    </array>
+</dict>
+</plist>

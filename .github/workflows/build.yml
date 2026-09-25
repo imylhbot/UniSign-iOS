@@ -5,9 +5,9 @@ on:
   workflow_dispatch:
     inputs:
       version_tag:
-        description: 'Release Tag Name (e.g. v1.0.0)'
+        description: 'Release Tag Name (e.g. v2.5.0)'
         required: true
-        default: 'v1.0.0'
+        default: 'v2.5.0'
       release_title:
         description: 'Release Title'
         required: false
@@ -61,17 +61,14 @@ jobs:
           mkdir -p Payload
           cp -r "$APP_PATH" Payload/
           zip -r -9 SoulSign.ipa Payload
-          cp SoulSign.ipa UniSign.ipa
           rm -rf Payload
-          echo "SoulSign.ipa & UniSign.ipa created successfully!"
+          echo "SoulSign.ipa created successfully!"
 
       - name: Upload IPA to Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: SoulSign-IPA
-          path: |
-            SoulSign.ipa
-            UniSign.ipa
+          path: SoulSign.ipa
           retention-days: 14
 
   build-pc-helper:
@@ -91,10 +88,23 @@ jobs:
           python -m pip install --upgrade pip
           pip install PySide6 cryptography requests pycryptodome pyinstaller pillow
 
+      - name: Download Apple Code Signing Engine (rcodesign.exe)
+        shell: pwsh
+        run: |
+          cd UniSign-Helper
+          python -c "import urllib.request, zipfile, io; url = 'https://github.com/indygreg/apple-platform-rs/releases/download/apple-codesign%2F0.29.0/apple-codesign-0.29.0-x86_64-pc-windows-msvc.zip'; data = urllib.request.urlopen(url, timeout=60).read(); z = zipfile.ZipFile(io.BytesIO(data)); [z.extract(f, '.') for f in z.namelist() if f.endswith('rcodesign.exe')]"
+          if (Test-Path "apple-codesign-0.29.0-x86_64-pc-windows-msvc/rcodesign.exe") {
+            Move-Item -Force "apple-codesign-0.29.0-x86_64-pc-windows-msvc/rcodesign.exe" "rcodesign.exe"
+            Remove-Item -Recurse -Force "apple-codesign-0.29.0-x86_64-pc-windows-msvc"
+          }
+          if (Test-Path "rcodesign.exe") {
+            Write-Host "rcodesign.exe successfully downloaded!"
+          }
+
       - name: Build SoulSign-Helper.exe
         run: |
           cd UniSign-Helper
-          pyinstaller --onefile --noconsole --clean --icon="soulsign.ico" --add-data "soulsign.ico;." --add-data "soulsign.png;." --add-data "unisign.ico;." --add-data "unisign.png;." --name "SoulSign-Helper" unisign_helper_gui.py
+          pyinstaller --onefile --noconsole --clean --icon="soulsign.ico" --add-data "soulsign.ico;." --add-data "soulsign.png;." --add-binary "rcodesign.exe;." --name "SoulSign-Helper" unisign_helper_gui.py
 
       - name: Package Windows ZIP
         shell: pwsh
@@ -102,21 +112,18 @@ jobs:
           cd UniSign-Helper
           New-Item -ItemType Directory -Force -Path package
           Copy-Item dist\SoulSign-Helper.exe package\
-          Copy-Item dist\SoulSign-Helper.exe package\UniSign-Helper.exe
+          Copy-Item rcodesign.exe package\
           Copy-Item run_helper.bat package\
           Copy-Item README.md package\
           Copy-Item soulsign.ico package\
           Copy-Item soulsign.png package\
           Compress-Archive -Path package\* -DestinationPath ..\SoulSign-Helper-Windows.zip -Force
-          Copy-Item ..\SoulSign-Helper-Windows.zip ..\UniSign-Helper-Windows.zip
 
       - name: Upload Windows Helper to Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: SoulSign-Helper-Windows
-          path: |
-            SoulSign-Helper-Windows.zip
-            UniSign-Helper-Windows.zip
+          path: SoulSign-Helper-Windows.zip
           retention-days: 14
 
   release:
@@ -144,14 +151,14 @@ jobs:
         uses: softprops/action-gh-release@v2
         continue-on-error: true
         with:
-          tag_name: ${{ github.event.inputs.version_tag || 'v1.0.0' }}
-          name: ${{ github.event.inputs.release_title || 'SoulSign iOS & PC Helper Release' }} (${{ github.event.inputs.version_tag || 'v1.0.0' }})
+          tag_name: ${{ github.event.inputs.version_tag || 'v2.5.0' }}
+          name: ${{ github.event.inputs.release_title || 'SoulSign iOS & PC Helper Release' }} (${{ github.event.inputs.version_tag || 'v2.5.0' }})
           body: |
             ## ⚡ SoulSign-iOS & PC 助手官方发布
 
-            - **版本**: ${{ github.event.inputs.version_tag || 'v1.0.0' }}
+            - **版本**: ${{ github.event.inputs.version_tag || 'v2.5.0' }}
             - **iOS 客户端**: `SoulSign.ipa`（iOS 13.0+，支持纯手机端重签、多账号切换、7天自动续期、P12 离线签名、Safari 真实 UDID 一键读取、HTTPS 本地 OTA 安装、动态库 Dylib 注入定制）。
-            - **PC 电脑端助手**: `SoulSign-Helper-Windows.zip`（Windows 10/11，解压即用，支持 USB 一键直装已签名 IPA、rcodesign 官方签名引擎集成、免费 Apple ID 7 天自动自签、iOS 16+ 开发者模式一键激活）。
+            - **PC 电脑端助手**: `SoulSign-Helper-Windows.zip`（Windows 10/11，解压即用，内置 rcodesign 签名引擎，支持 USB 一键直装已签名 IPA、免费 Apple ID 7 天自动自签、iOS 16+ 开发者模式一键激活）。
 
             ### 💻 PC 客户端使用方法：
             1. 下载 `SoulSign-Helper-Windows.zip` 并解压。
@@ -159,9 +166,9 @@ jobs:
             3. 数据线连接手机并信任电脑，拖入待签或已签名 IPA，点击「一键签名并安装」秒速完成！
           files: |
             SoulSign.ipa
-            UniSign.ipa
             SoulSign-Helper-Windows.zip
-            UniSign-Helper-Windows.zip
+            ca.mobileconfig
+            udid.mobileconfig
           draft: false
           prerelease: false
         env:

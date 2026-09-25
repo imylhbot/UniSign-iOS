@@ -312,7 +312,17 @@ public class CertificateManagerViewController: UIViewController, UIDocumentPicke
     }
     
     private func updateUDIDDisplay() {
-        udidLabel.text = DeviceInfoHelper.getDeviceUDID()
+        let udid = DeviceInfoHelper.getDeviceUDID()
+        let isReal = DeviceInfoHelper.isRealHardwareUDID()
+        if isReal {
+            udidLabel.text = "✅ 真实物理硬件 UDID:\n\(udid)"
+            udidLabel.textColor = UIColor(red: 0.05, green: 0.65, blue: 0.45, alpha: 1.0)
+            udidLabel.backgroundColor = UIColor.systemGreen.withAlphaComponent(0.08)
+        } else {
+            udidLabel.text = "⚠️ 临时识别码 (IDFV):\n\(udid)\n(建议点击下方获取真实物理硬件 UDID)"
+            udidLabel.textColor = .label
+            udidLabel.backgroundColor = UIColor.systemOrange.withAlphaComponent(0.08)
+        }
     }
     
     @objc private func onUDIDUpdated() {
@@ -323,7 +333,41 @@ public class CertificateManagerViewController: UIViewController, UIDocumentPicke
     }
     
     @objc private func safariUDIDAction() {
-        DeviceInfoHelper.openUDIDAcquisitionInSafari()
+        let sheet = UIAlertController(
+            title: L("获取真实物理硬件 UDID", "Get Real Hardware UDID"),
+            message: L("iOS 系统安全限制普通 App 无法直接读取真实硬件 UDID，请选择获取方式：", "Choose method to retrieve official hardware UDID:"),
+            preferredStyle: .actionSheet
+        )
+        
+        sheet.addAction(UIAlertAction(title: L("⚡ 在线 Safari 一键获取 (推荐)", "⚡ Get Real UDID via Online Safari (Recommended)"), style: .default, handler: { _ in
+            DeviceInfoHelper.openOnlineUDIDAcquisition()
+        }))
+        
+        sheet.addAction(UIAlertAction(title: L("🌐 本地免联网描述文件获取", "🌐 Local Offline Profile Acquisition"), style: .default, handler: { _ in
+            DeviceInfoHelper.openUDIDAcquisitionInSafari()
+        }))
+        
+        sheet.addAction(UIAlertAction(title: L("📦 从 GitHub 仓库下载描述文件", "📦 Download Profile from GitHub"), style: .default, handler: { _ in
+            DeviceInfoHelper.openGitHubMobileConfig()
+        }))
+        
+        sheet.addAction(UIAlertAction(title: L("🔌 连接电脑 USB 助手直读 (无需描述文件)", "🔌 Read via PC USB Helper"), style: .default, handler: { [weak self] _ in
+            let alert = UIAlertController(
+                title: L("电脑端 USB 直读", "PC Helper Direct Read"),
+                message: L("打开电脑端 SoulSign 助手 (SoulSign-Helper.exe)，使用 USB 数据线连接 iPhone 并解锁信任，电脑助手将自动 100% 准确读取真实物理硬件 UDID，一键点击即可复制！", "Connect via USB and read real UDID directly in SoulSign-Helper."),
+                preferredStyle: .alert
+            )
+            alert.addAction(UIAlertAction(title: L("好", "OK"), style: .default))
+            self?.present(alert, animated: true)
+        }))
+        
+        sheet.addAction(UIAlertAction(title: L("取消", "Cancel"), style: .cancel))
+        
+        if let pop = sheet.popoverPresentationController {
+            pop.sourceView = safariUDIDButton
+            pop.sourceRect = safariUDIDButton.bounds
+        }
+        present(sheet, animated: true)
     }
     
     @objc private func copyUDIDAction() {
