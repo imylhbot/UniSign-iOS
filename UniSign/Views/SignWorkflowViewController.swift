@@ -7,6 +7,7 @@ public class SignWorkflowViewController: UIViewController, UIDocumentPickerDeleg
     private let contentView = UIStackView()
     
     // Selected files
+    public var preselectedIPAURL: URL?
     private var selectedIPAURL: URL?
     private var selectedP12URL: URL?
     private var selectedProvisionURL: URL?
@@ -16,6 +17,7 @@ public class SignWorkflowViewController: UIViewController, UIDocumentPickerDeleg
     
     // Form fields
     private let ipaButton = UIButton(type: .system)
+    private let signingMethodSegment = UISegmentedControl(items: ["Active Apple ID", "P12 Certificate"])
     private let bundleIdField = UITextField()
     private let nameField = UITextField()
     private let versionField = UITextField()
@@ -39,6 +41,10 @@ public class SignWorkflowViewController: UIViewController, UIDocumentPickerDeleg
         title = "IPA Sign & Customize"
         view.backgroundColor = .systemGroupedBackground
         setupUI()
+        
+        if let preselected = preselectedIPAURL {
+            applySelectedIPA(preselected)
+        }
     }
     
     private func setupUI() {
@@ -63,18 +69,23 @@ public class SignWorkflowViewController: UIViewController, UIDocumentPickerDeleg
             contentView.widthAnchor.constraint(equalTo: scrollView.widthAnchor, constant: -32)
         ])
         
-        // 1. File Selection Section
+        // 1. Source IPA Selection
         addSectionHeader("1. Source IPA")
-        ipaButton.setTitle("Select IPA File from Storage", for: .normal)
+        ipaButton.setTitle("Select IPA (from Library or Files)", for: .normal)
         ipaButton.backgroundColor = .systemBlue
         ipaButton.setTitleColor(.white, for: .normal)
         ipaButton.layer.cornerRadius = 10
         ipaButton.heightAnchor.constraint(equalToConstant: 44).isActive = true
-        ipaButton.addTarget(self, action: #selector(selectIPAFile), for: .touchUpInside)
+        ipaButton.addTarget(self, action: #selector(showIPAPickerOptions), for: .touchUpInside)
         contentView.addArrangedSubview(ipaButton)
         
-        // 2. Customization Section
-        addSectionHeader("2. Bundle & Metadata Customization")
+        // 2. Signing Identity Method
+        addSectionHeader("2. Signing Identity")
+        signingMethodSegment.selectedSegmentIndex = 0
+        contentView.addArrangedSubview(signingMethodSegment)
+        
+        // 3. Metadata Customization
+        addSectionHeader("3. Bundle & Metadata Customization")
         bundleIdField.placeholder = "New Bundle Identifier (e.g. com.mod.app)"
         bundleIdField.borderStyle = .roundedRect
         contentView.addArrangedSubview(bundleIdField)
@@ -95,8 +106,8 @@ public class SignWorkflowViewController: UIViewController, UIDocumentPickerDeleg
         versionStack.addArrangedSubview(minOSField)
         contentView.addArrangedSubview(versionStack)
         
-        // 3. Permissions Section
-        addSectionHeader("3. File Access & Storage Sharing")
+        // 4. File Access Permissions
+        addSectionHeader("4. File Access & Storage Sharing")
         let switchRow1 = makeSwitchRow(title: "Enable File Sharing (UIFileSharing)", switchView: fileSharingSwitch)
         let switchRow2 = makeSwitchRow(title: "Open Documents In Place", switchView: docInPlaceSwitch)
         fileSharingSwitch.isOn = true
@@ -104,8 +115,8 @@ public class SignWorkflowViewController: UIViewController, UIDocumentPickerDeleg
         contentView.addArrangedSubview(switchRow1)
         contentView.addArrangedSubview(switchRow2)
         
-        // 4. App Icon Replacement
-        addSectionHeader("4. App Icon Replacement")
+        // 5. App Icon Replacement
+        addSectionHeader("5. App Icon Replacement")
         let iconStack = UIStackView()
         iconStack.axis = .horizontal
         iconStack.spacing = 16
@@ -128,8 +139,8 @@ public class SignWorkflowViewController: UIViewController, UIDocumentPickerDeleg
         iconStack.addArrangedSubview(changeIconButton)
         contentView.addArrangedSubview(iconStack)
         
-        // 5. Dylib Plugins Injection & Removal
-        addSectionHeader("5. Dylib / Tweak Plugins")
+        // 6. Dylib Plugins
+        addSectionHeader("6. Dylib / Tweak Plugins")
         dylibLabel.text = "Injected: 0 dylibs | Removed: 0"
         dylibLabel.font = .systemFont(ofSize: 13, weight: .regular)
         dylibLabel.textColor = .secondaryLabel
@@ -141,10 +152,10 @@ public class SignWorkflowViewController: UIViewController, UIDocumentPickerDeleg
         dylibBtnStack.distribution = .fillEqually
         
         let addDylibBtn = UIButton(type: .system)
-        addDylibBtn.setTitle("+ Inject Dylib", for: .normal)
+        addDylibBtn.setTitle("+ Select Dylib", for: .normal)
         addDylibBtn.backgroundColor = .systemGray5
         addDylibBtn.layer.cornerRadius = 8
-        addDylibBtn.addTarget(self, action: #selector(injectDylibPicker), for: .touchUpInside)
+        addDylibBtn.addTarget(self, action: #selector(showDylibPickerOptions), for: .touchUpInside)
         
         let removeDylibBtn = UIButton(type: .system)
         removeDylibBtn.setTitle("- Remove Dylib", for: .normal)
@@ -156,8 +167,8 @@ public class SignWorkflowViewController: UIViewController, UIDocumentPickerDeleg
         dylibBtnStack.addArrangedSubview(removeDylibBtn)
         contentView.addArrangedSubview(dylibBtnStack)
         
-        // 6. Action Buttons & Progress
-        addSectionHeader("6. Signing & Build")
+        // 7. Actions & Logs
+        addSectionHeader("7. Signing & Repackaging")
         signButton.setTitle("Start Signing IPA", for: .normal)
         signButton.titleLabel?.font = .systemFont(ofSize: 17, weight: .bold)
         signButton.backgroundColor = .systemGreen
@@ -193,7 +204,7 @@ public class SignWorkflowViewController: UIViewController, UIDocumentPickerDeleg
         logTextView.font = .monospacedSystemFont(ofSize: 11, weight: .regular)
         logTextView.layer.cornerRadius = 8
         logTextView.heightAnchor.constraint(equalToConstant: 120).isActive = true
-        logTextView.text = "[UniSign Engine initialized]\nWaiting for IPA selection...\n"
+        logTextView.text = "[UniSign Engine initialized]\nReady for signing.\n"
         contentView.addArrangedSubview(logTextView)
     }
     
@@ -217,13 +228,88 @@ public class SignWorkflowViewController: UIViewController, UIDocumentPickerDeleg
         return row
     }
     
-    // MARK: - Handlers
+    // MARK: - Picker Actions
     
-    @objc private func selectIPAFile() {
+    @objc private func showIPAPickerOptions() {
+        let sheet = UIAlertController(title: "Select Source IPA", message: nil, preferredStyle: .actionSheet)
+        
+        // Option 1: Pick from Library
+        let libraryIPAs = AppLibraryManager.shared.getUnsignedIPAs()
+        if !libraryIPAs.isEmpty {
+            sheet.addAction(UIAlertAction(title: "Pick from App Library (\(libraryIPAs.count) available)", style: .default, handler: { [weak self] _ in
+                self?.showLibraryIPAPicker(libraryIPAs)
+            }))
+        }
+        
+        // Option 2: Pick from Files app
+        sheet.addAction(UIAlertAction(title: "Import from Files App", style: .default, handler: { [weak self] _ in
+            self?.openSystemDocumentPicker()
+        }))
+        
+        sheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        present(sheet, animated: true)
+    }
+    
+    private func showLibraryIPAPicker(_ ipas: [URL]) {
+        let pickerAlert = UIAlertController(title: "Choose IPA from Library", message: nil, preferredStyle: .actionSheet)
+        for ipa in ipas {
+            pickerAlert.addAction(UIAlertAction(title: ipa.lastPathComponent, style: .default, handler: { [weak self] _ in
+                self?.applySelectedIPA(ipa)
+            }))
+        }
+        pickerAlert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        present(pickerAlert, animated: true)
+    }
+    
+    private func applySelectedIPA(_ url: URL) {
+        self.selectedIPAURL = url
+        self.ipaButton.setTitle("Selected: \(url.lastPathComponent)", for: .normal)
+        self.ipaButton.backgroundColor = .systemIndigo
+        appendLog("[+] Selected IPA: \(url.lastPathComponent)")
+    }
+    
+    private func openSystemDocumentPicker() {
         let picker = UIDocumentPickerViewController(documentTypes: ["public.zip-archive", "com.apple.itunes.ipa", "public.data"], in: .import)
         picker.delegate = self
         picker.allowsMultipleSelection = false
         present(picker, animated: true)
+    }
+    
+    @objc private func showDylibPickerOptions() {
+        let sheet = UIAlertController(title: "Inject Dylib", message: nil, preferredStyle: .actionSheet)
+        
+        let libraryDylibs = AppLibraryManager.shared.getImportedDylibs()
+        if !libraryDylibs.isEmpty {
+            sheet.addAction(UIAlertAction(title: "Choose from Library Plugins (\(libraryDylibs.count))", style: .default, handler: { [weak self] _ in
+                self?.showLibraryDylibPicker(libraryDylibs)
+            }))
+        }
+        
+        sheet.addAction(UIAlertAction(title: "Import from Files App", style: .default, handler: { [weak self] _ in
+            let picker = UIDocumentPickerViewController(documentTypes: ["public.data", "public.item"], in: .import)
+            picker.delegate = self
+            picker.allowsMultipleSelection = true
+            self?.present(picker, animated: true)
+        }))
+        
+        sheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        present(sheet, animated: true)
+    }
+    
+    private func showLibraryDylibPicker(_ dylibs: [URL]) {
+        let pickerAlert = UIAlertController(title: "Choose Dylib Plugin", message: nil, preferredStyle: .actionSheet)
+        for d in dylibs {
+            pickerAlert.addAction(UIAlertAction(title: d.lastPathComponent, style: .default, handler: { [weak self] _ in
+                guard let self = self else { return }
+                if !self.dylibsToInject.contains(d) {
+                    self.dylibsToInject.append(d)
+                    self.appendLog("[+] Injected library plugin: \(d.lastPathComponent)")
+                    self.updateDylibLabel()
+                }
+            }))
+        }
+        pickerAlert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        present(pickerAlert, animated: true)
     }
     
     @objc private func chooseIcon() {
@@ -233,18 +319,9 @@ public class SignWorkflowViewController: UIViewController, UIDocumentPickerDeleg
         present(picker, animated: true)
     }
     
-    @objc private func injectDylibPicker() {
-        let picker = UIDocumentPickerViewController(documentTypes: ["public.data", "public.item"], in: .import)
-        picker.delegate = self
-        picker.allowsMultipleSelection = true
-        present(picker, animated: true)
-    }
-    
     @objc private func promptRemoveDylib() {
-        let alert = UIAlertController(title: "Remove Dylib", message: "Enter the dylib filename or path to strip from Mach-O (e.g. SubstrateLoader.dylib):", preferredStyle: .alert)
-        alert.addTextField { tf in
-            tf.placeholder = "LibraryName.dylib"
-        }
+        let alert = UIAlertController(title: "Remove Dylib", message: "Enter the dylib filename to strip from Mach-O:", preferredStyle: .alert)
+        alert.addTextField { tf in tf.placeholder = "PluginName.dylib" }
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
         alert.addAction(UIAlertAction(title: "Remove", style: .destructive, handler: { [weak self] _ in
             if let text = alert.textFields?.first?.text, !text.isEmpty {
@@ -263,16 +340,16 @@ public class SignWorkflowViewController: UIViewController, UIDocumentPickerDeleg
         guard let url = urls.first else { return }
         
         if url.pathExtension.lowercased() == "ipa" || url.pathExtension.lowercased() == "zip" {
-            self.selectedIPAURL = url
-            self.ipaButton.setTitle("Selected: \(url.lastPathComponent)", for: .normal)
-            self.ipaButton.backgroundColor = .systemIndigo
-            appendLog("[+] Selected IPA: \(url.lastPathComponent)")
+            // Save to library and select
+            let imported = (try? AppLibraryManager.shared.importIPA(from: url)) ?? url
+            applySelectedIPA(imported)
         } else {
-            // Injected dylibs
+            // Dylibs
             for u in urls {
-                if !dylibsToInject.contains(u) {
-                    dylibsToInject.append(u)
-                    appendLog("[+] Staged dylib: \(u.lastPathComponent)")
+                let imported = (try? AppLibraryManager.shared.importDylib(from: u)) ?? u
+                if !dylibsToInject.contains(imported) {
+                    dylibsToInject.append(imported)
+                    appendLog("[+] Staged dylib: \(imported.lastPathComponent)")
                 }
             }
             updateDylibLabel()
@@ -288,6 +365,8 @@ public class SignWorkflowViewController: UIViewController, UIDocumentPickerDeleg
         picker.dismiss(animated: true)
     }
     
+    // MARK: - Signing Pipeline
+    
     @objc private func startSigning() {
         guard let ipaURL = selectedIPAURL else {
             showAlert("Please select an IPA file first.")
@@ -300,7 +379,6 @@ public class SignWorkflowViewController: UIViewController, UIDocumentPickerDeleg
         statusLabel.text = "Starting signing process..."
         appendLog("[*] Initializing signing pipeline...")
         
-        // Prepare configuration
         let options = PlistModifier.CustomizationOptions(
             bundleIdentifier: bundleIdField.text,
             displayName: nameField.text,
@@ -310,7 +388,15 @@ public class SignWorkflowViewController: UIViewController, UIDocumentPickerDeleg
             enableDocumentInPlace: docInPlaceSwitch.isOn
         )
         
-        // Fallback / standard p12 setup for testing
+        let isAppleID = (signingMethodSegment.selectedSegmentIndex == 0)
+        let activeAccount = AppleAccountManager.shared.getActiveAccount()
+        
+        if isAppleID && activeAccount == nil {
+            showAlert("No active Apple ID found. Please add an Apple ID in the Certificates tab first, or switch to P12.")
+            signButton.isEnabled = true
+            return
+        }
+        
         let dummyP12 = FileManager.default.temporaryDirectory.appendingPathComponent("dev.p12")
         try? Data([0x30, 0x82]).write(to: dummyP12)
         
@@ -341,7 +427,26 @@ public class SignWorkflowViewController: UIViewController, UIDocumentPickerDeleg
                     self?.statusLabel.textColor = .systemGreen
                     self?.installButton.isHidden = false
                     self?.appendLog("[✓] Signed output saved at: \(outputURL.path)")
-                    self?.showAlert("Signing Complete! You can now install it or export via Share.")
+                    
+                    // Save to AppLibraryManager
+                    let appName = self?.nameField.text?.isEmpty == false ? self!.nameField.text! : ipaURL.deletingPathExtension().lastPathComponent
+                    let bundleId = self?.bundleIdField.text?.isEmpty == false ? self!.bundleIdField.text! : "com.unisign.app"
+                    let version = self?.versionField.text?.isEmpty == false ? self!.versionField.text! : "1.0.0"
+                    let expiry = isAppleID ? Date().addingTimeInterval(7 * 24 * 3600) : Date().addingTimeInterval(365 * 24 * 3600)
+                    
+                    let record = SignedAppRecord(
+                        name: appName,
+                        bundleId: bundleId,
+                        version: version,
+                        signedDate: Date(),
+                        expiryDate: expiry,
+                        signMethod: isAppleID ? "apple_id" : "p12",
+                        appleIDEmail: activeAccount?.email,
+                        fileName: outputURL.lastPathComponent
+                    )
+                    AppLibraryManager.shared.recordSignedApp(record)
+                    
+                    self?.showAlert("Signing Complete! The application is saved in your Library.")
                 case .failure(let err):
                     self?.statusLabel.text = "Signing Failed"
                     self?.statusLabel.textColor = .systemRed
@@ -354,7 +459,6 @@ public class SignWorkflowViewController: UIViewController, UIDocumentPickerDeleg
     
     @objc private func installAppLocally() {
         guard let outputURL = signedIPAURL else { return }
-        
         let bundleID = bundleIdField.text?.isEmpty == false ? bundleIdField.text! : "com.unisign.app"
         let title = nameField.text?.isEmpty == false ? nameField.text! : "Signed App"
         let version = versionField.text?.isEmpty == false ? versionField.text! : "1.0.0"

@@ -23,6 +23,11 @@
 		A100000E2C00000100000001 /* MainTabBarController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000E2C00000100000001 /* MainTabBarController.swift */; };
 		A100000F2C00000100000001 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C10000012C00000100000001 /* Security.framework */; };
 		A10000102C00000100000001 /* Network.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C10000022C00000100000001 /* Network.framework */; };
+		A10000112C00000100000001 /* AppleAccountManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000112C00000100000001 /* AppleAccountManager.swift */; };
+		A10000122C00000100000001 /* AppLibraryManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000122C00000100000001 /* AppLibraryManager.swift */; };
+		A10000132C00000100000001 /* RenewalService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000132C00000100000001 /* RenewalService.swift */; };
+		A10000142C00000100000001 /* DeviceInfoHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000142C00000100000001 /* DeviceInfoHelper.swift */; };
+		A10000152C00000100000001 /* AppLibraryViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000152C00000100000001 /* AppLibraryViewController.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -43,6 +48,11 @@
 		B100000E2C00000100000001 /* MainTabBarController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainTabBarController.swift; sourceTree = "<group>"; };
 		B100000F2C00000100000001 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		B10000102C00000100000001 /* UniSign-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "UniSign-Bridging-Header.h"; sourceTree = "<group>"; };
+		B10000112C00000100000001 /* AppleAccountManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleAccountManager.swift; sourceTree = "<group>"; };
+		B10000122C00000100000001 /* AppLibraryManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLibraryManager.swift; sourceTree = "<group>"; };
+		B10000132C00000100000001 /* RenewalService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RenewalService.swift; sourceTree = "<group>"; };
+		B10000142C00000100000001 /* DeviceInfoHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceInfoHelper.swift; sourceTree = "<group>"; };
+		B10000152C00000100000001 /* AppLibraryViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLibraryViewController.swift; sourceTree = "<group>"; };
 		C10000012C00000100000001 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
 		C10000022C00000100000001 /* Network.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Network.framework; path = System/Library/Frameworks/Network.framework; sourceTree = SDKROOT; };
 		D10000012C00000100000001 /* UniSign.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = UniSign.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -98,6 +108,8 @@
 			children = (
 				B10000032C00000200000001 /* ZSignBridge.h */,
 				B10000032C00000100000001 /* ZSignBridge.mm */,
+				B10000132C00000100000001 /* RenewalService.swift */,
+				B10000142C00000100000001 /* DeviceInfoHelper.swift */,
 				F100000A2C00000100000001 /* AppleID */,
 			);
 			path = SigningEngine;
@@ -108,6 +120,7 @@
 			children = (
 				B10000082C00000100000001 /* AnisetteClient.swift */,
 				B10000092C00000100000001 /* AppleDeveloperService.swift */,
+				B10000112C00000100000001 /* AppleAccountManager.swift */,
 			);
 			path = AppleID;
 			sourceTree = "<group>";
@@ -119,6 +132,7 @@
 				B10000052C00000100000001 /* MachOModifier.swift */,
 				B10000062C00000100000001 /* IconReplacer.swift */,
 				B10000072C00000100000001 /* IPAManager.swift */,
+				B10000122C00000100000001 /* AppLibraryManager.swift */,
 			);
 			path = IPAModifier;
 			sourceTree = "<group>";
@@ -134,10 +148,11 @@
 		F10000072C00000100000001 /* Views */ = {
 			isa = PBXGroup;
 			children = (
-				B100000E2C00000100000001 /* MainTabBarController.swift */,
+				B10000152C00000100000001 /* AppLibraryViewController.swift */,
 				B100000B2C00000100000001 /* SignWorkflowViewController.swift */,
 				B100000C2C00000100000001 /* CertificateManagerViewController.swift */,
 				B100000D2C00000100000001 /* SettingsViewController.swift */,
+				B100000E2C00000100000001 /* MainTabBarController.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -229,6 +244,11 @@
 				A100000C2C00000100000001 /* CertificateManagerViewController.swift in Sources */,
 				A100000D2C00000100000001 /* SettingsViewController.swift in Sources */,
 				A100000E2C00000100000001 /* MainTabBarController.swift in Sources */,
+				A10000112C00000100000001 /* AppleAccountManager.swift in Sources */,
+				A10000122C00000100000001 /* AppLibraryManager.swift in Sources */,
+				A10000132C00000100000001 /* RenewalService.swift in Sources */,
+				A10000142C00000100000001 /* DeviceInfoHelper.swift in Sources */,
+				A10000152C00000100000001 /* AppLibraryViewController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

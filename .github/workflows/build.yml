@@ -1,11 +1,17 @@
-name: Build & Release UniSign IPA
+name: Manual Build & Release UniSign IPA
 
+# Only manually triggered via GitHub Actions web UI
 on:
-  push:
-    branches: [ "main", "master" ]
-  pull_request:
-    branches: [ "main", "master" ]
   workflow_dispatch:
+    inputs:
+      version_tag:
+        description: 'Release Tag Name (e.g. v1.0.0)'
+        required: true
+        default: 'v1.0.0'
+      release_title:
+        description: 'Release Title'
+        required: false
+        default: 'UniSign iOS Release'
 
 jobs:
   build:
@@ -25,11 +31,7 @@ jobs:
           brew install openssl@3
           echo "OpenSSL installed"
 
-      - name: Resolve Swift Package Dependencies (if any)
-        run: |
-          xcodebuild -resolvePackageDependencies -project UniSign.xcodeproj -scheme UniSign || true
-
-      - name: Build UniSign (Ad-Hoc / Unsigned for Sideloading)
+      - name: Build UniSign (Ad-Hoc / Sideloadable)
         run: |
           xcodebuild build \
             -project UniSign.xcodeproj \
@@ -56,19 +58,22 @@ jobs:
           rm -rf Payload
           echo "UniSign.ipa created successfully!"
 
-      - name: Upload Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: UniSign-IPA
-          path: UniSign.ipa
-          retention-days: 7
-
-      - name: Create GitHub Release (on tag or manual)
-        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+      - name: Create GitHub Release and Upload IPA
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ github.event.inputs.version_tag }}
+          name: ${{ github.event.inputs.release_title }} (${{ github.event.inputs.version_tag }})
+          body: |
+            ## UniSign-iOS 安装包发布
+            
+            - **版本**: ${{ github.event.inputs.version_tag }}
+            - **兼容性**: iOS 13.0 及以上设备
+            - **特性**: 纯手机端本地免越狱重签、多 Apple ID 切换、7天免费证书一键续期、P12 有效期检测、插件注入与文件访问开启。
+            
+            ### 📱 安装方式：
+            - 下载下方 Assets 中的 `UniSign.ipa`。
+            - 使用 **TrollStore（巨魔）**、**AltStore**、**SideStore** 或 **牛蛙助手** 直接安装到手机即可使用。
           files: UniSign.ipa
-          name: UniSign Release ${{ github.ref_name }}
           draft: false
           prerelease: false
         env:

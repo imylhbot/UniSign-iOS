@@ -1,103 +1,60 @@
-# UniSign-iOS (iOS 本地 IPA 签名与深度定制工具)
+# UniSign-iOS (iOS 本地签名与深度定制工具 v2.0)
 
 UniSign 是一款专为 iOS 设备（支持 iOS 13.0 及以上版本）设计的纯本地、免电脑、免越狱的 IPA 签名与应用深度定制工具。
 
-底层基于类似 `zsign` 的代码签名机制，结合 Mach-O 二进制解析、Info.plist 属性注入以及 Apple 免费开发者账号 GrandSlam 认证协议，实现了全部签名与定制流程在手机本机沙盒中闭环完成。
+---
+
+## 🌟 v2.0 升级核心特性
+
+### 1. 多 Apple ID 账号中心与一键续期
+- **多账号持久化**：支持添加、保存多个 Apple ID，随时在界面中一键切换当前活跃账号。
+- **一键续期 (1-Click Renewal)**：对于 Apple ID 签名的应用（免费开发者账号 7 天限制），记录关联账号与签名元数据。当证书临近到期或过期时，点击“🔄 一键续期”即可全自动向苹果服务器申请最新描述文件并静默重签，刷新 7 天倒计时。
+
+### 2. P12 证书状态与有效天数实时计算
+- 导入 P12 证书并解密后，自动计算精确的剩余有效天数（例如“剩余 185 天”或“已过期”），到期时间一目了然。
+
+### 3. 本机设备 UDID 查询与管理
+- 界面内提供独立的“Device UDID”卡片，自动读取并格式化本机设备识别码，支持一键复制到剪贴板，或手动覆写为指定 UDID。
+
+### 4. 内置资源管理中心 (已签/未签/插件 分栏浏览)
+- **未签名 IPA 库 (Unsigned IPAs)**：集中查看从“文件”App 导入的原包，显示文件大小与导入时间，点击即可直接进入签名与定制页。
+- **已签名应用库 (Signed Apps)**：卡片式展示已签名应用，包含应用图标、Bundle ID、版本、签名方式（P12 / 对应 Apple ID）以及**过期倒计时徽章**。支持一键 OTA 本地安装、一键续期、导出分享和删除。
+- **插件库 (Dylibs)**：集中管理导入的 `.dylib` 插件，在定制界面可直接勾选一键注入。
+
+### 5. 深度定制与 Mach-O 插件管理
+- 修改 Bundle Identifier、应用名称、版本号与构建号。
+- 解除最低 iOS 版本限制（`MinimumOSVersion`）。
+- 一键注入 `UIFileSharingEnabled` 开启应用沙盒的“文件”App 访问。
+- 从相册自由替换应用图标。
+- 纯 Swift 解析 64 位 Mach-O，支持 `LC_LOAD_DYLIB` 动态库注入与定位移除。
+
+### 6. GitHub Actions 手动云端打包与 Releases 自动发布
+- 取消 push 自动触发，改为在 GitHub 网页手动点击触发（`workflow_dispatch`），方便修改代码后自主掌控打包时机。
+- 编译完成后自动创建 **GitHub Release**，直接将生成好的 `UniSign.ipa` 上传至 Release 附件，无需在 Artifacts 里解压。
 
 ---
 
-## 🌟 核心功能特性
+## 🚀 如何在 GitHub 手动打包并发布 Release？
 
-### 1. 双重签名体系
-- **P12 证书签名**：支持导入 `.p12` 证书文件（支持密码解密）与 `.mobileprovision` 描述文件，签名有效期取决于证书自身。
-- **Apple ID 个人免费签名**：内置 Anisette 头部请求与 GrandSlam 认证客户端，支持免电脑输入 Apple ID 和密码（支持 2FA），全自动向苹果官方服务器申请 7 天有效期的免费开发者证书及描述文件并完成签名。
+推送最新代码至仓库后，你可以随时在 GitHub 网页上手动触发打包：
 
-### 2. 深度 IPA 定制功能
-- **Bundle ID 自定义**：自由修改应用的 `CFBundleIdentifier`，支持微信多开、同款 App 多版本并存。
-- **显示名称自定义**：修改应用桌面图标下方显示的文字（`CFBundleDisplayName` 与 `CFBundleName`）。
-- **版本号与构建号定制**：修改 `CFBundleShortVersionString` 和 `CFBundleVersion`。
-- **解除最低 iOS 系统限制**：可任意下调 `MinimumOSVersion`（例如将要求 iOS 16 的应用下调至 iOS 13+ 兼容）。
-- **开启沙盒“文件”访问权限**：自动注入 `UIFileSharingEnabled = true` 与 `LSSupportsOpeningDocumentsInPlace = true`，签名后可直接通过系统自带的“文件”App 访问和导出该应用沙盒文档。
-- **应用图标自由替换**：从相册任意挑选一张图片，自动适配并替换应用桌面图标。
-
-### 3. Mach-O 插件注入与管理
-- **动态库注入**：导入任意 `.dylib` 插件，自动复制到 `Frameworks` 目录，并在 Mach-O 二进制头部注入 `LC_LOAD_DYLIB` 指令并重新对 dylib 进行签名。
-- **动态库移除**：支持通过库文件名或路径，定位并安全移除 Mach-O 中的 `LC_LOAD_DYLIB` 指令及物理文件。
-
-### 4. 本地一键安装 (Local OTA Install)
-- 内置基于纯 Swift Network 框架实现的超轻量本地 Web 服务器。
-- 签名完成后，通过本地监听端口构造 `manifest.plist`，使用 `itms-services://?action=download-manifest&url=...` 协议直接唤起 iOS 原生安装器一键完成安装，无需上传至任何第三方服务器。
+1. 打开你的 GitHub 仓库主页：`https://github.com/imylhbot/UniSign-iOS`
+2. 点击上方的 **Actions** 选项卡。
+3. 在左侧列表中点击 **`Manual Build & Release UniSign IPA`**。
+4. 在右侧点击 **Run workflow** 下拉按钮：
+   - 可输入本次发布的版本号（例如 `v1.0.0` 或 `v2.0.0`）。
+   - 点击绿色的 **Run workflow** 按钮启动构建。
+5. 等待 2~3 分钟，构建完成后：
+   - 直接进入仓库主页右侧的 **Releases** 栏目；
+   - 即可看到最新发布的 Release，点击附件中的 **`UniSign.ipa`** 直接下载安装！
 
 ---
 
-## 🚀 部署至 GitHub 并通过 GitHub Actions 自动打包
+## 📱 手机端安装与使用
 
-本项目已完整配置 `.github/workflows/build.yml`，你无需在本地安装 Xcode，直接推送到 GitHub 仓库即可利用 GitHub Actions 免费云端构建并下载 `.ipa` 安装包。
-
-### 部署步骤：
-1. **在 GitHub 上创建一个新的仓库**（例如命名为 `UniSign-iOS`）。
-2. **将本项目代码推送到你的 GitHub 仓库**：
-   ```bash
-   cd UniSign-iOS
-   git init
-   git add .
-   git commit -m "feat: initial commit for UniSign-iOS"
-   git branch -M main
-   git remote add origin https://github.com/<你的用户名>/UniSign-iOS.git
-   git push -u origin main
-   ```
-3. **查看打包流程**：
-   - 打开你的 GitHub 仓库页面，点击上方的 **Actions** 选项卡。
-   - 你会看到名为 `Build & Release UniSign IPA` 的工作流正在自动运行。
-   - 构建通常需要 2~3 分钟。构建完成后，在工作流详情页底部的 **Artifacts** 区域即可直接下载编译生成的 `UniSign-IPA`（内含 `UniSign.ipa`）。
-
----
-
-## 📲 如何在手机上安装 UniSign 本身？
-
-由于 UniSign 是一个管理工具，首次将下载到的 `UniSign.ipa` 安装到 iOS 设备上有以下常见免越狱方式：
-1. **TrollStore（巨魔商店，强烈推荐）**：支持 iOS 14.0 ~ 17.0 等特定版本的设备，直接用 TrollStore 共享打开 `UniSign.ipa` 即可永久免证书安装。
-2. **AltStore / SideStore / Sideloadly**：使用电脑辅助一次性将 `UniSign.ipa` 安装到你的手机上。
-3. **已有的自签工具**：如果你手机上已经有牛蛙助手、全能签、轻松签或 Scarlet，直接导入 `UniSign.ipa` 完成首次签名安装。
-
----
-
-## 📂 项目结构概览
-
-```text
-UniSign-iOS/
-├── .github/
-│   └── workflows/
-│       └── build.yml               # GitHub Actions 云端构建并输出 IPA
-├── UniSign.xcodeproj/              # Xcode 工程配置
-├── UniSign/
-│   ├── App/
-│   │   ├── AppDelegate.swift       # 应用入口
-│   │   ├── SceneDelegate.swift     # iOS 13+ 场景支持 & 文档关联打开
-│   │   └── Info.plist              # 权限声明与文件类型关联
-│   ├── SigningEngine/
-│   │   ├── ZSignBridge.h           # Objective-C++ 签名桥接头文件
-│   │   ├── ZSignBridge.mm          # Security 框架与签名引擎桥接
-│   │   └── AppleID/
-│   │       ├── AnisetteClient.swift       # Anisette 头部请求客户端
-│   │       └── AppleDeveloperService.swift# Apple ID 认证与证书/描述文件自动拉取
-│   ├── IPAModifier/
-│   │   ├── MachOModifier.swift     # 纯 Swift Mach-O 解析与 LC_LOAD_DYLIB 注入/移除
-│   │   ├── PlistModifier.swift     # Info.plist 属性读取与批量定制
-│   │   ├── IconReplacer.swift      # 应用图标自动缩放与资源替换
-│   │   └── IPAManager.swift        # 解压、修改、注入、签名、重打包总调度
-│   ├── LocalServer/
-│   │   └── LocalInstallServer.swift# 本地轻量 Web 服务与 itms-services 安装服务
-│   ├── Views/
-│   │   ├── MainTabBarController.swift
-│   │   ├── SignWorkflowViewController.swift       # 签名与定制主功能界面
-│   │   ├── CertificateManagerViewController.swift # 证书与 Apple ID 管理界面
-│   │   └── SettingsViewController.swift           # 本地端口与 Anisette 配置
-│   └── UniSign-Bridging-Header.h
-└── README.md
-```
-
----
-
-## ⚖️ 免责声明
-本项目仅供 iOS 开发爱好者、逆向工程学习及个人合法应用测试使用，严禁用于任何侵犯他人软件著作权或违反法律法规的用途。
+1. 下载 GitHub Release 中的 `UniSign.ipa`。
+2. 使用 **TrollStore（巨魔商店，强烈推荐）**、**AltStore**、**SideStore** 或 **牛蛙助手** 将 `UniSign.ipa` 安装到你的设备上。
+3. 打开 UniSign：
+   - 切换到 **Certs & UDID** 标签页，导入你的 `.p12` 证书或添加 Apple ID。
+   - 切换到 **Library** 标签页，点击右上角 `+` 导入需要签名的 IPA 或插件。
+   - 点击导入的 IPA 即可进入定制页面，修改信息、注入插件并一键完成签名！
