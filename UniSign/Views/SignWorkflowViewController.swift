@@ -1339,20 +1339,26 @@ public class SignWorkflowViewController: UIViewController, UIDocumentPickerDeleg
             preferredStyle: .actionSheet
         )
         
-        // 1. 导出 / 分享 IPA 文件
+        // 1. 📱 手机本地一键直接安装 (免电脑，支持内置安装服务)
+        sheet.addAction(UIAlertAction(title: "📱 " + L("手机本地一键直接安装 (免电脑)", "Install Directly on Device (No PC)"), style: .default, handler: { [weak self] _ in
+            self?.startDirectOnDeviceInstall(ipaURL: ipaURL, name: name, bundleID: bundleID)
+        }))
+        
+        // 2. 导出 / 分享 IPA 文件
         sheet.addAction(UIAlertAction(title: "📤 " + L("导出 / 分享 IPA 文件", "Share IPA File"), style: .default, handler: { [weak self] _ in
             let avc = UIActivityViewController(activityItems: [ipaURL], applicationActivities: nil)
             self?.present(avc, animated: true)
         }))
         
-        // 2. 在其他应用中打开 / 存入「文件」App
+        // 3. 在其他应用中打开 / 存入「文件」App
         sheet.addAction(UIAlertAction(title: "📁 " + L("在其他应用中打开 / 存入「文件」App", "Open in... / Save to Files"), style: .default, handler: { [weak self] _ in
             self?.openInOtherApp(ipaURL)
         }))
         
-        // 3. 电脑端 USB 助手极速直装 (推荐，彻底免除 127.0.0.1 困扰)
-        sheet.addAction(UIAlertAction(title: "💻 " + L("通过电脑端 USB 助手极速直装 (推荐)", "Install via PC USB Helper"), style: .default, handler: { [weak self] _ in
+        // 4. 电脑端 USB 助手极速直装 (推荐，彻底免除 127.0.0.1 困扰)
+        sheet.addAction(UIAlertAction(title: "💻 " + L("通过电脑端 USB 助手极速直装 (备选)", "Install via PC USB Helper"), style: .default, handler: { [weak self] _ in
             let alert = UIAlertController(
+
                 title: "💻 " + L("电脑端 USB 助手秒速直装", "PC USB 1-Click Install"),
                 message: L("1. 在电脑端解压并运行 UniSign-Helper-Windows（或双击 run_helper.bat）。\n2. 手机用数据线连接电脑（支持全系 iOS 13~18，无需越狱）。\n3. 将已签名的 IPA 拖入电脑端，点击「一键直装」，即可 100% 成功秒速安装到手机上，完全免除系统证书验证与 127.0.0.1 错误！", "Run UniSign-Helper on PC, connect phone via USB, and 1-click install."),
                 preferredStyle: .alert
@@ -1404,12 +1410,35 @@ public class SignWorkflowViewController: UIViewController, UIDocumentPickerDeleg
         present(sheet, animated: true)
     }
     
-    private func openInOtherApp(_ url: URL) {
-        docController = UIDocumentInteractionController(url: url)
-        docController?.delegate = self
-        if !docController!.presentOpenInMenu(from: view.bounds, in: view, animated: true) {
-            let avc = UIActivityViewController(activityItems: [url], applicationActivities: nil)
-            present(avc, animated: true)
+    private func startDirectOnDeviceInstall(ipaURL: URL, name: String, bundleID: String) {
+        ProgressHUD.shared.show(in: view, title: L("正在启动本地安装服务...", "Starting install server..."), detail: name)
+        
+        LocalInstallServer.shared.startServing(ipaURL: ipaURL, bundleID: bundleID, version: "1.0.0", title: name) { [weak self] result in
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                ProgressHUD.shared.dismiss(from: self.view)
+                
+                switch result {
+                case .success(let installURL):
+                    UIApplication.shared.open(installURL, options: [:]) { [weak self] success in
+                        guard let self = self else { return }
+                        let alert = UIAlertController(
+                            title: "📲 " + self.L("已发送本地安装请求！", "Install Request Sent!"),
+                            message: self.L("系统将自动拉取安装包并安装到手机桌面。\n\n💡 常见提示解决：\n1. 若提示「无法连接到 127.0.0.1」，点击下方「配置本地 CA 证书」安装并信任描述文件，或连接 Wi-Fi 后重试。\n2. 安装完成后首次打开，请前往手机「设置 -> 通用 -> VPN 与设备管理」信任签名证书。\n3. iOS 16+ 请在「设置 -> 隐私与安全性」开启开发者模式。", "Check home screen for installation."),
+                            preferredStyle: .alert
+                        )
+                        alert.addAction(UIAlertAction(title: "🛡️ " + self.L("配置本地 CA 证书 (100%防拦截)", "Install Local CA Profile"), style: .default, handler: { _ in
+                            LocalInstallServer.shared.installLocalCAProfile()
+                        }))
+                        alert.addAction(UIAlertAction(title: self.L("好的，去桌面查看", "OK, Go to Home Screen"), style: .default))
+                        self.present(alert, animated: true)
+                    }
+                case .failure(let error):
+                    let alert = UIAlertController(title: self.L("启动安装服务失败", "Failed to start install server"), message: error.localizedDescription, preferredStyle: .alert)
+                    alert.addAction(UIAlertAction(title: self.L("确定", "OK"), style: .default))
+                    self.present(alert, animated: true)
+                }
+            }
         }
     }
     
@@ -1417,3 +1446,4 @@ public class SignWorkflowViewController: UIViewController, UIDocumentPickerDeleg
         NotificationCenter.default.removeObserver(self)
     }
 }
+

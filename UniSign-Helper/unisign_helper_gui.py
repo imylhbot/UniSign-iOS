@@ -1308,7 +1308,8 @@ class UniSignHelperApp(QMainWindow):
             )
             self.signals.finished.emit(True, "签名并安装完成！应用已成功部署至手机桌面。")
         except Exception as e:
-            self.signals.finished.emit(False, str(e))
+            err = str(e) or repr(e) or type(e).__name__
+            self.signals.finished.emit(False, err)
 
     def _sign_and_install_p12_worker(self, ipa_path, p12_path, p12_pwd, prov_path, bundle_id, custom_opts):
         try:
@@ -1336,7 +1337,8 @@ class UniSignHelperApp(QMainWindow):
             )
             self.signals.finished.emit(True, "P12 签名并安装完成！应用已部署至手机。")
         except Exception as e:
-            self.signals.finished.emit(False, str(e))
+            err = str(e) or repr(e) or type(e).__name__
+            self.signals.finished.emit(False, err)
 
     def _direct_install_worker(self, ipa_path):
         try:
@@ -1349,7 +1351,9 @@ class UniSignHelperApp(QMainWindow):
             )
             self.signals.finished.emit(True, "安装完成！应用已成功安装到手机桌面。")
         except Exception as e:
-            self.signals.finished.emit(False, str(e))
+            err = str(e) or repr(e) or type(e).__name__
+            self.signals.finished.emit(False, err)
+
 
     def on_task_finished(self, success, message):
         self.btn_sign_and_install.setEnabled(True)

@@ -243,6 +243,7 @@ class LockdownClient:
                 ctx.check_hostname = False
                 ctx.verify_mode = ssl.CERT_NONE
                 ctx.load_cert_chain(cert_file, key_file)
+                self.ssl_context = ctx
                 
                 raw_sock = self.sock
                 self.ssl_sock = ctx.wrap_socket(raw_sock, server_side=False)
@@ -253,6 +254,12 @@ class LockdownClient:
         
         return True
 
+    def wrap_service_socket(self, raw_sock):
+        """Wraps a service socket with SSL using the session's SSLContext if enabled."""
+        if hasattr(self, "ssl_context") and self.ssl_context:
+            return self.ssl_context.wrap_socket(raw_sock, server_side=False)
+        return raw_sock
+
     def stop_session(self):
         """Ends the current lockdown session."""
         if self.session_id:
@@ -262,6 +269,7 @@ class LockdownClient:
             except Exception:
                 pass
             self.session_id = None
+
 
     def start_service(self, service_name):
         """Requests lockdown to start a named service and returns (port, enable_ssl).

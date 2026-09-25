@@ -56,45 +56,57 @@ class DeviceInstaller:
         log("[*] 请求启动 com.apple.afc 手机文件传输服务...")
         
         try:
-            afc_port, _ = service_ld.start_service("com.apple.afc")
+            afc_port, afc_ssl = service_ld.start_service("com.apple.afc")
         except ConnectionError as e:
             err_str = str(e)
             if "SessionInactive" in err_str or "InvalidResponse" in err_str:
-                # Force a retry with a completely fresh connection
                 log("[!] 会话已过期，正在重新建立连接...")
                 try:
                     service_ld.close()
                 except Exception:
                     pass
                 service_ld = LockdownClient.fresh_for_service(device_id, udid)
-                afc_port, _ = service_ld.start_service("com.apple.afc")
+                afc_port, afc_ssl = service_ld.start_service("com.apple.afc")
             else:
                 raise
         
         mux = USBMux()
         afc_sock = mux.connect_device_port(device_id, afc_port)
         afc_sock.settimeout(60.0)
+        
+        # If the service requires SSL, wrap it with the session TLS credentials
+        if afc_ssl:
+            log("[*] 正在为 AFC 传输通道建立 TLS 加密...")
+            afc_sock = service_ld.wrap_service_socket(afc_sock)
+            
         afc = AFCClient(afc_sock)
         
-        # Ensure PublicStaging directory exists
+        # Ensure PublicStaging directory exists (use ASCII remote path to avoid filesystem encoding issues)
         afc.make_directory("PublicStaging")
-        remote_path = f"PublicStaging/{filename}"
+        remote_path = "PublicStaging/staging_install.ipa"
         
         log(f"[*] 正在将 IPA 通过 USB 传输至手机缓存 ({remote_path})...")
         def on_upload_progress(pct, cur, total):
             update_progress(0.10 + pct * 0.42, f"正在传输至手机... {int(pct*100)}% ({round(cur/(1024*1024), 1)} / {round(total/(1024*1024), 1)} MB)")
         
         afc.upload_file(ipa_path, remote_path, progress_callback=on_upload_progress)
-        afc_sock.close()
+        try:
+            afc_sock.close()
+        except Exception:
+            pass
         log("✅ IPA 文件传输完成！")
         
         # 2. Connect to Installation Proxy with the SAME fresh session
         update_progress(0.55, "正在启动应用安装服务 (Installation Proxy)...")
         log("[*] 请求启动 com.apple.mobile.installation_proxy 应用安装服务...")
-        inst_port, _ = service_ld.start_service("com.apple.mobile.installation_proxy")
+        inst_port, inst_ssl = service_ld.start_service("com.apple.mobile.installation_proxy")
         
         inst_sock = mux.connect_device_port(device_id, inst_port)
         inst_sock.settimeout(120.0)
+        
+        if inst_ssl:
+            log("[*] 正在为安装代理服务建立 TLS 加密...")
+            inst_sock = service_ld.wrap_service_socket(inst_sock)
         
         install_req = {
             "Command": "Install",
@@ -103,6 +115,7 @@ class DeviceInstaller:
             },
             "PackagePath": remote_path
         }
+
         
         req_data = plistlib.dumps(install_req, fmt=plistlib.FMT_XML)
         hdr = struct.pack(">I", len(req_data))

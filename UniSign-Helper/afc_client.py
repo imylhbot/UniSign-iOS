@@ -55,10 +55,13 @@ class AFCClient:
         path_data = path.encode("utf-8") + b"\x00"
         self._send_packet(self.OP_FILE_OPEN, mode_data + path_data)
         op, payload = self._recv_packet()
+        if op is None:
+            raise ConnectionError("AFC 文件服务通信中断 (未能收到手机响应，可能 USB 数据线松动或未完成 SSL 握手)")
         if payload and len(payload) >= 8:
             handle = struct.unpack("<Q", payload[:8])[0]
             return handle
         return None
+
 
     def file_write(self, handle, data):
         handle_data = struct.pack("<Q", handle)

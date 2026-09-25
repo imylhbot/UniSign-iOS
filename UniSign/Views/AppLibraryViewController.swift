@@ -573,20 +573,26 @@ public class AppLibraryViewController: UIViewController, UITableViewDelegate, UI
         
         let ipaURL = URL(fileURLWithPath: app.filePath)
         
-        // 1. 导出 / 分享 IPA 文件 (AirDrop / 存入文件 / 发送给其他人)
+        // 1. 📱 手机本地一键直接安装 (免电脑)
+        sheet.addAction(UIAlertAction(title: "📱 " + L("手机本地一键直接安装 (免电脑)", "Install Directly on Device (No PC)"), style: .default, handler: { [weak self] _ in
+            self?.startDirectOnDeviceInstall(ipaURL: ipaURL, app: app)
+        }))
+        
+        // 2. 导出 / 分享 IPA 文件 (AirDrop / 存入文件 / 发送给其他人)
         sheet.addAction(UIAlertAction(title: "📤 " + L("导出 / 分享 IPA 文件", "Share IPA File"), style: .default, handler: { [weak self] _ in
             self?.shareAppFile(url: ipaURL)
         }))
         
-        // 2. 在其他应用中打开 (支持存入文件、或用 AltStore/轻松签/牛蛙助手安装)
+        // 3. 在其他应用中打开 (支持存入文件、或用 AltStore/轻松签/牛蛙助手安装)
         sheet.addAction(UIAlertAction(title: "📁 " + L("在其他应用中打开 / 存入「文件」App", "Open in... / Save to Files"), style: .default, handler: { [weak self] _ in
             self?.openInOtherApp(ipaURL)
         }))
         
-        // 3. 电脑端 USB 助手秒速直装 (推荐，彻底免除 127.0.0.1 困扰)
-        sheet.addAction(UIAlertAction(title: "💻 " + L("通过电脑端 USB 助手极速直装 (推荐)", "Install via PC USB Helper"), style: .default, handler: { [weak self] _ in
+        // 4. 电脑端 USB 助手秒速直装 (推荐，彻底免除 127.0.0.1 困扰)
+        sheet.addAction(UIAlertAction(title: "💻 " + L("通过电脑端 USB 助手极速直装 (备选)", "Install via PC USB Helper"), style: .default, handler: { [weak self] _ in
             self?.showPCHelperGuide()
         }))
+
         
         // 4. 局域网 Wi-Fi 网页投送下载 (电脑浏览器输入地址直接下载)
         sheet.addAction(UIAlertAction(title: "🌐 " + L("开启局域网 Wi-Fi 网页投送下载", "LAN Wi-Fi Web Transfer"), style: .default, handler: { [weak self] _ in
@@ -698,8 +704,42 @@ public class AppLibraryViewController: UIViewController, UITableViewDelegate, UI
             }
         }
     }
-    
+
+    private func startDirectOnDeviceInstall(ipaURL: URL, app: SignedAppRecord) {
+
+        ProgressHUD.shared.show(in: view, title: L("正在启动本地安装服务...", "Starting install server..."), detail: app.name)
+        
+        LocalInstallServer.shared.startServing(ipaURL: ipaURL, bundleID: app.bundleId, version: app.version, title: app.name) { [weak self] result in
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                ProgressHUD.shared.hide()
+                
+                switch result {
+                case .success(let installURL):
+                    UIApplication.shared.open(installURL, options: [:]) { [weak self] success in
+                        guard let self = self else { return }
+                        let alert = UIAlertController(
+                            title: "📲 " + self.L("已发送本地安装请求！", "Install Request Sent!"),
+                            message: self.L("系统将自动拉取安装包并安装到手机桌面。\n\n💡 常见提示解决：\n1. 若提示「无法连接到 127.0.0.1」，点击下方「配置本地 CA 证书」安装并信任描述文件，或连接 Wi-Fi 后重试。\n2. 安装完成后首次打开，请前往手机「设置 -> 通用 -> VPN 与设备管理」信任签名证书。\n3. iOS 16+ 请在「设置 -> 隐私与安全性」开启开发者模式。", "Check home screen for installation."),
+                            preferredStyle: .alert
+                        )
+                        alert.addAction(UIAlertAction(title: "🛡️ " + self.L("配置本地 CA 证书 (100%防拦截)", "Install Local CA Profile"), style: .default, handler: { _ in
+                            LocalInstallServer.shared.installLocalCAProfile()
+                        }))
+                        alert.addAction(UIAlertAction(title: self.L("好的，去桌面查看", "OK, Go to Home Screen"), style: .default))
+                        self.present(alert, animated: true)
+                    }
+                case .failure(let error):
+                    let alert = UIAlertController(title: self.L("启动安装服务失败", "Failed to start install server"), message: error.localizedDescription, preferredStyle: .alert)
+                    alert.addAction(UIAlertAction(title: self.L("确定", "OK"), style: .default))
+                    self.present(alert, animated: true)
+                }
+            }
+        }
+    }
+
     public func tableView(_ tableView: UITableView, commit editingStyle: UITableViewCell.EditingStyle, forRowAt indexPath: IndexPath) {
+
         if editingStyle == .delete {
             switch segmentedControl.selectedSegmentIndex {
             case 0:
