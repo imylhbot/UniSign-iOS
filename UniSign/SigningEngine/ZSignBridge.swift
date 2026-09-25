@@ -2,16 +2,17 @@ import Foundation
 import Security
 import CommonCrypto
 
-@objc public class ZSignCertificateInfo: NSObject {
-    @objc public var commonName: String?
-    @objc public var teamId: String?
-    @objc public var teamName: String?
-    @objc public var expirationDate: Date?
-    @objc public var isExpired: Bool = false
+public class ZSignCertificateInfo {
+    public var commonName: String?
+    public var teamId: String?
+    public var teamName: String?
+    public var expirationDate: Date?
+    public var isExpired: Bool = false
+    public init() {}
 }
 
 /// Pure Swift implementation of code signing and certificate verification
-@objc public class ZSignBridge: NSObject {
+public class ZSignBridge {
     
     public enum SignBridgeError: LocalizedError {
         case fileNotFound(String)
@@ -34,7 +35,7 @@ import CommonCrypto
     }
     
     /// Inspects and extracts metadata from a PKCS#12 (.p12) file
-    @objc public static func inspectP12(_ p12Path: String, password: String) throws -> ZSignCertificateInfo {
+    public static func inspectP12(_ p12Path: String, password: String) throws -> ZSignCertificateInfo {
         let p12URL = URL(fileURLWithPath: p12Path)
         guard let p12Data = try? Data(contentsOf: p12URL) else {
             throw SignBridgeError.fileNotFound(p12Path)
@@ -81,7 +82,7 @@ import CommonCrypto
     }
     
     /// Inspects and extracts the embedded property list from a .mobileprovision file
-    @objc public static func inspectProvision(_ provisionPath: String) throws -> [String: Any]? {
+    public static func inspectProvision(_ provisionPath: String) throws -> [String: Any]? {
         let provURL = URL(fileURLWithPath: provisionPath)
         guard let data = try? Data(contentsOf: provURL) else {
             throw SignBridgeError.fileNotFound(provisionPath)
@@ -107,7 +108,7 @@ import CommonCrypto
     }
     
     /// Executes code signing on the unzipped .app bundle
-    @objc public static func signAppBundle(
+    public static func signAppBundle(
         _ appPath: String,
         p12Path: String,
         p12Password: String,

@@ -250,22 +250,22 @@ public class MachOModifier {
     }
 }
 
-// MARK: - Safe Data Byte Helpers
+// MARK: - Safe Data Byte Helpers (Little Endian for Mach-O)
 private extension Data {
     func readUInt32(at offset: Int) -> UInt32 {
         guard offset + 4 <= self.count else { return 0 }
-        var val: UInt32 = 0
-        _ = withUnsafeMutableBytes(of: &val) { valPtr in
-            self.copyBytes(to: valPtr, from: offset..<(offset + 4))
-        }
-        return val
+        let b0 = UInt32(self[offset])
+        let b1 = UInt32(self[offset + 1]) << 8
+        let b2 = UInt32(self[offset + 2]) << 16
+        let b3 = UInt32(self[offset + 3]) << 24
+        return b0 | b1 | b2 | b3
     }
     
     mutating func writeUInt32(_ value: UInt32, at offset: Int) {
         guard offset + 4 <= self.count else { return }
-        var v = value
-        withUnsafeBytes(of: &v) { bytes in
-            self.replaceSubrange(offset..<(offset + 4), with: bytes)
-        }
+        self[offset] = UInt8(value & 0xFF)
+        self[offset + 1] = UInt8((value >> 8) & 0xFF)
+        self[offset + 2] = UInt8((value >> 16) & 0xFF)
+        self[offset + 3] = UInt8((value >> 24) & 0xFF)
     }
 }
