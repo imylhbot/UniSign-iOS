@@ -108,7 +108,7 @@ class IPADropAreaWidget(QFrame):
         super().__init__(parent)
         self.setAcceptDrops(True)
         self.setCursor(QCursor(Qt.PointingHandCursor))
-        self.setFixedHeight(120)
+        self.setFixedHeight(105)
         self.current_ipa = ""
         self.is_hovered = False
         
@@ -572,8 +572,9 @@ class UniSignHelperApp(QMainWindow):
         # 1. Top Global Navigation Header
         header_widget = QWidget()
         header_widget.setObjectName("header_widget")
+        header_widget.setFixedHeight(68)
         header_layout = QHBoxLayout(header_widget)
-        header_layout.setContentsMargins(22, 14, 22, 14)
+        header_layout.setContentsMargins(20, 10, 20, 10)
 
         title_col = QVBoxLayout()
         title_row = QHBoxLayout()
@@ -603,15 +604,16 @@ class UniSignHelperApp(QMainWindow):
         header_layout.addStretch()
 
         self.conn_badge = QLabel("⚪ USB 未连接 (请解锁屏幕信任)")
+        self.conn_badge.setFixedHeight(34)
         self.conn_badge.setStyleSheet("""
             background-color: rgba(255, 255, 255, 0.2);
             color: #FFFFFF;
-            padding: 8px 18px;
-            border-radius: 16px;
+            padding: 6px 16px;
+            border-radius: 17px;
             font-size: 12px;
             font-weight: bold;
         """)
-        header_layout.addWidget(self.conn_badge)
+        header_layout.addWidget(self.conn_badge, 0, Qt.AlignVCenter | Qt.AlignRight)
         main_layout.addWidget(header_widget)
 
         # 2. Main Content Split View (QSplitter for responsive resizing)
@@ -749,8 +751,8 @@ class UniSignHelperApp(QMainWindow):
         # Tab 1: ✍️ 应用签名与直装 (IPA Sideload & Signer)
         tab_sign = QWidget()
         tab_sign_layout = QVBoxLayout(tab_sign)
-        tab_sign_layout.setContentsMargins(14, 14, 14, 14)
-        tab_sign_layout.setSpacing(12)
+        tab_sign_layout.setContentsMargins(12, 10, 12, 10)
+        tab_sign_layout.setSpacing(8)
 
         # IPA Drag and Drop / Selection Zone
         self.drop_area = IPADropAreaWidget()
@@ -780,8 +782,8 @@ class UniSignHelperApp(QMainWindow):
         # Sub-tab: Apple ID Signing
         sub_apple = QWidget()
         apple_layout = QVBoxLayout(sub_apple)
-        apple_layout.setSpacing(10)
-        apple_layout.setContentsMargins(12, 12, 12, 12)
+        apple_layout.setSpacing(6)
+        apple_layout.setContentsMargins(10, 8, 10, 8)
 
         row_a1 = QHBoxLayout()
         lbl_a1 = QLabel("Apple ID 账号:")
@@ -874,6 +876,7 @@ class UniSignHelperApp(QMainWindow):
         # Advanced Settings Checklist
         opt_box = QGroupBox("⚙️ 签名高级定制选项")
         opt_layout = QHBoxLayout(opt_box)
+        opt_layout.setContentsMargins(10, 4, 10, 4)
         
         self.chk_file_sharing = QCheckBox("开启文件访问 (UIFileSharing)")
         self.chk_file_sharing.setChecked(True)
@@ -895,13 +898,13 @@ class UniSignHelperApp(QMainWindow):
         action_layout = QHBoxLayout()
         self.btn_sign_and_install = QPushButton("🚀 开始一键签名并安装到手机")
         self.btn_sign_and_install.setObjectName("btn_primary_action")
-        self.btn_sign_and_install.setFixedHeight(48)
+        self.btn_sign_and_install.setFixedHeight(44)
         self.btn_sign_and_install.clicked.connect(self.start_sign_and_install)
         action_layout.addWidget(self.btn_sign_and_install)
 
         self.btn_direct_install = QPushButton("📲 快速直装 (跳过重签)")
         self.btn_direct_install.setObjectName("btn_green_action")
-        self.btn_direct_install.setFixedHeight(48)
+        self.btn_direct_install.setFixedHeight(44)
         self.btn_direct_install.clicked.connect(self.start_direct_install)
         action_layout.addWidget(self.btn_direct_install)
         tab_sign_layout.addLayout(action_layout)
@@ -919,6 +922,7 @@ class UniSignHelperApp(QMainWindow):
         scroll_sign.setWidgetResizable(True)
         scroll_sign.setFrameShape(QFrame.NoFrame)
         scroll_sign.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        scroll_sign.setStyleSheet("QScrollArea { border: none; background: transparent; }")
         scroll_sign.setWidget(tab_sign)
         self.main_tabs.addTab(scroll_sign, "✍️ 应用签名与直装")
 
@@ -989,11 +993,11 @@ class UniSignHelperApp(QMainWindow):
         # Bottom Log Terminal
         log_box = QGroupBox("📋 运行与交互日志控制台")
         log_layout = QVBoxLayout(log_box)
-        log_layout.setContentsMargins(10, 10, 10, 10)
+        log_layout.setContentsMargins(8, 6, 8, 6)
         
         self.log_console = QPlainTextEdit()
         self.log_console.setReadOnly(True)
-        self.log_console.setMaximumHeight(110)
+        self.log_console.setMaximumHeight(85)
         log_layout.addWidget(self.log_console)
 
 
@@ -1135,7 +1139,7 @@ class UniSignHelperApp(QMainWindow):
             self.current_lockdown.udid = udid
         
         self.conn_badge.setText(f"🟢 已连接: {model} (iOS {os_ver})")
-        self.conn_badge.setStyleSheet("background-color: #10B981; color: #FFFFFF; padding: 8px 18px; border-radius: 16px; font-weight: bold;")
+        self.conn_badge.setStyleSheet("background-color: #10B981; color: #FFFFFF; padding: 6px 16px; border-radius: 17px; font-weight: bold; font-size: 12px;")
         
         self.mockup.update_state(True, name=model, version=os_ver)
         self.lbl_device_model.setText(f"型号: {model}")
@@ -1171,7 +1175,7 @@ class UniSignHelperApp(QMainWindow):
         self.current_device = None
         self.current_lockdown = None
         self.conn_badge.setText("⚪ USB 未连接 (请解锁屏幕信任)")
-        self.conn_badge.setStyleSheet("background-color: rgba(255, 255, 255, 0.2); color: #FFFFFF; padding: 8px 18px; border-radius: 16px; font-weight: bold;")
+        self.conn_badge.setStyleSheet("background-color: rgba(255, 255, 255, 0.2); color: #FFFFFF; padding: 6px 16px; border-radius: 17px; font-weight: bold; font-size: 12px;")
         self.mockup.update_state(False)
         self.lbl_device_model.setText("型号: 等待连接...")
         self.lbl_device_version.setText("系统版本: --")

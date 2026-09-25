@@ -2,11 +2,13 @@ import struct
 import os
 
 class AFCClient:
-    """Lightweight Apple File Conduit (AFC) client for staging files onto the iOS device."""
+    """Lightweight Apple File Conduit (AFC) client for staging files onto the iOS device.
+    Strictly follows the Apple AFC wire protocol (libimobiledevice / pymobiledevice3).
+    """
     
     MAGIC = b"CFA6LPAA"
     
-    # Official Apple AFC Protocol Opcodes (libimobiledevice / pymobiledevice3)
+    # Official Apple AFC Protocol Opcodes
     OP_STATUS = 1          # 0x01
     OP_DATA = 2            # 0x02
     OP_READ_DIR = 3        # 0x03
@@ -26,30 +28,35 @@ class AFCClient:
         self.sock = sock
         self.packet_num = 0
 
-    def _send_packet(self, operation, data=b""):
+    def _send_packet(self, operation, data=b"", this_len=None):
         self.packet_num += 1
         header_len = 40
         entire_len = header_len + len(data)
-        hdr = struct.pack("<8sQQQQ", self.MAGIC, entire_len, header_len, self.packet_num, operation)
+        if this_len is None:
+            this_len = entire_len
+        hdr = struct.pack("<8sQQQQ", self.MAGIC, entire_len, this_len, self.packet_num, operation)
         self.sock.sendall(hdr + data)
 
     def _recv_packet(self):
         hdr = self._read_exact(40)
         if not hdr or len(hdr) < 40:
-            return None, b""
+            return None, 0, b""
         magic, entire_len, this_len, pkt_num, op = struct.unpack("<8sQQQQ", hdr)
         if magic != self.MAGIC:
-            return None, b""
-        if entire_len < 40 or entire_len > 10 * 1024 * 1024:
-            return None, b""
-        payload_len = entire_len - this_len
-        if payload_len < 0 or payload_len > 10 * 1024 * 1024:
-            return None, b""
+            return None, 0, b""
+        payload_len = entire_len - 40
+        if payload_len < 0 or payload_len > 100 * 1024 * 1024:
+            return None, 0, b""
         payload = self._read_exact(payload_len) if payload_len > 0 else b""
-        return op, payload
+        
+        status = 0
+        if op == self.OP_STATUS:
+            if len(payload) >= 8:
+                status = struct.unpack("<Q", payload[:8])[0]
+        return op, status, payload
 
     def _read_exact(self, count):
-        if count <= 0 or count > 10 * 1024 * 1024:
+        if count <= 0 or count > 100 * 1024 * 1024:
             return b""
         buf = bytearray()
         while len(buf) < count:
@@ -65,17 +72,20 @@ class AFCClient:
     def make_directory(self, path):
         data = path.encode("utf-8") + b"\x00"
         self._send_packet(self.OP_MAKE_DIR, data)
-        op, payload = self._recv_packet()
-        return True
+        op, status, payload = self._recv_packet()
+        # Status 0 (SUCCESS) or 16 (OBJECT_EXISTS) both indicate directory is available
+        return op is not None
 
     def file_open(self, path, mode=3):
-        """mode 3 = read/write create/truncate (O_RDWR | O_CREAT | O_TRUNC)"""
+        """mode 3 = write/create/truncate (O_WRONLY | O_CREAT | O_TRUNC in AFC)"""
         mode_data = struct.pack("<Q", mode)
         path_data = path.encode("utf-8") + b"\x00"
         self._send_packet(self.OP_FILE_OPEN, mode_data + path_data)
-        op, payload = self._recv_packet()
+        op, status, payload = self._recv_packet()
         if op is None:
             raise ConnectionError("AFC 文件服务通信中断 (未能收到手机响应，可能 USB 数据线松动或未完成 SSL 握手)")
+        if op == self.OP_STATUS and status != 0:
+            raise IOError(f"AFC 无法创建文件，手机返回状态码: {status}")
         if payload and len(payload) >= 8:
             handle = struct.unpack("<Q", payload[:8])[0]
             return handle
@@ -84,20 +94,21 @@ class AFCClient:
     def file_write(self, handle, data):
         self.packet_num += 1
         header_len = 40
-        this_len = header_len + 8  # 40 bytes header + 8 bytes handle
-        entire_len = this_len + len(data)
-        hdr = struct.pack("<8sQQQQ", self.MAGIC, entire_len, this_len, self.packet_num, self.OP_FILE_WRITE)
         handle_data = struct.pack("<Q", handle)
-        self.sock.sendall(hdr + handle_data + data)
-        op, payload = self._recv_packet()
-        if op is None:
-            raise ConnectionError("AFC 文件写入通信中断")
-        return op == self.OP_STATUS
+        packet_data = handle_data + data
+        entire_len = header_len + len(packet_data)
+        this_len = header_len + 8  # 48 bytes for handle argument
+        hdr = struct.pack("<8sQQQQ", self.MAGIC, entire_len, this_len, self.packet_num, self.OP_FILE_WRITE)
+        self.sock.sendall(hdr + packet_data)
+        op, status, payload = self._recv_packet()
+        if op is None or (op == self.OP_STATUS and status != 0):
+            raise ConnectionError(f"AFC 文件写入通信中断 (状态码: {status})")
+        return True
 
     def file_close(self, handle):
         handle_data = struct.pack("<Q", handle)
         self._send_packet(self.OP_FILE_CLOSE, handle_data)
-        op, payload = self._recv_packet()
+        op, status, payload = self._recv_packet()
         return True
 
     def upload_file(self, local_path, remote_path, progress_callback=None):

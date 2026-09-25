@@ -365,4 +365,8 @@ public class ProgressHUD: UIView {
             self.removeFromSuperview()
         }
     }
+    
+    public func dismiss(from view: UIView? = nil) {
+        hide()
+    }
 }

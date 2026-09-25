@@ -1410,13 +1410,27 @@ public class SignWorkflowViewController: UIViewController, UIDocumentPickerDeleg
         present(sheet, animated: true)
     }
     
+    private func openInOtherApp(_ url: URL) {
+        guard FileManager.default.fileExists(atPath: url.path) else { return }
+        docController = UIDocumentInteractionController(url: url)
+        docController?.delegate = self
+        if !docController!.presentOpenInMenu(from: view.bounds, in: view, animated: true) {
+            let avc = UIActivityViewController(activityItems: [url], applicationActivities: nil)
+            present(avc, animated: true)
+        }
+    }
+    
+    public func documentInteractionControllerViewControllerForPreview(_ controller: UIDocumentInteractionController) -> UIViewController {
+        return self
+    }
+    
     private func startDirectOnDeviceInstall(ipaURL: URL, name: String, bundleID: String) {
         ProgressHUD.shared.show(in: view, title: L("正在启动本地安装服务...", "Starting install server..."), detail: name)
         
         LocalInstallServer.shared.startServing(ipaURL: ipaURL, bundleID: bundleID, version: "1.0.0", title: name) { [weak self] result in
             DispatchQueue.main.async {
                 guard let self = self else { return }
-                ProgressHUD.shared.dismiss(from: self.view)
+                ProgressHUD.shared.hide()
                 
                 switch result {
                 case .success(let installURL):
