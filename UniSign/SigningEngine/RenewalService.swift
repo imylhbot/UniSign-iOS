@@ -20,6 +20,11 @@ public class RenewalService {
         }
     }
     
+    /// Convenience 1-click renewal without progress closure
+    public func renewSignedApp(_ record: SignedAppRecord, completion: @escaping (Result<SignedAppRecord, Error>) -> Void) {
+        renewApp(record: record, progress: { _, _ in }, completion: completion)
+    }
+    
     /// Executes silent re-signing to refresh the 7-day expiration window
     public func renewApp(
         record: SignedAppRecord,

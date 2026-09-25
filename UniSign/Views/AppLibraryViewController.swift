@@ -342,7 +342,7 @@ public class AppLibraryViewController: UIViewController, UITableViewDelegate, UI
     
     private func renewApp(_ app: SignedAppRecord) {
         ProgressHUD.shared.show(in: view, title: L("正在一键续期...", "Renewing..."), detail: app.name)
-        RenewalService.shared.renewSignedApp(app) { [weak self] result in
+        RenewalService.shared.renewSignedApp(app) { [weak self] (result: Result<SignedAppRecord, Error>) in
             DispatchQueue.main.async {
                 guard let self = self else { return }
                 ProgressHUD.shared.hide()

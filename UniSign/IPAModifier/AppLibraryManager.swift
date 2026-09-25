@@ -42,6 +42,14 @@ public struct SignedAppRecord: Codable, Identifiable {
     public var isExpired: Bool {
         return expiryDate < Date()
     }
+    
+    public var fileURL: URL {
+        return AppLibraryManager.shared.signedDir.appendingPathComponent(fileName)
+    }
+    
+    public var filePath: String {
+        return fileURL.path
+    }
 }
 
 /// Manages imported raw IPAs, tweak dylibs, and signed applications in sandbox
@@ -132,6 +140,35 @@ public class AppLibraryManager {
         }
         list.removeAll(where: { $0.id == id })
         saveSignedApps(list)
+    }
+    
+    public func deleteSignedApp(id: String) {
+        removeSignedApp(id: id)
+    }
+    
+    public func registerSignedApp(
+        ipaURL: URL,
+        name: String,
+        bundleId: String,
+        version: String,
+        signMethod: String,
+        appleIDEmail: String? = nil,
+        expirationDate: Date = Date().addingTimeInterval(7 * 24 * 3600)
+    ) -> SignedAppRecord {
+        let destURL = signedDir.appendingPathComponent(ipaURL.lastPathComponent)
+        try? fileManager.removeItem(at: destURL)
+        try? fileManager.copyItem(at: ipaURL, to: destURL)
+        let record = SignedAppRecord(
+            name: name,
+            bundleId: bundleId,
+            version: version,
+            expiryDate: expirationDate,
+            signMethod: signMethod,
+            appleIDEmail: appleIDEmail,
+            fileName: destURL.lastPathComponent
+        )
+        recordSignedApp(record)
+        return record
     }
     
     public func deleteUnsignedIPA(url: URL) {
