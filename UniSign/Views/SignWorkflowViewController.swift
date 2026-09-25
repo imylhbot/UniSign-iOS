@@ -8,12 +8,19 @@ public class SignWorkflowViewController: UIViewController, UIDocumentPickerDeleg
     
     // Selected files
     public var preselectedIPAURL: URL?
+    public var isModifyOnlyMode: Bool = false
     private var selectedIPAURL: URL?
     private var selectedP12URL: URL?
     private var selectedProvisionURL: URL?
     private var selectedIconImage: UIImage?
     private var dylibsToInject: [URL] = []
     private var dylibsToRemove: [String] = []
+    
+    // Workflow Mode
+    private let workflowModeSegment = UISegmentedControl(items: [
+        L("🚀 证书重签模式", "Sign & Sideload"),
+        L("🛠️ 仅免签定制 (不签名)", "Modify Only (No Sign)")
+    ])
     
     // Cards
     private let ipaCard = CardView()
@@ -66,6 +73,7 @@ public class SignWorkflowViewController: UIViewController, UIDocumentPickerDeleg
     public override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         updateAccountQuotaBadge()
+        updateModeUI()
     }
     
     private func setupUI() {
@@ -90,6 +98,13 @@ public class SignWorkflowViewController: UIViewController, UIDocumentPickerDeleg
             contentView.bottomAnchor.constraint(equalTo: scrollView.bottomAnchor, constant: -30),
             contentView.widthAnchor.constraint(equalTo: scrollView.widthAnchor, constant: -32)
         ])
+        
+        // 0. Workflow Mode Segment
+        workflowModeSegment.translatesAutoresizingMaskIntoConstraints = false
+        workflowModeSegment.selectedSegmentIndex = isModifyOnlyMode ? 1 : 0
+        workflowModeSegment.heightAnchor.constraint(equalToConstant: 36).isActive = true
+        workflowModeSegment.addTarget(self, action: #selector(workflowModeChanged), for: .valueChanged)
+        contentView.addArrangedSubview(workflowModeSegment)
         
         // 1. Source IPA Card
         setupIPACard()
@@ -341,7 +356,7 @@ public class SignWorkflowViewController: UIViewController, UIDocumentPickerDeleg
     }
     
     private func updateTexts() {
-        title = L("签名与深度定制", "Sign & Customize")
+        updateModeUI()
         ipaButton.setTitle(L("选取待签名 IPA 包", "Choose IPA Package"), for: .normal)
         changeIconButton.setTitle(L("选取新图标 (相册/文件)", "Change Icon"), for: .normal)
         bundleIdField.placeholder = L("自定义 Bundle ID (留空保持原样)", "Custom Bundle ID")
@@ -350,10 +365,28 @@ public class SignWorkflowViewController: UIViewController, UIDocumentPickerDeleg
         minOSField.placeholder = L("最低系统 (如 13.0)", "Min OS (e.g. 13.0)")
         addDylibBtn.setTitle(L("选择注入插件", "Add Dylib"), for: .normal)
         removeDylibBtn.setTitle(L("移除既有插件", "Remove Dylib"), for: .normal)
-        signButton.setTitle(L("🚀 开始一键重签与注入", "🚀 Start Signing IPA"), for: .normal)
         installButton.setTitle(L("📲 立即本地安装 (OTA)", "📲 Install Locally (OTA)"), for: .normal)
+        workflowModeSegment.setTitle(L("🚀 证书重签模式", "Sign & Sideload"), forSegmentAt: 0)
+        workflowModeSegment.setTitle(L("🛠️ 仅免签定制 (不签名)", "Modify Only (No Sign)"), forSegmentAt: 1)
         updateDylibLabel()
         updateMethodDetailText()
+    }
+    
+    @objc private func workflowModeChanged() {
+        isModifyOnlyMode = (workflowModeSegment.selectedSegmentIndex == 1)
+        updateModeUI()
+    }
+    
+    private func updateModeUI() {
+        let isModify = (workflowModeSegment.selectedSegmentIndex == 1)
+        methodCard.isHidden = isModify
+        if isModify {
+            title = L("仅修改配置 (免签定制)", "Customize IPA (No Sign)")
+            signButton.setTitle("🛠️ " + L("保存定制 IPA (不签名)", "Package Customized IPA"), for: .normal)
+        } else {
+            title = L("签名与深度定制", "Sign & Customize")
+            signButton.setTitle("🚀 " + L("开始签名并打包", "Start Signing & Package"), for: .normal)
+        }
     }
     
     @objc private func methodChanged() {
@@ -450,16 +483,34 @@ public class SignWorkflowViewController: UIViewController, UIDocumentPickerDeleg
         }
     }
     
-    private func applySelectedIPA(_ url: URL) {
+    public func applySelectedIPA(_ url: URL) {
         selectedIPAURL = url
         ipaButton.setTitle("✓ " + url.lastPathComponent, for: .normal)
         let fileSize = (try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int64) ?? 0
         let mb = Double(fileSize) / (1024 * 1024)
         ipaDetailLabel.text = String(format: L("已选择: %@ (%.1f MB)", "Selected: %@ (%.1f MB)"), url.lastPathComponent, mb)
         
-        let rawName = url.deletingPathExtension().lastPathComponent
-        if (nameField.text ?? "").isEmpty {
-            nameField.text = rawName
+        // Fast inspect Info.plist from ZIP directory directly
+        if let plist = ZipEngine.readInfoPlist(from: url) {
+            if let bId = plist["CFBundleIdentifier"] as? String, !bId.isEmpty {
+                bundleIdField.text = bId
+            }
+            if let dName = (plist["CFBundleDisplayName"] as? String) ?? (plist["CFBundleName"] as? String), !dName.isEmpty {
+                nameField.text = dName
+            } else {
+                nameField.text = url.deletingPathExtension().lastPathComponent
+            }
+            if let ver = (plist["CFBundleShortVersionString"] as? String) ?? (plist["CFBundleVersion"] as? String), !ver.isEmpty {
+                versionField.text = ver
+            }
+            if let minOS = plist["MinimumOSVersion"] as? String, !minOS.isEmpty {
+                minOSField.text = minOS
+            }
+        } else {
+            let rawName = url.deletingPathExtension().lastPathComponent
+            if (nameField.text ?? "").isEmpty {
+                nameField.text = rawName
+            }
         }
     }
     
@@ -542,6 +593,66 @@ public class SignWorkflowViewController: UIViewController, UIDocumentPickerDeleg
             return
         }
         
+        let customBundleId = bundleIdField.text?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let customName = nameField.text?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let customVersion = versionField.text?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let customMinOS = minOSField.text?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let enableFileSharing = fileSharingSwitch.isOn
+        let enableDocInPlace = docInPlaceSwitch.isOn
+        
+        let isModifyOnly = (isModifyOnlyMode || workflowModeSegment.selectedSegmentIndex == 1)
+        if isModifyOnly {
+            ProgressHUD.shared.show(in: view, title: L("正在免签定制配置并打包...", "Customizing IPA..."))
+            var opts = SigningPreferences.shared.makeCustomizationOptions(
+                bundleId: (customBundleId?.isEmpty ?? true) ? nil : customBundleId,
+                displayName: (customName?.isEmpty ?? true) ? nil : customName,
+                version: (customVersion?.isEmpty ?? true) ? nil : customVersion,
+                minOS: (customMinOS?.isEmpty ?? true) ? nil : customMinOS
+            )
+            opts.enableFileSharing = enableFileSharing
+            opts.enableDocumentInPlace = enableDocInPlace
+            
+            let modConfig = IPAManager.ModifyConfig(
+                ipaURL: ipa,
+                options: opts,
+                replacementIcon: self.selectedIconImage,
+                dylibsToInject: self.dylibsToInject,
+                dylibsToRemove: self.dylibsToRemove
+            )
+            
+            IPAManager.modifyWithoutSigning(config: modConfig, progress: { pct, step in
+                DispatchQueue.main.async {
+                    ProgressHUD.shared.update(title: step, detail: "\(Int(pct * 100))%")
+                }
+            }) { [weak self] result in
+                DispatchQueue.main.async {
+                    guard let self = self else { return }
+                    ProgressHUD.shared.hide()
+                    switch result {
+                    case .success(let outputIPA):
+                        UINotificationFeedbackGenerator().notificationOccurred(.success)
+                        let alert = UIAlertController(
+                            title: L("定制完成！", "Modification Complete!"),
+                            message: "\(outputIPA.lastPathComponent)\n" + L("已保存至应用资源库（未签名包）。适用于 TrollStore 免签安装或分享导出。", "Saved to App Library. Suitable for TrollStore or direct export."),
+                            preferredStyle: .alert
+                        )
+                        alert.addAction(UIAlertAction(title: "📤 " + L("导出 / 分享 IPA", "Share / Export"), style: .default, handler: { [weak self] _ in
+                            let avc = UIActivityViewController(activityItems: [outputIPA], applicationActivities: nil)
+                            self?.present(avc, animated: true)
+                        }))
+                        alert.addAction(UIAlertAction(title: L("完成", "Done"), style: .cancel))
+                        self.present(alert, animated: true)
+                    case .failure(let err):
+                        UINotificationFeedbackGenerator().notificationOccurred(.error)
+                        let alert = UIAlertController(title: L("定制失败", "Modification Failed"), message: err.localizedDescription, preferredStyle: .alert)
+                        alert.addAction(UIAlertAction(title: L("好", "OK"), style: .default))
+                        self.present(alert, animated: true)
+                    }
+                }
+            }
+            return
+        }
+        
         let isAppleID = (signingMethodSegment.selectedSegmentIndex == 0)
         let activeAccount = AppleAccountManager.shared.activeAccount
         
@@ -561,13 +672,6 @@ public class SignWorkflowViewController: UIViewController, UIDocumentPickerDeleg
         }
         
         ProgressHUD.shared.show(in: view, title: L("正在准备重签...", "Preparing Signing..."))
-        
-        let customBundleId = bundleIdField.text?.trimmingCharacters(in: .whitespacesAndNewlines)
-        let customName = nameField.text?.trimmingCharacters(in: .whitespacesAndNewlines)
-        let customVersion = versionField.text?.trimmingCharacters(in: .whitespacesAndNewlines)
-        let customMinOS = minOSField.text?.trimmingCharacters(in: .whitespacesAndNewlines)
-        let enableFileSharing = fileSharingSwitch.isOn
-        let enableDocInPlace = docInPlaceSwitch.isOn
         
         let targetBundleID = (customBundleId != nil && !customBundleId!.isEmpty) ? customBundleId! : "com.unisign.app.\(UUID().uuidString.prefix(6))"
         let deviceUDID = DeviceInfoHelper.getDeviceUDID()

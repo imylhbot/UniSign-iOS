@@ -35,6 +35,28 @@ public class IPAManager {
         }
     }
     
+    public struct ModifyConfig {
+        public var ipaURL: URL
+        public var options: PlistModifier.CustomizationOptions
+        public var replacementIcon: UIImage?
+        public var dylibsToInject: [URL]
+        public var dylibsToRemove: [String]
+        
+        public init(
+            ipaURL: URL,
+            options: PlistModifier.CustomizationOptions = PlistModifier.CustomizationOptions(),
+            replacementIcon: UIImage? = nil,
+            dylibsToInject: [URL] = [],
+            dylibsToRemove: [String] = []
+        ) {
+            self.ipaURL = ipaURL
+            self.options = options
+            self.replacementIcon = replacementIcon
+            self.dylibsToInject = dylibsToInject
+            self.dylibsToRemove = dylibsToRemove
+        }
+    }
+    
     public enum IPAError: LocalizedError {
         case fileNotFound(String)
         case unarchiveFailed(String)
@@ -241,6 +263,125 @@ public class IPAManager {
                     completion(.success(outputURL))
                 }
                 
+            } catch {
+                DispatchQueue.main.async {
+                    completion(.failure(error))
+                }
+            }
+        }
+    }
+    
+    /// Executes customization and repackaging without any code signing (Bundle ID, Name, Icon, Dylibs, File Sharing)
+    /// Saves output to Documents/IPAs (Unsigned library), ideal for TrollStore, jailbreak, or pre-editing.
+    public static func modifyWithoutSigning(
+        config: ModifyConfig,
+        progress: @escaping (Double, String) -> Void,
+        completion: @escaping (Result<URL, Error>) -> Void
+    ) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            let fileManager = FileManager.default
+            let workingDir = fileManager.temporaryDirectory.appendingPathComponent("UniSign_Mod_\(UUID().uuidString)")
+            
+            do {
+                try fileManager.createDirectory(at: workingDir, withIntermediateDirectories: true, attributes: nil)
+                defer {
+                    try? fileManager.removeItem(at: workingDir)
+                }
+                
+                // 1. Unzip IPA using ZipEngine
+                progress(0.15, "正在解压 IPA 安装包...")
+                let unzippedURL = workingDir.appendingPathComponent("Unpacked")
+                try fileManager.createDirectory(at: unzippedURL, withIntermediateDirectories: true, attributes: nil)
+                
+                do {
+                    try ZipEngine.unzip(source: config.ipaURL, destination: unzippedURL) { pct, msg in
+                        progress(0.15 + pct * 0.25, msg)
+                    }
+                } catch {
+                    throw IPAError.unarchiveFailed(error.localizedDescription)
+                }
+                
+                // 2. Locate Payload/*.app
+                let payloadURL = unzippedURL.appendingPathComponent("Payload")
+                guard fileManager.fileExists(atPath: payloadURL.path),
+                      let appName = try fileManager.contentsOfDirectory(atPath: payloadURL.path).first(where: { $0.hasSuffix(".app") }) else {
+                    throw IPAError.appPayloadNotFound
+                }
+                let appURL = payloadURL.appendingPathComponent(appName)
+                progress(0.45, "定位到应用: \(appName)")
+                
+                // 3. Info.plist Modifications
+                progress(0.55, "正在修改应用配置 (Bundle ID / 名称 / 权限)...")
+                try PlistModifier.apply(options: config.options, toAppURL: appURL)
+                
+                // 4. Icon Replacement
+                if let newIcon = config.replacementIcon {
+                    progress(0.65, "正在替换应用桌面图标...")
+                    try? IconReplacer.replaceIcon(inAppURL: appURL, withImage: newIcon)
+                }
+                
+                // 5. Mach-O & Dylibs
+                let plist = try PlistModifier.readPlist(at: appURL)
+                let exeName = (plist["CFBundleExecutable"] as? String) ?? appName.replacingOccurrences(of: ".app", with: "")
+                let exeURL = appURL.appendingPathComponent(exeName)
+                
+                if fileManager.fileExists(atPath: exeURL.path) {
+                    for dylibToRemove in config.dylibsToRemove {
+                        progress(0.70, "正在移除插件: \(dylibToRemove)...")
+                        try? MachOModifier.removeDylib(binaryURL: exeURL, dylibNameOrPath: dylibToRemove)
+                        let fwFile = appURL.appendingPathComponent("Frameworks").appendingPathComponent(dylibToRemove)
+                        try? fileManager.removeItem(at: fwFile)
+                    }
+                    
+                    if !config.dylibsToInject.isEmpty {
+                        let frameworksDir = appURL.appendingPathComponent("Frameworks")
+                        try? fileManager.createDirectory(at: frameworksDir, withIntermediateDirectories: true, attributes: nil)
+                        
+                        for dylibURL in config.dylibsToInject {
+                            progress(0.75, "正在注入插件: \(dylibURL.lastPathComponent)...")
+                            let destDylib = frameworksDir.appendingPathComponent(dylibURL.lastPathComponent)
+                            try? fileManager.removeItem(at: destDylib)
+                            try fileManager.copyItem(at: dylibURL, to: destDylib)
+                            
+                            let injectedPath = "@executable_path/Frameworks/\(dylibURL.lastPathComponent)"
+                            try MachOModifier.injectDylib(binaryURL: exeURL, dylibPath: injectedPath)
+                        }
+                    }
+                }
+                
+                // 6. Remove Watch Components if requested
+                if config.options.removeWatchApp {
+                    progress(0.80, "正在移除 Watch App 手表组件...")
+                    let watchDir = appURL.appendingPathComponent("Watch")
+                    let watchKitDir = appURL.appendingPathComponent("WatchKit")
+                    try? fileManager.removeItem(at: watchDir)
+                    try? fileManager.removeItem(at: watchKitDir)
+                }
+                
+                // 7. Repack into output IPA in Documents/IPAs
+                progress(0.85, "正在重新压缩打包定制 IPA...")
+                let outputDir = AppLibraryManager.shared.ipaDir
+                let cleanAppName = appName.replacingOccurrences(of: ".app", with: "")
+                let bId = config.options.bundleIdentifier ?? (plist["CFBundleIdentifier"] as? String) ?? "com.unisign.app"
+                let ver = config.options.versionString ?? (plist["CFBundleShortVersionString"] as? String) ?? "1.0.0"
+                let outputName = PlistModifier.formatOutputFilename(
+                    template: config.options.filenameTemplate,
+                    appName: cleanAppName,
+                    bundleId: bId,
+                    version: ver,
+                    displayName: config.options.displayName,
+                    appendSignedSuffix: false
+                )
+                let outputURL = outputDir.appendingPathComponent(outputName)
+                
+                try ZipEngine.zip(sourceDir: unzippedURL, destinationIPA: outputURL) { pct, msg in
+                    progress(0.85 + pct * 0.14, msg)
+                }
+                
+                progress(1.0, "定制完成！已保存至应用资源库")
+                DispatchQueue.main.async {
+                    completion(.success(outputURL))
+                }
             } catch {
                 DispatchQueue.main.async {
                     completion(.failure(error))

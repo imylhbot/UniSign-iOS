@@ -175,6 +175,16 @@ public class AppLibraryManager {
         try? fileManager.removeItem(at: url)
     }
     
+    public func renameUnsignedIPA(at url: URL, newName: String) throws -> URL {
+        var cleanName = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !cleanName.lowercased().hasSuffix(".ipa") && !cleanName.lowercased().hasSuffix(".zip") {
+            cleanName += ".ipa"
+        }
+        let dest = url.deletingLastPathComponent().appendingPathComponent(cleanName)
+        try fileManager.moveItem(at: url, to: dest)
+        return dest
+    }
+    
     public func deleteDylib(url: URL) {
         try? fileManager.removeItem(at: url)
     }

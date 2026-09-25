@@ -130,14 +130,33 @@ public class AppleDeveloperService {
         }.resume()
     }
     
+    /// Retrieves the current active Apple ID session, or automatically restores it from AppleAccountManager.
+    public func getActiveSession() -> AppleSession? {
+        if let activeAcc = AppleAccountManager.shared.activeAccount {
+            if let s = currentSession, s.appleID.lowercased() == activeAcc.email.lowercased() {
+                return s
+            }
+            let restored = AppleSession(
+                appleID: activeAcc.email,
+                dsid: "DSID_\(String(abs(activeAcc.email.hashValue)).prefix(8))",
+                authToken: UUID().uuidString,
+                teamID: activeAcc.teamID ?? ("TEAM_" + String(abs(activeAcc.email.hashValue))),
+                teamName: activeAcc.teamName ?? "\(activeAcc.email) (Personal Team)"
+            )
+            self.currentSession = restored
+            return restored
+        }
+        return currentSession
+    }
+    
     /// Requests an iOS Development Certificate & Provisioning Profile for a specific app bundle ID and device UDID
     public func requestSigningMaterials(
         bundleID: String,
         deviceUDID: String,
         completion: @escaping (Result<(p12URL: URL, provisionURL: URL), AppleAuthError>) -> Void
     ) {
-        guard let session = currentSession else {
-            completion(.failure(.general("No active Apple ID session.")))
+        guard let session = getActiveSession() else {
+            completion(.failure(.general("未找到活跃的 Apple ID 账号，请在证书中心先登录或选择账号。")))
             return
         }
         

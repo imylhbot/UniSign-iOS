@@ -132,6 +132,86 @@ public class ZipEngine {
         }
     }
     
+    /// Fast extraction of Info.plist dictionary directly from an IPA file without unpacking the whole archive
+    public static func readInfoPlist(from sourceIPA: URL) -> [String: Any]? {
+        guard let fileData = try? Data(contentsOf: sourceIPA, options: .mappedIfSafe), fileData.count >= 22 else {
+            return nil
+        }
+        
+        let eocdSignature: UInt32 = 0x06054b50
+        var eocdOffset = -1
+        let maxSearch = min(fileData.count, 65557)
+        let searchStart = fileData.count - maxSearch
+        
+        for i in stride(from: fileData.count - 22, through: searchStart, by: -1) {
+            if fileData.readUInt32LE(at: i) == eocdSignature {
+                eocdOffset = i
+                break
+            }
+        }
+        guard eocdOffset >= 0 else { return nil }
+        
+        let totalEntries = Int(fileData.readUInt16LE(at: eocdOffset + 10))
+        let cdSize = Int(fileData.readUInt32LE(at: eocdOffset + 12))
+        let cdOffset = Int(fileData.readUInt32LE(at: eocdOffset + 16))
+        guard cdOffset + cdSize <= fileData.count else { return nil }
+        
+        var curCDOffset = cdOffset
+        let centralHeaderSig: UInt32 = 0x02014b50
+        
+        for _ in 0..<totalEntries {
+            guard curCDOffset + 46 <= fileData.count,
+                  fileData.readUInt32LE(at: curCDOffset) == centralHeaderSig else {
+                break
+            }
+            
+            let method = fileData.readUInt16LE(at: curCDOffset + 10)
+            let compressedSize = Int(fileData.readUInt32LE(at: curCDOffset + 20))
+            let uncompressedSize = Int(fileData.readUInt32LE(at: curCDOffset + 24))
+            let nameLen = Int(fileData.readUInt16LE(at: curCDOffset + 28))
+            let extraLen = Int(fileData.readUInt16LE(at: curCDOffset + 30))
+            let commentLen = Int(fileData.readUInt16LE(at: curCDOffset + 32))
+            let localHeaderOffset = Int(fileData.readUInt32LE(at: curCDOffset + 42))
+            
+            let nameStart = curCDOffset + 46
+            guard nameStart + nameLen <= fileData.count else { break }
+            let nameData = fileData.subdata(in: nameStart..<(nameStart + nameLen))
+            let fileName = String(data: nameData, encoding: .utf8) ?? ""
+            
+            curCDOffset += 46 + nameLen + extraLen + commentLen
+            
+            // Look for Payload/xxx.app/Info.plist
+            if fileName.hasPrefix("Payload/") && fileName.hasSuffix(".app/Info.plist") {
+                guard localHeaderOffset + 30 <= fileData.count,
+                      fileData.readUInt32LE(at: localHeaderOffset) == 0x04034b50 else {
+                    continue
+                }
+                
+                let localNameLen = Int(fileData.readUInt16LE(at: localHeaderOffset + 26))
+                let localExtraLen = Int(fileData.readUInt16LE(at: localHeaderOffset + 28))
+                let dataOffset = localHeaderOffset + 30 + localNameLen + localExtraLen
+                
+                guard dataOffset + compressedSize <= fileData.count else { continue }
+                let rawData = fileData.subdata(in: dataOffset..<(dataOffset + compressedSize))
+                
+                let plistData: Data?
+                if method == 0 {
+                    plistData = rawData
+                } else if method == 8 {
+                    plistData = inflateData(rawData, uncompressedSize: uncompressedSize)
+                } else {
+                    plistData = rawData
+                }
+                
+                if let pData = plistData,
+                   let plist = try? PropertyListSerialization.propertyList(from: pData, options: [], format: nil) as? [String: Any] {
+                    return plist
+                }
+            }
+        }
+        return nil
+    }
+    
     // MARK: - Zip (Compression)
     
     /// Compresses a directory into a standard .ipa / .zip archive

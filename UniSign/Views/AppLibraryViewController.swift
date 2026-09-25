@@ -255,9 +255,7 @@ public class AppLibraryViewController: UIViewController, UITableViewDelegate, UI
         switch segmentedControl.selectedSegmentIndex {
         case 0:
             let ipa = unsignedIPAs[indexPath.row]
-            let signVC = SignWorkflowViewController()
-            signVC.preselectedIPAURL = ipa
-            navigationController?.pushViewController(signVC, animated: true)
+            showUnsignedIPAActionSheet(ipa: ipa)
             
         case 1:
             let app = signedApps[indexPath.row]
@@ -280,6 +278,71 @@ public class AppLibraryViewController: UIViewController, UITableViewDelegate, UI
         default:
             break
         }
+    }
+    
+    private func showUnsignedIPAActionSheet(ipa: URL) {
+        let sheet = UIAlertController(
+            title: ipa.lastPathComponent,
+            message: L("请选择对该 IPA 文件的操作：", "Select an action for this IPA:"),
+            preferredStyle: .actionSheet
+        )
+        
+        sheet.addAction(UIAlertAction(title: "🚀 " + L("一键签名与安装", "Sign & Sideload"), style: .default, handler: { [weak self] _ in
+            let signVC = SignWorkflowViewController()
+            signVC.preselectedIPAURL = ipa
+            signVC.isModifyOnlyMode = false
+            self?.navigationController?.pushViewController(signVC, animated: true)
+        }))
+        
+        sheet.addAction(UIAlertAction(title: "🛠️ " + L("仅修改配置 (不签名 / 免签定制)", "Customize IPA Only (No Sign)"), style: .default, handler: { [weak self] _ in
+            let signVC = SignWorkflowViewController()
+            signVC.preselectedIPAURL = ipa
+            signVC.isModifyOnlyMode = true
+            self?.navigationController?.pushViewController(signVC, animated: true)
+        }))
+        
+        sheet.addAction(UIAlertAction(title: "✏️ " + L("重命名 IPA 文件", "Rename IPA File"), style: .default, handler: { [weak self] _ in
+            self?.promptRenameIPA(ipa)
+        }))
+        
+        sheet.addAction(UIAlertAction(title: "📤 " + L("导出 / 分享 IPA 包", "Share IPA File"), style: .default, handler: { [weak self] _ in
+            let avc = UIActivityViewController(activityItems: [ipa], applicationActivities: nil)
+            self?.present(avc, animated: true)
+        }))
+        
+        sheet.addAction(UIAlertAction(title: L("删除此 IPA", "Delete IPA"), style: .destructive, handler: { [weak self] _ in
+            AppLibraryManager.shared.deleteUnsignedIPA(url: ipa)
+            self?.refreshData()
+        }))
+        
+        sheet.addAction(UIAlertAction(title: L("取消", "Cancel"), style: .cancel))
+        present(sheet, animated: true)
+    }
+    
+    private func promptRenameIPA(_ ipa: URL) {
+        let alert = UIAlertController(
+            title: L("重命名 IPA", "Rename IPA"),
+            message: L("请输入新的文件名：", "Enter new file name:"),
+            preferredStyle: .alert
+        )
+        alert.addTextField { tf in
+            tf.text = ipa.deletingPathExtension().lastPathComponent
+            tf.clearButtonMode = .whileEditing
+        }
+        alert.addAction(UIAlertAction(title: L("确定", "Save"), style: .default, handler: { [weak self] _ in
+            guard let text = alert.textFields?.first?.text?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty else { return }
+            do {
+                _ = try AppLibraryManager.shared.renameUnsignedIPA(at: ipa, newName: text)
+                self?.refreshData()
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
+            } catch {
+                let errAlert = UIAlertController(title: L("重命名失败", "Rename Failed"), message: error.localizedDescription, preferredStyle: .alert)
+                errAlert.addAction(UIAlertAction(title: L("好", "OK"), style: .default))
+                self?.present(errAlert, animated: true)
+            }
+        }))
+        alert.addAction(UIAlertAction(title: L("取消", "Cancel"), style: .cancel))
+        present(alert, animated: true)
     }
     
     private func showSignedAppActionSheet(app: SignedAppRecord) {
