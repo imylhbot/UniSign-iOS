@@ -581,21 +581,29 @@ public class SignWorkflowViewController: UIViewController, UIDocumentPickerDeleg
                 }
             }
             
-            IPAManager.shared.modifyAndSignIPA(
-                sourceIPA: ipa,
+            var opts = SigningPreferences.shared.makeCustomizationOptions(
+                bundleId: (customBundleId?.isEmpty ?? true) ? nil : customBundleId,
+                displayName: (customName?.isEmpty ?? true) ? nil : customName,
+                version: (customVersion?.isEmpty ?? true) ? nil : customVersion,
+                minOS: (customMinOS?.isEmpty ?? true) ? nil : customMinOS
+            )
+            opts.enableFileSharing = enableFileSharing
+            opts.enableDocumentInPlace = enableDocInPlace
+            
+            let config = IPAManager.SignConfig(
+                ipaURL: ipa,
                 p12URL: p12URL,
                 p12Password: "",
-                mobileprovisionURL: provURL,
-                newBundleId: (customBundleId?.isEmpty ?? true) ? nil : customBundleId,
-                newDisplayName: (customName?.isEmpty ?? true) ? nil : customName,
-                newVersion: (customVersion?.isEmpty ?? true) ? nil : customVersion,
-                newMinOSVersion: (customMinOS?.isEmpty ?? true) ? nil : customMinOS,
-                enableFileSharing: enableFileSharing,
-                enableOpeningDocumentsInPlace: enableDocInPlace,
-                newIconImage: self.selectedIconImage,
+                provisionURL: provURL,
+                options: opts,
+                replacementIcon: self.selectedIconImage,
                 dylibsToInject: self.dylibsToInject,
                 dylibsToRemove: self.dylibsToRemove
-            ) { [weak self] result in
+            )
+            
+            IPAManager.processAndSign(config: config, progress: { pct, step in
+                IPAManager.shared.progressHandler?(step, pct)
+            }) { [weak self] result in
                 DispatchQueue.main.async {
                     guard let self = self else { return }
                     ProgressHUD.shared.hide()
@@ -620,16 +628,20 @@ public class SignWorkflowViewController: UIViewController, UIDocumentPickerDeleg
                         )
                         self.updateAccountQuotaBadge()
                         
-                        let alert = UIAlertController(
-                            title: L("重签成功！", "Signing Successful!"),
-                            message: "\(recordName) " + L("已成功打包签名！可直接点击下方按钮进行本地无线安装，或在应用资源库查看。", "has been signed and packaged! You can install it locally now."),
-                            preferredStyle: .alert
-                        )
-                        alert.addAction(UIAlertAction(title: "📲 " + L("立即安装 (OTA)", "Install Now"), style: .default, handler: { [weak self] _ in
-                            self?.installAppLocally()
-                        }))
-                        alert.addAction(UIAlertAction(title: L("完成", "Done"), style: .cancel))
-                        self.present(alert, animated: true)
+                        if SigningPreferences.shared.autoInstallAfterSigning {
+                            self.installAppLocally()
+                        } else {
+                            let alert = UIAlertController(
+                                title: L("重签成功！", "Signing Successful!"),
+                                message: "\(recordName) " + L("已成功打包签名！可直接点击下方按钮进行本地无线安装，或在应用资源库查看。", "has been signed and packaged! You can install it locally now."),
+                                preferredStyle: .alert
+                            )
+                            alert.addAction(UIAlertAction(title: "📲 " + L("立即安装 (OTA)", "Install Now"), style: .default, handler: { [weak self] _ in
+                                self?.installAppLocally()
+                            }))
+                            alert.addAction(UIAlertAction(title: L("完成", "Done"), style: .cancel))
+                            self.present(alert, animated: true)
+                        }
                         
                     case .failure(let error):
                         UINotificationFeedbackGenerator().notificationOccurred(.error)

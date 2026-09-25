@@ -180,14 +180,24 @@ public class IPAManager {
                     }
                 }
                 
+                // 5.1 Remove Watch Components if requested
+                if config.options.removeWatchApp {
+                    progress(0.70, "正在移除 Watch App 手表组件...")
+                    let watchDir = appURL.appendingPathComponent("Watch")
+                    let watchKitDir = appURL.appendingPathComponent("WatchKit")
+                    try? fileManager.removeItem(at: watchDir)
+                    try? fileManager.removeItem(at: watchKitDir)
+                }
+                
                 // 6. Execute Code Signing via ZSignBridge
                 progress(0.75, "正在计算代码哈希并进行签名...")
+                let actualProvisionPath = config.options.removeEmbeddedProvision ? nil : config.provisionURL?.path
                 do {
                     _ = try ZSignBridge.signAppBundle(
                         appURL.path,
                         p12Path: config.p12URL.path,
                         p12Password: config.p12Password,
-                        provisionPath: config.provisionURL?.path,
+                        provisionPath: actualProvisionPath,
                         entitlementsPath: nil,
                         bundleId: config.options.bundleIdentifier,
                         displayName: config.options.displayName,
@@ -205,7 +215,17 @@ public class IPAManager {
                 let outputDir = fileManager.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent("Signed")
                 try? fileManager.createDirectory(at: outputDir, withIntermediateDirectories: true, attributes: nil)
                 
-                let outputName = "\(config.options.displayName ?? appName.replacingOccurrences(of: ".app", with: ""))_signed_\(Int(Date().timeIntervalSince1970)).ipa"
+                let cleanAppName = appName.replacingOccurrences(of: ".app", with: "")
+                let bId = config.options.bundleIdentifier ?? (plist["CFBundleIdentifier"] as? String) ?? "com.unisign.app"
+                let ver = config.options.versionString ?? (plist["CFBundleShortVersionString"] as? String) ?? "1.0.0"
+                let outputName = PlistModifier.formatOutputFilename(
+                    template: config.options.filenameTemplate,
+                    appName: cleanAppName,
+                    bundleId: bId,
+                    version: ver,
+                    displayName: config.options.displayName,
+                    appendSignedSuffix: config.options.appendSignedSuffix
+                )
                 let outputURL = outputDir.appendingPathComponent(outputName)
                 
                 do {

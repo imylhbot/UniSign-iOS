@@ -12,6 +12,14 @@ public class PlistModifier {
         public var enableFileSharing: Bool
         public var enableDocumentInPlace: Bool
         public var removeDeviceCapabilities: Bool
+        public var removeURLSchemes: Bool
+        public var fixWhiteIcon: Bool
+        public var fixDarkIcon: Bool
+        public var removeEmbeddedProvision: Bool
+        public var removeWatchApp: Bool
+        public var appendSignedSuffix: Bool
+        public var compressionLevel: Int // 0: 快速, 1: 标准, 2: 最高
+        public var filenameTemplate: String
         public var customKeys: [String: Any]
         
         public init(
@@ -23,6 +31,14 @@ public class PlistModifier {
             enableFileSharing: Bool = false,
             enableDocumentInPlace: Bool = false,
             removeDeviceCapabilities: Bool = false,
+            removeURLSchemes: Bool = false,
+            fixWhiteIcon: Bool = false,
+            fixDarkIcon: Bool = false,
+            removeEmbeddedProvision: Bool = false,
+            removeWatchApp: Bool = false,
+            appendSignedSuffix: Bool = true,
+            compressionLevel: Int = 1,
+            filenameTemplate: String = "[name]_[version]_[timestamp]-UniSign",
             customKeys: [String: Any] = [:]
         ) {
             self.bundleIdentifier = bundleIdentifier
@@ -33,6 +49,14 @@ public class PlistModifier {
             self.enableFileSharing = enableFileSharing
             self.enableDocumentInPlace = enableDocumentInPlace
             self.removeDeviceCapabilities = removeDeviceCapabilities
+            self.removeURLSchemes = removeURLSchemes
+            self.fixWhiteIcon = fixWhiteIcon
+            self.fixDarkIcon = fixDarkIcon
+            self.removeEmbeddedProvision = removeEmbeddedProvision
+            self.removeWatchApp = removeWatchApp
+            self.appendSignedSuffix = appendSignedSuffix
+            self.compressionLevel = compressionLevel
+            self.filenameTemplate = filenameTemplate
             self.customKeys = customKeys
         }
         
@@ -136,7 +160,28 @@ public class PlistModifier {
             dict.removeValue(forKey: "UIRequiredDeviceCapabilities")
         }
         
-        // 7. Custom keys
+        // 7. Remove URL Schemes (Avoid hijacking other apps)
+        if options.removeURLSchemes {
+            dict.removeValue(forKey: "CFBundleURLTypes")
+        }
+        
+        // 8. Fix White Icon (Rewrite CFBundleIcons primary icon references)
+        if options.fixWhiteIcon {
+            var iconsDict = (dict["CFBundleIcons"] as? [String: Any]) ?? [:]
+            var primaryDict = (iconsDict["CFBundlePrimaryIcon"] as? [String: Any]) ?? [:]
+            if primaryDict["CFBundleIconFiles"] == nil {
+                primaryDict["CFBundleIconFiles"] = ["AppIcon", "AppIcon60x60"]
+            }
+            iconsDict["CFBundlePrimaryIcon"] = primaryDict
+            dict["CFBundleIcons"] = iconsDict
+        }
+        
+        // 9. Fix Dark Icon (Ensure CFBundleIcons supports iOS 18 dark theme)
+        if options.fixDarkIcon {
+            dict["UIUserInterfaceStyle"] = "Automatic"
+        }
+        
+        // 10. Custom keys
         for (key, val) in options.customKeys {
             dict[key] = val
         }
@@ -144,5 +189,57 @@ public class PlistModifier {
         // Write back as XML or Binary Plist
         let updatedData = try PropertyListSerialization.data(fromPropertyList: dict, format: format, options: 0)
         try updatedData.write(to: plistURL, options: .atomic)
+    }
+    
+    /// Formats the output IPA filename based on template tags and DateFormatter tokens
+    public static func formatOutputFilename(
+        template: String,
+        appName: String,
+        bundleId: String,
+        version: String,
+        displayName: String?,
+        appendSignedSuffix: Bool
+    ) -> String {
+        var result = template.isEmpty ? "[name]_[version]_[timestamp]-UniSign" : template
+        
+        let now = Date()
+        let timestamp = "\(Int(now.timeIntervalSince1970))"
+        let dName = (displayName != nil && !displayName!.isEmpty) ? displayName! : appName
+        
+        // Tag replacements
+        result = result.replacingOccurrences(of: "[name]", with: appName)
+        result = result.replacingOccurrences(of: "[displayName]", with: dName)
+        result = result.replacingOccurrences(of: "[version]", with: version)
+        result = result.replacingOccurrences(of: "[identifier]", with: bundleId)
+        result = result.replacingOccurrences(of: "[bundleId]", with: bundleId)
+        result = result.replacingOccurrences(of: "[timestamp]", with: timestamp)
+        
+        // Regex / token replacement for {...} DateFormatter
+        let datePattern = "\\{([^\\}]+)\\}"
+        if let regex = try? NSRegularExpression(pattern: datePattern, options: []) {
+            let nsStr = result as NSString
+            let matches = regex.matches(in: result, options: [], range: NSRange(location: 0, length: nsStr.length))
+            for match in matches.reversed() {
+                let formatRange = match.range(at: 1)
+                let dateFormat = nsStr.substring(with: formatRange)
+                let df = DateFormatter()
+                df.dateFormat = dateFormat
+                let dateStr = df.string(from: now)
+                result = (result as NSString).replacingCharacters(in: match.range, with: dateStr)
+            }
+        }
+        
+        if appendSignedSuffix && !result.hasSuffix("-signed") && !result.hasSuffix("-UniSign") {
+            result += "-signed"
+        }
+        
+        // Clean characters safe for iOS filenames
+        let invalidChars = CharacterSet(charactersIn: "/\\?%*|\":<>")
+        result = result.components(separatedBy: invalidChars).joined(separator: "_")
+        
+        if !result.hasSuffix(".ipa") {
+            result += ".ipa"
+        }
+        return result
     }
 }
