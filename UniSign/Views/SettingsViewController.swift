@@ -114,17 +114,15 @@ public class SettingsViewController: UIViewController {
             ("国内节点", "https://anisette.niceios.com/")
         ]
         
-        for (name, urlStr) in mirrors {
+        for (idx, (name, _)) in mirrors.enumerated() {
             let btn = UIButton(type: .system)
+            btn.tag = idx
             btn.setTitle(name, for: .normal)
             btn.titleLabel?.font = .systemFont(ofSize: 12, weight: .medium)
             btn.backgroundColor = UIColor.label.withAlphaComponent(0.06)
             btn.layer.cornerRadius = 8
             btn.heightAnchor.constraint(equalToConstant: 32).isActive = true
-            btn.addAction(UIAction { [weak self] _ in
-                self?.anisetteField.text = urlStr
-                self?.testLatency()
-            }, for: .touchUpInside)
+            btn.addTarget(self, action: #selector(mirrorButtonTapped(_:)), for: .touchUpInside)
             mirrorRow.addArrangedSubview(btn)
         }
         cardStack.addArrangedSubview(mirrorRow)
@@ -226,6 +224,19 @@ public class SettingsViewController: UIViewController {
     
     @objc private func languageSegmentChanged() {
         LanguageManager.shared.currentLanguage = languageSegment.selectedSegmentIndex == 0 ? .chinese : .english
+    }
+    
+    private let mirrorURLs = [
+        "https://anisette.apsteam.top/",
+        "https://ani.sidestore.io/",
+        "https://anisette.niceios.com/"
+    ]
+    
+    @objc private func mirrorButtonTapped(_ sender: UIButton) {
+        if sender.tag < mirrorURLs.count {
+            anisetteField.text = mirrorURLs[sender.tag]
+            testLatency()
+        }
     }
     
     @objc private func testLatency() {
