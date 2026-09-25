@@ -650,8 +650,8 @@ public class AppLibraryViewController: UIViewController, UITableViewDelegate, UI
     
     private func showPCHelperGuide() {
         let alert = UIAlertController(
-            title: "💻 " + L("电脑端 USB 助手秒速直装", "PC USB 1-Click Install"),
-            message: L("1. 在电脑上下载 UniSign-Helper-Windows.zip（或运行 run_helper.bat）。\n2. 手机用数据线连接电脑（支持全系 iOS 13~18）。\n3. 将已签名的 IPA 拖入电脑助手，点击「一键直装」，即可 100% 成功秒速安装到手机上，完全免除系统证书验证错误！", "Run UniSign-Helper on PC, connect phone via USB, and 1-click install."),
+            title: "💻 " + L("SoulSign 电脑端 USB 助手极速直装", "SoulSign PC USB 1-Click Install"),
+            message: L("1. 在电脑端解压并运行 SoulSign-Helper-Windows（或双击 run_helper.bat）。\n2. 手机用数据线连接电脑并解锁信任（全系 iOS 免越狱）。\n3. 将 IPA 拖入电脑助手，点击「一键签名并安装」，即可 100% 成功秒速安装到手机上，彻底免除 127.0.0.1 与证书困扰！", "Run SoulSign-Helper on PC, connect phone via USB, and 1-click install."),
             preferredStyle: .alert
         )
         alert.addAction(UIAlertAction(title: L("知道了", "Got it"), style: .default))
@@ -736,16 +736,6 @@ public class AppLibraryViewController: UIViewController, UITableViewDelegate, UI
                 }
             }
         }
-    }
-
-    private func showPCHelperGuide() {
-        let alert = UIAlertController(
-            title: "💻 " + L("SoulSign 电脑端 USB 助手极速直装", "SoulSign PC USB 1-Click Install"),
-            message: L("1. 在电脑端解压并运行 SoulSign-Helper-Windows（或双击 run_helper.bat）。\n2. 手机用数据线连接电脑并解锁信任（全系 iOS 免越狱）。\n3. 将 IPA 拖入电脑助手，点击「一键签名并安装」，即可 100% 成功秒速安装到手机上，彻底免除 127.0.0.1 与证书困扰！", "Run SoulSign-Helper on PC, connect phone via USB, and 1-click install."),
-            preferredStyle: .alert
-        )
-        alert.addAction(UIAlertAction(title: L("知道了", "Got it"), style: .default))
-        present(alert, animated: true)
     }
 
     public func tableView(_ tableView: UITableView, commit editingStyle: UITableViewCell.EditingStyle, forRowAt indexPath: IndexPath) {

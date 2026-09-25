@@ -151,7 +151,7 @@ class PCSigner:
         with open(p12_path, "rb") as f:
             p12_data = f.read()
         
-        pw_bytes = p12_password.encode("utf-8") if p12_password else b""
+        pw_bytes = p12_password.encode("utf-8") if p12_password else None
         try:
             private_key, cert, add_certs = pkcs12.load_key_and_certificates(p12_data, pw_bytes)
         except Exception as e:
@@ -165,19 +165,30 @@ class PCSigner:
             if attr.oid == NameOID.COMMON_NAME:
                 common_name = attr.value
         log(f"[*] 开发者证书持有人: {common_name}")
-        
-        return PCSigner._repackage_and_sign(
-            ipa_path=ipa_path,
-            provision_path=mobileprovision_path,
-            cert_name=common_name,
-            p12_path=p12_path,
-            p12_password=p12_password,
-            bundle_id=bundle_id,
-            display_name=display_name,
-            custom_options=custom_options,
-            output_path=output_path,
-            log=log
-        )
+
+        temp_dir = tempfile.mkdtemp()
+        try:
+            # Convert to clean PEM format for rcodesign
+            pem_path = os.path.join(temp_dir, "p12_signer.pem")
+            k_bytes = private_key.private_bytes(serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8, serialization.NoEncryption())
+            c_bytes = cert.public_bytes(serialization.Encoding.PEM)
+            extra_bytes = b"".join(c.public_bytes(serialization.Encoding.PEM) for c in (add_certs or []))
+            with open(pem_path, "wb") as pf:
+                pf.write(k_bytes + b"\n" + c_bytes + b"\n" + extra_bytes)
+
+            return PCSigner._repackage_and_sign(
+                ipa_path=ipa_path,
+                provision_path=mobileprovision_path,
+                cert_name=common_name,
+                pem_path=pem_path,
+                bundle_id=bundle_id,
+                display_name=display_name,
+                custom_options=custom_options,
+                output_path=output_path,
+                log=log
+            )
+        finally:
+            shutil.rmtree(temp_dir, ignore_errors=True)
 
     @staticmethod
     def _create_apple_id_materials(apple_id, team_id, udid, bundle_id, work_dir):
@@ -207,22 +218,17 @@ class PCSigner:
             .sign(key, hashes.SHA256())
         )
         
-        p12_pw = "unisign"
-        p12_data = pkcs12.serialize_key_and_certificates(
-            common_name.encode("utf-8"),
-            key,
-            cert,
-            None,
-            BestAvailableEncryption(p12_pw.encode("utf-8"))
-        )
-        p12_path = os.path.join(work_dir, "apple_id_dev.p12")
-        with open(p12_path, "wb") as f:
-            f.write(p12_data)
+        # Export unencrypted PEM directly for 100% reliable rcodesign code signing
+        key_pem = key.private_bytes(serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8, serialization.NoEncryption())
+        cert_pem = cert.public_bytes(serialization.Encoding.PEM)
+        pem_path = os.path.join(work_dir, "apple_id_signer.pem")
+        with open(pem_path, "wb") as f:
+            f.write(key_pem + b"\n" + cert_pem)
             
         cert_der = cert.public_bytes(serialization.Encoding.DER)
-        clean_bundle_id = bundle_id or "com.unisign.signedapp"
+        clean_bundle_id = bundle_id or "com.soulsign.signedapp"
         profile_dict = {
-            "AppIDName": "UniSign App",
+            "AppIDName": "SoulSign App",
             "ApplicationIdentifierPrefix": [team_id],
             "CreationDate": now,
             "ExpirationDate": now + datetime.timedelta(days=7),
@@ -243,7 +249,7 @@ class PCSigner:
         with open(provision_path, "wb") as f:
             f.write(plist_xml)
             
-        return p12_path, p12_pw, provision_path, common_name
+        return pem_path, provision_path, common_name
 
     @staticmethod
     def sign_ipa_with_apple_id(ipa_path, apple_id, password, udid, output_path, two_factor_code=None, bundle_id=None, display_name=None, custom_options=None, log_callback=None):
@@ -266,7 +272,7 @@ class PCSigner:
         
         temp_dir = tempfile.mkdtemp()
         try:
-            p12_path, p12_pw, provision_path, common_name = PCSigner._create_apple_id_materials(
+            pem_path, provision_path, common_name = PCSigner._create_apple_id_materials(
                 apple_id=apple_id,
                 team_id=team_id,
                 udid=udid,
@@ -282,8 +288,7 @@ class PCSigner:
                 display_name=display_name,
                 output_path=output_path,
                 log=log,
-                p12_path=p12_path,
-                p12_password=p12_pw,
+                pem_path=pem_path,
                 custom_options=custom_options
             )
             log(f"✅ Apple ID 签名完成，证书与描述文件已绑定当前手机 UDID！")
@@ -292,7 +297,7 @@ class PCSigner:
             shutil.rmtree(temp_dir, ignore_errors=True)
 
     @staticmethod
-    def _repackage_and_sign(ipa_path, provision_path, cert_name, bundle_id, display_name, output_path, log, p12_path=None, p12_password=None, custom_options=None):
+    def _repackage_and_sign(ipa_path, provision_path, cert_name, bundle_id, display_name, output_path, log, pem_path=None, p12_path=None, p12_password=None, custom_options=None):
         work_dir = tempfile.mkdtemp()
         try:
             log("[*] 正在解压 IPA 文件...")
@@ -360,13 +365,12 @@ class PCSigner:
             if not os.path.exists(rcodesign_bin):
                 raise FileNotFoundError(f"未找到代码签名引擎: {rcodesign_bin}")
             
-            if p12_path and os.path.exists(p12_path):
+            if pem_path and os.path.exists(pem_path):
                 log(f"[*] 正在调用苹果官方规范签名引擎 (rcodesign) 进行完整代码签名...")
                 cmd = [
                     rcodesign_bin,
                     "sign",
-                    "--p12-file", os.path.abspath(p12_path),
-                    "--p12-password", p12_password if p12_password else "",
+                    "--pem-file", os.path.abspath(pem_path),
                     "--timestamp-url", "none"  # Avoid network timeout
                 ]
                 if entitlements_file and os.path.exists(entitlements_file):
@@ -380,8 +384,28 @@ class PCSigner:
                     raise RuntimeError(f"代码签名失败: {err_msg}")
                 
                 log(f"[*] 代码签名完成！主二进制、嵌套动态库与 CodeResources 均已完成合法苹果数字签名。")
+            elif p12_path and os.path.exists(p12_path):
+                log(f"[*] 正在调用苹果官方规范签名引擎 (rcodesign) 进行完整代码签名...")
+                cmd = [
+                    rcodesign_bin,
+                    "sign",
+                    "--p12-file", os.path.abspath(p12_path),
+                    "--p12-password", p12_password if p12_password else "",
+                    "--timestamp-url", "none"
+                ]
+                if entitlements_file and os.path.exists(entitlements_file):
+                    cmd += ["--entitlements-xml-file", os.path.abspath(entitlements_file)]
+                cmd.append(os.path.abspath(app_dir))
+                
+                proc = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
+                if proc.returncode != 0:
+                    err_msg = proc.stderr.strip() or proc.stdout.strip()
+                    log(f"❌ rcodesign 签名失败: {err_msg}")
+                    raise RuntimeError(f"代码签名失败: {err_msg}")
+                
+                log(f"[*] 代码签名完成！主二进制、嵌套动态库与 CodeResources 均已完成合法苹果数字签名。")
             else:
-                log(f"[*] 未指定 P12 证书，保持原有签名结构...")
+                log(f"[*] 未指定证书，保持原有签名结构...")
             
             # 4. Repackage into output IPA
             log(f"[*] 正在打包生成签名 IPA: {os.path.basename(output_path)}...")
