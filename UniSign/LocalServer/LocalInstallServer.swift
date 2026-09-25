@@ -27,6 +27,41 @@ public class LocalInstallServer {
             }
         }
     }
+    /// Starts the local HTTP listener
+    public func start() throws {
+        if isRunning { return }
+        let tcpOptions = NWProtocolTCP.Options()
+        let params = NWParameters(tls: nil, tcp: tcpOptions)
+        params.allowLocalEndpointReuse = true
+        
+        guard let nwPort = NWEndpoint.Port(rawValue: port) else {
+            throw ServerError.failedToBindPort
+        }
+        
+        let newListener = try NWListener(using: params, on: nwPort)
+        newListener.stateUpdateHandler = { [weak self] state in
+            if case .ready = state {
+                self?.isRunning = true
+            } else if case .failed = state {
+                self?.isRunning = false
+            }
+        }
+        newListener.newConnectionHandler = { [weak self] connection in
+            self?.handleConnection(connection)
+        }
+        newListener.start(queue: .global(qos: .userInitiated))
+        self.listener = newListener
+        self.isRunning = true
+    }
+    
+    /// Generates local itms-services manifest URL for 1-click installation
+    public func generateInstallURL(ipaURL: URL, bundleID: String, title: String, version: String = "1.0.0") -> URL {
+        self.currentIPAURL = ipaURL
+        self.currentBundleID = bundleID
+        self.currentTitle = title
+        self.currentVersion = version
+        return URL(string: "itms-services://?action=download-manifest&url=http://127.0.0.1:\(port)/manifest.plist")!
+    }
     
     /// Starts serving the specified IPA for local installation
     public func startServing(
