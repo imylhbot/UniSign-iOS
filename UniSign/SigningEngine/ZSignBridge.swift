@@ -339,12 +339,13 @@ public class ZSignBridge {
                     let fwName = item.replacingOccurrences(of: ".framework", with: "")
                     let fwBin = itemURL.appendingPathComponent(fwName)
                     if fm.fileExists(atPath: fwBin.path) {
-                        log("[*] 正在对动态库框架签名: \(item)...")
+                        log("[*] 正在对动态框架签名: \(item)...")
+                        let fwInfoPlist = (try? Data(contentsOf: itemURL.appendingPathComponent("Info.plist"))) ?? Data()
                         try? signMachOBinary(
                             binaryURL: fwBin,
                             bundleId: "\(finalBundleID).\(fwName)",
                             teamId: teamId,
-                            infoPlistData: (try? Data(contentsOf: itemURL.appendingPathComponent("Info.plist"))) ?? Data(),
+                            infoPlistData: fwInfoPlist,
                             codeResourcesData: codeResourcesData,
                             entitlementsData: entitlementsData,
                             certDER: certDER,
@@ -390,7 +391,7 @@ public class ZSignBridge {
         return true
     }
     
-    // MARK: - Mach-O Binary Signing Implementation
+    // MARK: - Safe Mach-O Binary Signing Implementation
     
     public static func signMachOBinary(
         binaryURL: URL,
@@ -408,17 +409,75 @@ public class ZSignBridge {
         }
         
         let MH_MAGIC_64: UInt32 = 0xfeedfacf
+        let FAT_MAGIC: UInt32 = 0xcafebabe
+        let FAT_CIGAM: UInt32 = 0xbebafeca
         let LC_CODE_SIGNATURE: UInt32 = 0x1d
         let LC_SEGMENT_64: UInt32 = 0x19
         
         let magic = binaryData.readUInt32LE(at: 0)
-        guard magic == MH_MAGIC_64 else {
-            // Fat binary or 32-bit - pass for 64-bit slice
+        
+        // Handle Fat Binary (Universal)
+        if magic == FAT_MAGIC || magic == FAT_CIGAM {
+            let isSwap = (magic == FAT_CIGAM)
+            let nfat = Int(isSwap ? binaryData.readUInt32LE(at: 4).byteSwapped : binaryData.readUInt32LE(at: 4))
+            for i in 0..<nfat {
+                let archOffset = 8 + i * 20
+                guard archOffset + 20 <= binaryData.count else { break }
+                let sliceOff = Int(isSwap ? binaryData.readUInt32LE(at: archOffset + 8).byteSwapped : binaryData.readUInt32LE(at: archOffset + 8))
+                let sliceSize = Int(isSwap ? binaryData.readUInt32LE(at: archOffset + 12).byteSwapped : binaryData.readUInt32LE(at: archOffset + 12))
+                
+                guard sliceOff + sliceSize <= binaryData.count, sliceSize > 32 else { continue }
+                let sliceMagic = binaryData.readUInt32LE(at: sliceOff)
+                if sliceMagic == MH_MAGIC_64 {
+                    var sliceData = binaryData.subdata(in: sliceOff..<(sliceOff + sliceSize))
+                    try? signMachO64Slice(
+                        sliceData: &sliceData,
+                        bundleId: bundleId,
+                        teamId: teamId,
+                        infoPlistData: infoPlistData,
+                        codeResourcesData: codeResourcesData,
+                        entitlementsData: entitlementsData,
+                        certDER: certDER,
+                        privateKey: privateKey
+                    )
+                    binaryData.replaceSubrange(sliceOff..<(sliceOff + sliceSize), with: sliceData)
+                }
+            }
+            try binaryData.write(to: binaryURL, options: .atomic)
             return
         }
         
-        let ncmds = Int(binaryData.readUInt32LE(at: 16))
-        let sizeofcmds = Int(binaryData.readUInt32LE(at: 20))
+        // Handle Thin 64-bit Mach-O
+        if magic == MH_MAGIC_64 {
+            try signMachO64Slice(
+                sliceData: &binaryData,
+                bundleId: bundleId,
+                teamId: teamId,
+                infoPlistData: infoPlistData,
+                codeResourcesData: codeResourcesData,
+                entitlementsData: entitlementsData,
+                certDER: certDER,
+                privateKey: privateKey
+            )
+            try binaryData.write(to: binaryURL, options: .atomic)
+        }
+    }
+    
+    private static func signMachO64Slice(
+        sliceData: inout Data,
+        bundleId: String,
+        teamId: String,
+        infoPlistData: Data,
+        codeResourcesData: Data,
+        entitlementsData: Data,
+        certDER: Data,
+        privateKey: SecKey?
+    ) throws {
+        let LC_CODE_SIGNATURE: UInt32 = 0x1d
+        let LC_SEGMENT_64: UInt32 = 0x19
+        
+        let ncmds = Int(sliceData.readUInt32LE(at: 16))
+        let sizeofcmds = Int(sliceData.readUInt32LE(at: 20))
         
         var curOffset = 32 // sizeof(mach_header_64)
         var codeSigCmdOffset = 0
@@ -431,32 +490,43 @@ public class ZSignBridge {
         var linkeditVMSize = 0
         
         for _ in 0..<ncmds {
-            guard curOffset + 8 <= binaryData.count else { break }
-            let cmd = binaryData.readUInt32LE(at: curOffset)
-            let cmdsize = Int(binaryData.readUInt32LE(at: curOffset + 4))
+            guard curOffset + 8 <= sliceData.count else { break }
+            let cmd = sliceData.readUInt32LE(at: curOffset)
+            let cmdsize = Int(sliceData.readUInt32LE(at: curOffset + 4))
+            guard cmdsize > 0 && curOffset + cmdsize <= sliceData.count else { break }
             
             if cmd == LC_CODE_SIGNATURE {
                 codeSigCmdOffset = curOffset
-                codeSigDataOff = Int(binaryData.readUInt32LE(at: curOffset + 8))
-                codeSigDataSize = Int(binaryData.readUInt32LE(at: curOffset + 12))
+                codeSigDataOff = Int(sliceData.readUInt32LE(at: curOffset + 8))
+                codeSigDataSize = Int(sliceData.readUInt32LE(at: curOffset + 12))
             } else if cmd == LC_SEGMENT_64 {
-                let segNameData = binaryData.subdata(in: (curOffset + 8)..<(curOffset + 24))
-                if let segName = String(data: segNameData, encoding: .utf8), segName.hasPrefix("__LINKEDIT") {
-                    linkeditCmdOffset = curOffset
-                    linkeditVMSize = Int(binaryData.readUInt64LE(at: curOffset + 32))
-                    linkeditFileOff = Int(binaryData.readUInt64LE(at: curOffset + 40))
-                    linkeditFileSize = Int(binaryData.readUInt64LE(at: curOffset + 48))
+                if curOffset + 56 <= sliceData.count {
+                    let segNameData = sliceData.subdata(in: (curOffset + 8)..<(curOffset + 24))
+                    if let segName = String(data: segNameData, encoding: .utf8), segName.hasPrefix("__LINKEDIT") {
+                        linkeditCmdOffset = curOffset
+                        linkeditVMSize = Int(sliceData.readUInt64LE(at: curOffset + 32))
+                        linkeditFileOff = Int(sliceData.readUInt64LE(at: curOffset + 40))
+                        linkeditFileSize = Int(sliceData.readUInt64LE(at: curOffset + 48))
+                    }
                 }
             }
             curOffset += cmdsize
         }
         
         // Calculate Code Limit (binary bytes covered by page hashing)
-        let codeLimit: Int
-        if codeSigDataOff > 0 && codeSigDataOff <= binaryData.count {
+        var codeLimit: Int
+        if codeSigDataOff > 0 && codeSigDataOff <= sliceData.count {
             codeLimit = codeSigDataOff
         } else {
-            codeLimit = (binaryData.count + 15) & ~15
+            codeLimit = (sliceData.count + 15) & ~15
+        }
+        
+        // Ensure binaryData is safely padded to codeLimit first to avoid any range crash
+        if sliceData.count > codeLimit {
+            sliceData.removeSubrange(codeLimit..<sliceData.count)
+        }
+        while sliceData.count < codeLimit {
+            sliceData.append(0)
         }
         
         // 1. Compute 4096-byte Page Hashes for Code Slots
@@ -467,7 +537,9 @@ public class ZSignBridge {
         for pageIdx in 0..<nCodeSlots {
             let start = pageIdx * pageSize
             let end = min(start + pageSize, codeLimit)
-            let chunk = binaryData.subdata(in: start..<end)
+            guard start < sliceData.count else { break }
+            let actualEnd = min(end, sliceData.count)
+            let chunk = sliceData.subdata(in: start..<actualEnd)
             
             var digest = [UInt8](repeating: 0, count: Int(CC_SHA256_DIGEST_LENGTH))
             chunk.withUnsafeBytes {
@@ -517,28 +589,20 @@ public class ZSignBridge {
         )
         
         // 6. Embed SuperBlob at codeLimit
-        if binaryData.count > codeLimit {
-            binaryData.removeSubrange(codeLimit..<binaryData.count)
-        }
-        while binaryData.count < codeLimit {
-            binaryData.append(0)
-        }
-        binaryData.append(superBlob)
+        sliceData.append(superBlob)
         
         // 7. Update Mach-O Headers (LC_CODE_SIGNATURE & __LINKEDIT)
         if codeSigCmdOffset > 0 {
-            binaryData.writeUInt32LE(UInt32(codeLimit), at: codeSigCmdOffset + 8)
-            binaryData.writeUInt32LE(UInt32(superBlob.count), at: codeSigCmdOffset + 12)
+            sliceData.writeUInt32LE(UInt32(codeLimit), at: codeSigCmdOffset + 8)
+            sliceData.writeUInt32LE(UInt32(superBlob.count), at: codeSigCmdOffset + 12)
         }
         
         if linkeditCmdOffset > 0 {
             let newLinkeditFileSize = (codeLimit - linkeditFileOff) + superBlob.count
             let newLinkeditVMSize = (newLinkeditFileSize + 4095) & ~4095
-            binaryData.writeUInt64LE(UInt64(newLinkeditVMSize), at: linkeditCmdOffset + 32)
-            binaryData.writeUInt64LE(UInt64(newLinkeditFileSize), at: linkeditCmdOffset + 48)
+            sliceData.writeUInt64LE(UInt64(newLinkeditVMSize), at: linkeditCmdOffset + 32)
+            sliceData.writeUInt64LE(UInt64(newLinkeditFileSize), at: linkeditCmdOffset + 48)
         }
-        
-        try binaryData.write(to: binaryURL, options: .atomic)
     }
     
     // MARK: - Code Signing Blobs & ASN.1 CMS Helpers
@@ -670,6 +734,8 @@ public class ZSignBridge {
             var error: Unmanaged<CFError>?
             if let signed = SecKeyCreateSignature(privKey, .rsaSignatureDigestPKCS1v15SHA256, cdHash as CFData, &error) as Data? {
                 sigBytes = signed
+            } else if let signedEC = SecKeyCreateSignature(privKey, .ecdsaSignatureDigestX962SHA256, cdHash as CFData, &error) as Data? {
+                sigBytes = signedEC
             }
         }
         
@@ -759,7 +825,7 @@ public class ZSignBridge {
     }
 }
 
-// MARK: - Data Byte Helpers for Code Signing (Big & Little Endian)
+// MARK: - Safe Data Byte Helpers for Mach-O (Big & Little Endian)
 private extension Data {
     func readUInt32LE(at offset: Int) -> UInt32 {
         guard offset + 4 <= self.count else { return 0 }

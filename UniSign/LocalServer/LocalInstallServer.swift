@@ -139,10 +139,10 @@ public class LocalInstallServer {
         return getManifestInstallURL()
     }
     
-    /// Uploads manifest.plist to a public temporary raw HTTPS host (e.g. paste.rs / cl1p.net)
-    /// to provide a 100% genuine, SSL-trusted public manifest URL for iOS itms-services.
-    public func uploadManifestToOnlineHost(manifestXML: String, completion: @escaping (URL?) -> Void) {
-        guard let postData = manifestXML.data(using: .utf8) else {
+    /// Uploads text/XML (manifest, .mobileconfig) to a public temporary raw HTTPS host (e.g. paste.rs / cl1p.net)
+    /// to provide a 100% genuine, SSL-trusted public URL for iOS Safari and itms-services.
+    public func uploadTextToOnlineHost(content: String, completion: @escaping (URL?) -> Void) {
+        guard let postData = content.data(using: .utf8) else {
             completion(nil)
             return
         }
@@ -159,11 +159,8 @@ public class LocalInstallServer {
             let task = URLSession.shared.dataTask(with: request) { data, response, error in
                 if let data = data, let rawStr = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines),
                    rawStr.hasPrefix("https://"), let directURL = URL(string: rawStr) {
-                    let itmsStr = "itms-services://?action=download-manifest&url=\(directURL.absoluteString)"
-                    if let finalURL = URL(string: itmsStr) {
-                        DispatchQueue.main.async { completion(finalURL) }
-                        return
-                    }
+                    DispatchQueue.main.async { completion(directURL) }
+                    return
                 }
                 
                 // 2. Fallback to cl1p.net
@@ -177,10 +174,9 @@ public class LocalInstallServer {
                     
                     let clipTask = URLSession.shared.dataTask(with: clipReq) { _, _, _ in
                         let directURLStr = "https://api.cl1p.net/\(clipId)"
-                        let itmsStr = "itms-services://?action=download-manifest&url=\(directURLStr)"
                         DispatchQueue.main.async {
-                            if let finalURL = URL(string: itmsStr) {
-                                completion(finalURL)
+                            if let directURL = URL(string: directURLStr) {
+                                completion(directURL)
                             } else {
                                 completion(nil)
                             }
@@ -196,6 +192,18 @@ public class LocalInstallServer {
         }
         
         completion(nil)
+    }
+
+    /// Uploads manifest.plist to online direct link host for itms-services install
+    public func uploadManifestToOnlineHost(manifestXML: String, completion: @escaping (URL?) -> Void) {
+        uploadTextToOnlineHost(content: manifestXML) { directURL in
+            guard let directURL = directURL else {
+                completion(nil)
+                return
+            }
+            let itmsStr = "itms-services://?action=download-manifest&url=\(directURL.absoluteString)"
+            completion(URL(string: itmsStr))
+        }
     }
 
     /// Starts serving the specified IPA for local installation
@@ -258,24 +266,46 @@ public class LocalInstallServer {
         }
     }
     
-    /// Opens Safari to install the Local CA configuration profile
+    /// Opens Safari to install the Local CA configuration profile via direct link
     public func installLocalCAProfile() {
         beginBackgroundKeepAlive()
         if !isRunning {
             try? start()
         }
-        let url = URL(string: "http://127.0.0.1:\(port)/ca.mobileconfig")!
-        UIApplication.shared.open(url, options: [:], completionHandler: nil)
+        
+        let profileXML = generateCAProfileXML()
+        uploadTextToOnlineHost(content: profileXML) { [weak self] onlineURL in
+            DispatchQueue.main.async {
+                if let url = onlineURL {
+                    UIApplication.shared.open(url, options: [:], completionHandler: nil)
+                } else {
+                    let port = self?.port ?? 24302
+                    let fallbackURL = URL(string: "http://127.0.0.1:\(port)/ca.mobileconfig")!
+                    UIApplication.shared.open(fallbackURL, options: [:], completionHandler: nil)
+                }
+            }
+        }
     }
     
-    /// Opens Safari to install the UDID configuration profile
+    /// Opens Safari to install the UDID configuration profile via direct link
     public func installUDIDProfile() {
         beginBackgroundKeepAlive()
         if !isRunning {
             try? start()
         }
-        let url = URL(string: "http://127.0.0.1:\(port)/udid.mobileconfig")!
-        UIApplication.shared.open(url, options: [:], completionHandler: nil)
+        
+        let profileXML = generateUDIDProfileXML()
+        uploadTextToOnlineHost(content: profileXML) { [weak self] onlineURL in
+            DispatchQueue.main.async {
+                if let url = onlineURL {
+                    UIApplication.shared.open(url, options: [:], completionHandler: nil)
+                } else {
+                    let port = self?.port ?? 24302
+                    let fallbackURL = URL(string: "http://127.0.0.1:\(port)/udid.mobileconfig")!
+                    UIApplication.shared.open(fallbackURL, options: [:], completionHandler: nil)
+                }
+            }
+        }
     }
     
     // MARK: - Connection & HTTP Request Handling
