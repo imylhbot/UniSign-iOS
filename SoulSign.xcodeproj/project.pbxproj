@@ -1,0 +1,385 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 52;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A10000012C00000100000001 /* SoulSignApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000012C00000100000001 /* SoulSignApp.swift */; };
+		A10000022C00000100000001 /* SoulSignTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000022C00000100000001 /* SoulSignTheme.swift */; };
+		A10000032C00000100000001 /* AnisetteData.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000032C00000100000001 /* AnisetteData.swift */; };
+		A10000042C00000100000001 /* GrandSlamClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000042C00000100000001 /* GrandSlamClient.swift */; };
+		A10000052C00000100000001 /* DeveloperPortalAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000052C00000100000001 /* DeveloperPortalAPI.swift */; };
+		A10000062C00000100000001 /* AppleAccount.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000062C00000100000001 /* AppleAccount.swift */; };
+		A10000072C00000100000001 /* AccountManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000072C00000100000001 /* AccountManager.swift */; };
+		A10000082C00000100000001 /* SessionValidator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000082C00000100000001 /* SessionValidator.swift */; };
+		A10000092C00000100000001 /* CodeSigner.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000092C00000100000001 /* CodeSigner.swift */; };
+		A100000A2C00000100000001 /* ProvisioningService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000A2C00000100000001 /* ProvisioningService.swift */; };
+		A100000B2C00000100000001 /* IPAPackager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000B2C00000100000001 /* IPAPackager.swift */; };
+		A100000C2C00000100000001 /* RenewalService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000C2C00000100000001 /* RenewalService.swift */; };
+		A100000D2C00000100000001 /* SignedAppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000D2C00000100000001 /* SignedAppModel.swift */; };
+		A100000E2C00000100000001 /* AppLibraryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000E2C00000100000001 /* AppLibraryStore.swift */; };
+		A100000F2C00000100000001 /* DeviceUDIDHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000F2C00000100000001 /* DeviceUDIDHelper.swift */; };
+		A10000102C00000100000001 /* LocalInstallServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000102C00000100000001 /* LocalInstallServer.swift */; };
+		A10000112C00000100000001 /* MainTabBarController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000112C00000100000001 /* MainTabBarController.swift */; };
+		A10000122C00000100000001 /* AccountCardCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000122C00000100000001 /* AccountCardCell.swift */; };
+		A10000132C00000100000001 /* AccountsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000132C00000100000001 /* AccountsViewController.swift */; };
+		A10000142C00000100000001 /* AddAccountViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000142C00000100000001 /* AddAccountViewController.swift */; };
+		A10000152C00000100000001 /* WebAuthViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000152C00000100000001 /* WebAuthViewController.swift */; };
+		A10000162C00000100000001 /* AppCustomizerViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000162C00000100000001 /* AppCustomizerViewController.swift */; };
+		A10000172C00000100000001 /* SignViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000172C00000100000001 /* SignViewController.swift */; };
+		A10000182C00000100000001 /* AppLibraryViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000182C00000100000001 /* AppLibraryViewController.swift */; };
+		A10000192C00000100000001 /* SettingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000192C00000100000001 /* SettingsViewController.swift */; };
+		A10000202C00000100000001 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B10000202C00000100000001 /* Assets.xcassets */; };
+		A10000212C00000100000001 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C10000012C00000100000001 /* Security.framework */; };
+		A10000222C00000100000001 /* Network.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C10000022C00000100000001 /* Network.framework */; };
+		A10000232C00000100000001 /* WebKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C10000032C00000100000001 /* WebKit.framework */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		B10000012C00000100000001 /* SoulSignApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoulSignApp.swift; sourceTree = "<group>"; };
+		B10000022C00000100000001 /* SoulSignTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoulSignTheme.swift; sourceTree = "<group>"; };
+		B10000032C00000100000001 /* AnisetteData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnisetteData.swift; sourceTree = "<group>"; };
+		B10000042C00000100000001 /* GrandSlamClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GrandSlamClient.swift; sourceTree = "<group>"; };
+		B10000052C00000100000001 /* DeveloperPortalAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeveloperPortalAPI.swift; sourceTree = "<group>"; };
+		B10000062C00000100000001 /* AppleAccount.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleAccount.swift; sourceTree = "<group>"; };
+		B10000072C00000100000001 /* AccountManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountManager.swift; sourceTree = "<group>"; };
+		B10000082C00000100000001 /* SessionValidator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionValidator.swift; sourceTree = "<group>"; };
+		B10000092C00000100000001 /* CodeSigner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodeSigner.swift; sourceTree = "<group>"; };
+		B100000A2C00000100000001 /* ProvisioningService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProvisioningService.swift; sourceTree = "<group>"; };
+		B100000B2C00000100000001 /* IPAPackager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IPAPackager.swift; sourceTree = "<group>"; };
+		B100000C2C00000100000001 /* RenewalService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RenewalService.swift; sourceTree = "<group>"; };
+		B100000D2C00000100000001 /* SignedAppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignedAppModel.swift; sourceTree = "<group>"; };
+		B100000E2C00000100000001 /* AppLibraryStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLibraryStore.swift; sourceTree = "<group>"; };
+		B100000F2C00000100000001 /* DeviceUDIDHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceUDIDHelper.swift; sourceTree = "<group>"; };
+		B10000102C00000100000001 /* LocalInstallServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalInstallServer.swift; sourceTree = "<group>"; };
+		B10000112C00000100000001 /* MainTabBarController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainTabBarController.swift; sourceTree = "<group>"; };
+		B10000122C00000100000001 /* AccountCardCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountCardCell.swift; sourceTree = "<group>"; };
+		B10000132C00000100000001 /* AccountsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountsViewController.swift; sourceTree = "<group>"; };
+		B10000142C00000100000001 /* AddAccountViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddAccountViewController.swift; sourceTree = "<group>"; };
+		B10000152C00000100000001 /* WebAuthViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebAuthViewController.swift; sourceTree = "<group>"; };
+		B10000162C00000100000001 /* AppCustomizerViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppCustomizerViewController.swift; sourceTree = "<group>"; };
+		B10000172C00000100000001 /* SignViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignViewController.swift; sourceTree = "<group>"; };
+		B10000182C00000100000001 /* AppLibraryViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLibraryViewController.swift; sourceTree = "<group>"; };
+		B10000192C00000100000001 /* SettingsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsViewController.swift; sourceTree = "<group>"; };
+		B10000202C00000100000001 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		B10000212C00000100000001 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		C10000012C00000100000001 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
+		C10000022C00000100000001 /* Network.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Network.framework; path = System/Library/Frameworks/Network.framework; sourceTree = SDKROOT; };
+		C10000032C00000100000001 /* WebKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WebKit.framework; path = System/Library/Frameworks/WebKit.framework; sourceTree = SDKROOT; };
+		D10000012C00000100000001 /* SoulSign.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SoulSign.app; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		E10000012C00000100000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000212C00000100000001 /* Security.framework in Frameworks */,
+				A10000222C00000100000001 /* Network.framework in Frameworks */,
+				A10000232C00000100000001 /* WebKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		F10000012C00000100000001 = {
+			isa = PBXGroup;
+			children = (
+				F10000022C00000100000001 /* SoulSign */,
+				F10000082C00000100000001 /* Frameworks */,
+				F10000092C00000100000001 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		F10000022C00000100000001 /* SoulSign */ = {
+			isa = PBXGroup;
+			children = (
+				F10000032C00000100000001 /* App */,
+				F10000042C00000100000001 /* Core */,
+				F10000052C00000100000001 /* UI */,
+				B10000202C00000100000001 /* Assets.xcassets */,
+			);
+			path = SoulSign;
+			sourceTree = "<group>";
+		};
+		F10000032C00000100000001 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				B10000012C00000100000001 /* SoulSignApp.swift */,
+				B10000022C00000100000001 /* SoulSignTheme.swift */,
+				B10000212C00000100000001 /* Info.plist */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		F10000042C00000100000001 /* Core */ = {
+			isa = PBXGroup;
+			children = (
+				B10000032C00000100000001 /* AnisetteData.swift */,
+				B10000042C00000100000001 /* GrandSlamClient.swift */,
+				B10000052C00000100000001 /* DeveloperPortalAPI.swift */,
+				B10000062C00000100000001 /* AppleAccount.swift */,
+				B10000072C00000100000001 /* AccountManager.swift */,
+				B10000082C00000100000001 /* SessionValidator.swift */,
+				B10000092C00000100000001 /* CodeSigner.swift */,
+				B100000A2C00000100000001 /* ProvisioningService.swift */,
+				B100000B2C00000100000001 /* IPAPackager.swift */,
+				B100000C2C00000100000001 /* RenewalService.swift */,
+				B100000D2C00000100000001 /* SignedAppModel.swift */,
+				B100000E2C00000100000001 /* AppLibraryStore.swift */,
+				B100000F2C00000100000001 /* DeviceUDIDHelper.swift */,
+				B10000102C00000100000001 /* LocalInstallServer.swift */,
+			);
+			path = Core;
+			sourceTree = "<group>";
+		};
+		F10000052C00000100000001 /* UI */ = {
+			isa = PBXGroup;
+			children = (
+				B10000112C00000100000001 /* MainTabBarController.swift */,
+				B10000122C00000100000001 /* AccountCardCell.swift */,
+				B10000132C00000100000001 /* AccountsViewController.swift */,
+				B10000142C00000100000001 /* AddAccountViewController.swift */,
+				B10000152C00000100000001 /* WebAuthViewController.swift */,
+				B10000162C00000100000001 /* AppCustomizerViewController.swift */,
+				B10000172C00000100000001 /* SignViewController.swift */,
+				B10000182C00000100000001 /* AppLibraryViewController.swift */,
+				B10000192C00000100000001 /* SettingsViewController.swift */,
+			);
+			path = UI;
+			sourceTree = "<group>";
+		};
+		F10000082C00000100000001 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				C10000012C00000100000001 /* Security.framework */,
+				C10000022C00000100000001 /* Network.framework */,
+				C10000032C00000100000001 /* WebKit.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		F10000092C00000100000001 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				D10000012C00000100000001 /* SoulSign.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		210000012C00000100000001 /* SoulSign */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 210000022C00000100000001 /* Build configuration list for PBXNativeTarget "SoulSign" */;
+			buildPhases = (
+				E10000032C00000100000001 /* Sources */,
+				E10000012C00000100000001 /* Frameworks */,
+				E10000022C00000100000001 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = SoulSign;
+			productName = SoulSign;
+			productReference = D10000012C00000100000001 /* SoulSign.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		010000012C00000100000001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1540;
+				LastUpgradeCheck = 1540;
+			};
+			buildConfigurationList = 010000022C00000100000001 /* Build configuration list for PBXProject "SoulSign" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = F10000012C00000100000001;
+			productRefGroup = F10000092C00000100000001 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				210000012C00000100000001 /* SoulSign */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		E10000022C00000100000001 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000202C00000100000001 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		E10000032C00000100000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000012C00000100000001 /* SoulSignApp.swift in Sources */,
+				A10000022C00000100000001 /* SoulSignTheme.swift in Sources */,
+				A10000032C00000100000001 /* AnisetteData.swift in Sources */,
+				A10000042C00000100000001 /* GrandSlamClient.swift in Sources */,
+				A10000052C00000100000001 /* DeveloperPortalAPI.swift in Sources */,
+				A10000062C00000100000001 /* AppleAccount.swift in Sources */,
+				A10000072C00000100000001 /* AccountManager.swift in Sources */,
+				A10000082C00000100000001 /* SessionValidator.swift in Sources */,
+				A10000092C00000100000001 /* CodeSigner.swift in Sources */,
+				A100000A2C00000100000001 /* ProvisioningService.swift in Sources */,
+				A100000B2C00000100000001 /* IPAPackager.swift in Sources */,
+				A100000C2C00000100000001 /* RenewalService.swift in Sources */,
+				A100000D2C00000100000001 /* SignedAppModel.swift in Sources */,
+				A100000E2C00000100000001 /* AppLibraryStore.swift in Sources */,
+				A100000F2C00000100000001 /* DeviceUDIDHelper.swift in Sources */,
+				A10000102C00000100000001 /* LocalInstallServer.swift in Sources */,
+				A10000112C00000100000001 /* MainTabBarController.swift in Sources */,
+				A10000122C00000100000001 /* AccountCardCell.swift in Sources */,
+				A10000132C00000100000001 /* AccountsViewController.swift in Sources */,
+				A10000142C00000100000001 /* AddAccountViewController.swift in Sources */,
+				A10000152C00000100000001 /* WebAuthViewController.swift in Sources */,
+				A10000162C00000100000001 /* AppCustomizerViewController.swift in Sources */,
+				A10000172C00000100000001 /* SignViewController.swift in Sources */,
+				A10000182C00000100000001 /* AppLibraryViewController.swift in Sources */,
+				A10000192C00000100000001 /* SettingsViewController.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		010000032C00000100000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		010000042C00000100000001 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		110000022C00000100000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_BITCODE = NO;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = SoulSign/App/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.soulsign.app;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		110000032C00000100000001 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_BITCODE = NO;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = SoulSign/App/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.soulsign.app;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		010000022C00000100000001 /* Build configuration list for PBXProject "SoulSign" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				010000032C00000100000001 /* Debug */,
+				010000042C00000100000001 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		210000022C00000100000001 /* Build configuration list for PBXNativeTarget "SoulSign" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				110000022C00000100000001 /* Debug */,
+				110000032C00000100000001 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+	};
+	rootObject = 010000012C00000100000001 /* Project object */;
+}

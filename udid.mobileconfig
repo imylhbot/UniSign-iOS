@@ -19,7 +19,7 @@
     <key>PayloadContent</key>
     <dict>
         <key>URL</key>
-        <string>https://udid.soul-sign.com/receive_udid</string>
+        <string>http://127.0.0.1:24302/receive_udid</string>
         <key>DeviceAttributes</key>
         <array>
             <string>UDID</string>

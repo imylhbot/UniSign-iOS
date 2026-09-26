@@ -40,8 +40,8 @@ jobs:
         run: |
           set -o pipefail
           xcodebuild build \
-            -project UniSign.xcodeproj \
-            -scheme UniSign \
+            -project SoulSign.xcodeproj \
+            -scheme SoulSign \
             -configuration Release \
             -sdk iphoneos \
             -destination "generic/platform=iOS" \
@@ -74,15 +74,6 @@ jobs:
           path: SoulSign.ipa
           retention-days: 14
 
-  # 暂时先停止打包PC端
-  build-pc-helper:
-    name: Build Windows PC Helper (Paused)
-    if: false
-    runs-on: windows-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
   release:
     name: Create GitHub Release
     needs: [build-ios]
@@ -109,7 +100,7 @@ jobs:
             ## ⚡ SoulSign-iOS 官方发布
 
             - **版本**: ${{ github.event.inputs.version_tag || 'v2.5.0' }}
-            - **iOS 客户端**: `SoulSign.ipa`（最低支持 iOS 15.0+，支持纯手机端重签、多账号切换、7天自动续期、P12 离线签名、Safari 真实 UDID 一键读取、HTTPS 本地 OTA 安装、动态库 Dylib 注入定制）。
+            - **iOS 客户端**: `SoulSign.ipa`（最低支持 iOS 15.0+，支持多 Apple ID 管理、单账号 3 个 App 配额管控、SideStore 级 GrandSlam 登录与会话有效性检测、一键自动续期、Safari 真实 UDID 读取、本地安装）。
           files: |
             SoulSign.ipa
             ca.mobileconfig
