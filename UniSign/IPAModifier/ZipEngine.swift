@@ -358,12 +358,12 @@ public class ZipEngine {
         let result: Int32 = data.withUnsafeBytes { (srcPtr: UnsafeRawBufferPointer) in
             guard let srcBase = srcPtr.baseAddress?.assumingMemoryBound(to: Bytef.self) else { return Z_STREAM_ERROR }
             stream.next_in = UnsafeMutablePointer(mutating: srcBase)
-            stream.avail_in = uInt(data.count)
+            stream.avail_in = uInt(srcPtr.count)
             
             return dest.withUnsafeMutableBytes { (dstPtr: UnsafeMutableRawBufferPointer) in
                 guard let dstBase = dstPtr.baseAddress?.assumingMemoryBound(to: Bytef.self) else { return Z_STREAM_ERROR }
                 stream.next_out = dstBase
-                stream.avail_out = uInt(dest.count)
+                stream.avail_out = uInt(dstPtr.count)
                 
                 return inflate(&stream, Z_FINISH)
             }
@@ -386,12 +386,12 @@ public class ZipEngine {
         let result: Int32 = data.withUnsafeBytes { (srcPtr: UnsafeRawBufferPointer) in
             guard let srcBase = srcPtr.baseAddress?.assumingMemoryBound(to: Bytef.self) else { return Z_STREAM_ERROR }
             stream.next_in = UnsafeMutablePointer(mutating: srcBase)
-            stream.avail_in = uInt(data.count)
+            stream.avail_in = uInt(srcPtr.count)
             
             return dest.withUnsafeMutableBytes { (dstPtr: UnsafeMutableRawBufferPointer) in
                 guard let dstBase = dstPtr.baseAddress?.assumingMemoryBound(to: Bytef.self) else { return Z_STREAM_ERROR }
                 stream.next_out = dstBase
-                stream.avail_out = uInt(dest.count)
+                stream.avail_out = uInt(dstPtr.count)
                 
                 return deflate(&stream, Z_FINISH)
             }
