@@ -281,23 +281,42 @@ public class ZipEngine {
             zipOutput.append(nameBytes)
             zipOutput.append(compressedData)
             
+            // Determine executable and POSIX permissions
+            let isExecutable: Bool
+            if entry.isDir {
+                isExecutable = false
+            } else if entry.relative.contains(".framework/") || entry.relative.hasSuffix(".dylib") || (!entry.relative.components(separatedBy: "/").last!.contains(".") && !entry.relative.hasPrefix("_CodeSignature")) {
+                isExecutable = true
+            } else {
+                isExecutable = false
+            }
+            
+            let externalAttrs: UInt32
+            if entry.isDir {
+                externalAttrs = 0x41ED0010 // drwxr-xr-x (POSIX directory) + MS-DOS dir bit
+            } else if isExecutable {
+                externalAttrs = 0x81ED0000 // -rwxr-xr-x (POSIX executable)
+            } else {
+                externalAttrs = 0x81A40000 // -rw-r--r-- (POSIX regular file)
+            }
+            
             // 2. Append Central Directory Record (0x02014b50)
             centralDirectory.appendUInt32LE(0x02014b50)
-            centralDirectory.appendUInt16LE(20) // made by
-            centralDirectory.appendUInt16LE(20) // version needed
-            centralDirectory.appendUInt16LE(0)  // flags
+            centralDirectory.appendUInt16LE(0x0314) // made by: UNIX (0x03) + version 2.0 (0x14)
+            centralDirectory.appendUInt16LE(20)     // version needed
+            centralDirectory.appendUInt16LE(0)      // flags
             centralDirectory.appendUInt16LE(method)
-            centralDirectory.appendUInt16LE(0)  // mod time
-            centralDirectory.appendUInt16LE(0)  // mod date
+            centralDirectory.appendUInt16LE(0)      // mod time
+            centralDirectory.appendUInt16LE(0)      // mod date
             centralDirectory.appendUInt32LE(crc)
             centralDirectory.appendUInt32LE(compressedSize)
             centralDirectory.appendUInt32LE(uncompressedSize)
             centralDirectory.appendUInt16LE(UInt16(nameBytes.count))
-            centralDirectory.appendUInt16LE(0)  // extra len
-            centralDirectory.appendUInt16LE(0)  // comment len
-            centralDirectory.appendUInt16LE(0)  // disk start
-            centralDirectory.appendUInt16LE(0)  // internal attrs
-            centralDirectory.appendUInt32LE(entry.isDir ? 0x10 : 0) // external attrs
+            centralDirectory.appendUInt16LE(0)      // extra len
+            centralDirectory.appendUInt16LE(0)      // comment len
+            centralDirectory.appendUInt16LE(0)      // disk start
+            centralDirectory.appendUInt16LE(0)      // internal attrs
+            centralDirectory.appendUInt32LE(externalAttrs) // external attrs (POSIX permissions)
             centralDirectory.appendUInt32LE(localHeaderOffset)
             centralDirectory.append(nameBytes)
             centralDirEntries += 1
@@ -329,53 +348,58 @@ public class ZipEngine {
     
     private static func inflateData(_ data: Data, uncompressedSize: Int) -> Data? {
         guard uncompressedSize > 0 else { return Data() }
+        var stream = z_stream()
+        guard inflateInit2_(&stream, -MAX_WBITS, ZLIB_VERSION, Int32(MemoryLayout<z_stream>.size)) == Z_OK else {
+            return nil
+        }
+        defer { inflateEnd(&stream) }
+        
         var dest = Data(count: uncompressedSize)
-        let sourceCount = data.count
-        let decodedSize = dest.withUnsafeMutableBytes { (destPtr: UnsafeMutableRawBufferPointer) -> Int in
-            guard let dstBase = destPtr.baseAddress?.assumingMemoryBound(to: UInt8.self) else { return 0 }
-            return data.withUnsafeBytes { (srcPtr: UnsafeRawBufferPointer) -> Int in
-                guard let srcBase = srcPtr.baseAddress?.assumingMemoryBound(to: UInt8.self) else { return 0 }
-                return compression_decode_buffer(
-                    dstBase,
-                    uncompressedSize,
-                    srcBase,
-                    sourceCount,
-                    nil,
-                    COMPRESSION_ZLIB
-                )
+        let result: Int32 = data.withUnsafeBytes { (srcPtr: UnsafeRawBufferPointer) in
+            guard let srcBase = srcPtr.baseAddress?.assumingMemoryBound(to: Bytef.self) else { return Z_STREAM_ERROR }
+            stream.next_in = UnsafeMutablePointer(mutating: srcBase)
+            stream.avail_in = uInt(data.count)
+            
+            return dest.withUnsafeMutableBytes { (dstPtr: UnsafeMutableRawBufferPointer) in
+                guard let dstBase = dstPtr.baseAddress?.assumingMemoryBound(to: Bytef.self) else { return Z_STREAM_ERROR }
+                stream.next_out = dstBase
+                stream.avail_out = uInt(dest.count)
+                
+                return inflate(&stream, Z_FINISH)
             }
         }
-        if decodedSize > 0 {
-            dest.count = decodedSize
-            return dest
-        }
-        return nil
+        
+        guard result == Z_STREAM_END || result == Z_OK else { return nil }
+        dest.count = Int(stream.total_out)
+        return dest
     }
     
     private static func deflateData(_ data: Data) -> Data? {
         guard !data.isEmpty else { return Data() }
-        let destCapacity = data.count + 512
-        var dest = Data(count: destCapacity)
-        let sourceCount = data.count
-        let encodedSize = dest.withUnsafeMutableBytes { (destPtr: UnsafeMutableRawBufferPointer) -> Int in
-            guard let dstBase = destPtr.baseAddress?.assumingMemoryBound(to: UInt8.self) else { return 0 }
-            return data.withUnsafeBytes { (srcPtr: UnsafeRawBufferPointer) -> Int in
-                guard let srcBase = srcPtr.baseAddress?.assumingMemoryBound(to: UInt8.self) else { return 0 }
-                return compression_encode_buffer(
-                    dstBase,
-                    destCapacity,
-                    srcBase,
-                    sourceCount,
-                    nil,
-                    COMPRESSION_ZLIB
-                )
+        var stream = z_stream()
+        guard deflateInit2_(&stream, Z_DEFAULT_COMPRESSION, Z_DEFLATED, -MAX_WBITS, 8, Z_DEFAULT_STRATEGY, ZLIB_VERSION, Int32(MemoryLayout<z_stream>.size)) == Z_OK else {
+            return nil
+        }
+        defer { deflateEnd(&stream) }
+        
+        var dest = Data(count: data.count + 512)
+        let result: Int32 = data.withUnsafeBytes { (srcPtr: UnsafeRawBufferPointer) in
+            guard let srcBase = srcPtr.baseAddress?.assumingMemoryBound(to: Bytef.self) else { return Z_STREAM_ERROR }
+            stream.next_in = UnsafeMutablePointer(mutating: srcBase)
+            stream.avail_in = uInt(data.count)
+            
+            return dest.withUnsafeMutableBytes { (dstPtr: UnsafeMutableRawBufferPointer) in
+                guard let dstBase = dstPtr.baseAddress?.assumingMemoryBound(to: Bytef.self) else { return Z_STREAM_ERROR }
+                stream.next_out = dstBase
+                stream.avail_out = uInt(dest.count)
+                
+                return deflate(&stream, Z_FINISH)
             }
         }
-        if encodedSize > 0 {
-            dest.count = encodedSize
-            return dest
-        }
-        return nil
+        
+        guard result == Z_STREAM_END else { return nil }
+        dest.count = Int(stream.total_out)
+        return dest
     }
     
     private static func calculateCRC32(_ data: Data) -> UInt32 {
