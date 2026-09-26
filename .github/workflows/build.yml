@@ -74,64 +74,18 @@ jobs:
           path: SoulSign.ipa
           retention-days: 14
 
+  # 暂时先停止打包PC端
   build-pc-helper:
-    name: Build Windows PC Helper
+    name: Build Windows PC Helper (Paused)
+    if: false
     runs-on: windows-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install PySide6 cryptography requests pycryptodome pyinstaller pillow
-
-      - name: Download Apple Code Signing Engine (rcodesign.exe)
-        shell: pwsh
-        run: |
-          cd UniSign-Helper
-          python -c "import urllib.request, zipfile, io; url = 'https://github.com/indygreg/apple-platform-rs/releases/download/apple-codesign%2F0.29.0/apple-codesign-0.29.0-x86_64-pc-windows-msvc.zip'; data = urllib.request.urlopen(url, timeout=60).read(); z = zipfile.ZipFile(io.BytesIO(data)); [z.extract(f, '.') for f in z.namelist() if f.endswith('rcodesign.exe')]"
-          if (Test-Path "apple-codesign-0.29.0-x86_64-pc-windows-msvc/rcodesign.exe") {
-            Move-Item -Force "apple-codesign-0.29.0-x86_64-pc-windows-msvc/rcodesign.exe" "rcodesign.exe"
-            Remove-Item -Recurse -Force "apple-codesign-0.29.0-x86_64-pc-windows-msvc"
-          }
-          if (Test-Path "rcodesign.exe") {
-            Write-Host "rcodesign.exe successfully downloaded!"
-          }
-
-      - name: Build SoulSign-Helper.exe
-        run: |
-          cd UniSign-Helper
-          pyinstaller --onefile --noconsole --clean --icon="soulsign.ico" --add-data "soulsign.ico;." --add-data "soulsign.png;." --add-binary "rcodesign.exe;." --name "SoulSign-Helper" unisign_helper_gui.py
-
-      - name: Package Windows ZIP
-        shell: pwsh
-        run: |
-          cd UniSign-Helper
-          New-Item -ItemType Directory -Force -Path package
-          Copy-Item dist\SoulSign-Helper.exe package\
-          Copy-Item rcodesign.exe package\
-          Copy-Item run_helper.bat package\
-          Copy-Item README.md package\
-          Copy-Item soulsign.ico package\
-          Copy-Item soulsign.png package\
-          Compress-Archive -Path package\* -DestinationPath ..\SoulSign-Helper-Windows.zip -Force
-
-      - name: Upload Windows Helper to Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: SoulSign-Helper-Windows
-          path: SoulSign-Helper-Windows.zip
-          retention-days: 14
-
   release:
     name: Create GitHub Release
-    needs: [build-ios, build-pc-helper]
+    needs: [build-ios]
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
@@ -145,31 +99,19 @@ jobs:
         with:
           name: SoulSign-IPA
 
-      - name: Download Windows PC Helper Artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: SoulSign-Helper-Windows
-
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         continue-on-error: true
         with:
           tag_name: ${{ github.event.inputs.version_tag || 'v2.5.0' }}
-          name: ${{ github.event.inputs.release_title || 'SoulSign iOS & PC Helper Release' }} (${{ github.event.inputs.version_tag || 'v2.5.0' }})
+          name: ${{ github.event.inputs.release_title || 'SoulSign iOS Release' }} (${{ github.event.inputs.version_tag || 'v2.5.0' }})
           body: |
-            ## ⚡ SoulSign-iOS & PC 助手官方发布
+            ## ⚡ SoulSign-iOS 官方发布
 
             - **版本**: ${{ github.event.inputs.version_tag || 'v2.5.0' }}
-            - **iOS 客户端**: `SoulSign.ipa`（iOS 13.0+，支持纯手机端重签、多账号切换、7天自动续期、P12 离线签名、Safari 真实 UDID 一键读取、HTTPS 本地 OTA 安装、动态库 Dylib 注入定制）。
-            - **PC 电脑端助手**: `SoulSign-Helper-Windows.zip`（Windows 10/11，解压即用，内置 rcodesign 签名引擎，支持 USB 一键直装已签名 IPA、免费 Apple ID 7 天自动自签、iOS 16+ 开发者模式一键激活）。
-
-            ### 💻 PC 客户端使用方法：
-            1. 下载 `SoulSign-Helper-Windows.zip` 并解压。
-            2. 运行 `SoulSign-Helper.exe`（或双击 `run_helper.bat`）。
-            3. 数据线连接手机并信任电脑，拖入待签或已签名 IPA，点击「一键签名并安装」秒速完成！
+            - **iOS 客户端**: `SoulSign.ipa`（最低支持 iOS 15.0+，支持纯手机端重签、多账号切换、7天自动续期、P12 离线签名、Safari 真实 UDID 一键读取、HTTPS 本地 OTA 安装、动态库 Dylib 注入定制）。
           files: |
             SoulSign.ipa
-            SoulSign-Helper-Windows.zip
             ca.mobileconfig
             udid.mobileconfig
           draft: false

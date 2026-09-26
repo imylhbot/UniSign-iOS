@@ -395,9 +395,25 @@ public class AppleDeveloperService {
         session: AppleSession,
         parameters: [String: Any],
         isRetry: Bool = false,
+        useFallbackHost: Bool = false,
         completion: @escaping (Result<[String: Any], AppleAuthError>) -> Void
     ) {
-        guard let url = URL(string: "https://developerservices2.apple.com/services/QH65B2/ios/\(action).action") else {
+        let isRootAction = (action == "listTeams" || action == "viewDeveloper")
+        
+        let urlString: String
+        if useFallbackHost {
+            // Apple Developer Portal Web gateway
+            urlString = isRootAction
+                ? "https://developer.apple.com/services-account/QH65B2/account/\(action).action?clientId=XABBG36SBA"
+                : "https://developer.apple.com/services-account/QH65B2/account/ios/\(action).action?clientId=XABBG36SBA"
+        } else {
+            // Apple Developer Services API
+            urlString = isRootAction
+                ? "https://developerservices2.apple.com/services/QH65B2/\(action).action?clientId=XABBG36SBA"
+                : "https://developerservices2.apple.com/services/QH65B2/ios/\(action).action?clientId=XABBG36SBA"
+        }
+        
+        guard let url = URL(string: urlString) else {
             completion(.failure(.general("无效的苹果服务接口地址: \(action)")))
             return
         }
@@ -409,17 +425,23 @@ public class AppleDeveloperService {
         request.setValue("text/x-xml-plist", forHTTPHeaderField: "Content-Type")
         request.setValue("text/x-xml-plist", forHTTPHeaderField: "Accept")
         request.setValue("Xcode", forHTTPHeaderField: "User-Agent")
+        request.setValue("com.apple.gs.xcode.auth", forHTTPHeaderField: "X-Apple-App-Info")
+        request.setValue("15.0 (15A240d)", forHTTPHeaderField: "X-Xcode-Version")
         request.timeoutInterval = 30
         
-        if !currentS.authToken.isEmpty && !currentS.authToken.starts(with: "myacinfo") && currentS.authToken.count > 30 {
+        // Detect Web Cookie session (myacinfo) vs native GrandSlam token
+        let hasWebCookie = (currentS.cookies["myacinfo"] != nil) || (currentS.authToken == currentS.cookies["myacinfo"])
+        if !hasWebCookie && !currentS.authToken.isEmpty && !currentS.authToken.starts(with: "DA") && currentS.authToken.count > 30 {
             request.setValue(currentS.authToken, forHTTPHeaderField: "X-Apple-GS-Token")
         }
+        
         if !currentS.dsid.isEmpty {
+            request.setValue(currentS.dsid, forHTTPHeaderField: "X-Apple-I-Identity-Id")
             request.setValue(currentS.dsid, forHTTPHeaderField: "X-Apple-DSID")
         }
         
         var cookieParts: [String] = []
-        let myacinfo = currentS.cookies["myacinfo"] ?? (currentS.authToken.count > 10 ? currentS.authToken : "")
+        let myacinfo = currentS.cookies["myacinfo"] ?? (hasWebCookie ? currentS.authToken : "")
         if !myacinfo.isEmpty {
             cookieParts.append("myacinfo=\(myacinfo)")
         }
@@ -436,6 +458,7 @@ public class AppleDeveloperService {
         var bodyDict = parameters
         bodyDict["clientId"] = "XABBG36SBA"
         bodyDict["protocolVersion"] = "QH65B2"
+        bodyDict["requestId"] = UUID().uuidString.uppercased()
         bodyDict["userLocale"] = "en_US"
         
         guard let bodyData = try? PropertyListSerialization.data(fromPropertyList: bodyDict, format: .xml, options: 0) else {
@@ -458,7 +481,8 @@ public class AppleDeveloperService {
                 config.timeoutIntervalForResource = 60
                 let sessionTask = URLSession(configuration: config)
                 
-                sessionTask.dataTask(with: request) { data, response, error in
+                sessionTask.dataTask(with: request) { [weak self] data, response, error in
+                    guard let self = self else { return }
                     if let error = error {
                         AppLogger.shared.log("苹果服务器网络连接失败 (\(action)): \(error.localizedDescription)", category: .error)
                         completion(.failure(.networkError(error)))
@@ -487,32 +511,29 @@ public class AppleDeveloperService {
                         AppLogger.shared.log("✅ 苹果开发者接口响应成功: \(action).action", category: .appleID)
                         completion(.success(plist))
                     } else if resultCode == 1100 && !isRetry {
-                        AppLogger.shared.log("⚠️ 苹果开发者会话已过期 (1100)，正在自动尝试刷新或重新认证...", category: .warn)
-                        self.currentSession = nil
-                        if var acc = AppleAccountManager.shared.activeAccount {
-                            acc.myacinfo = nil
-                            acc.sessionCookies = nil
-                            AppleAccountManager.shared.addOrUpdateAccount(acc)
+                        if !useFallbackHost {
+                            AppLogger.shared.log("⚠️ 开发者服务返回 1100，正在无缝切换至 Apple 备用开发者网关重试...", category: .appleID)
+                            self.sendDeveloperRequest(action: action, session: session, parameters: parameters, isRetry: true, useFallbackHost: true, completion: completion)
+                            return
                         }
-                        self.ensureAuthenticatedSession { [weak self] authRes in
-                            guard let self = self else { return }
-                            switch authRes {
-                            case .success(let newSession):
-                                self.sendDeveloperRequest(action: action, session: newSession, parameters: parameters, isRetry: true, completion: completion)
-                            case .failure(let err):
-                                AppLogger.shared.log("❌ 苹果开发者会话失效: \(err.localizedDescription)", category: .error)
-                                completion(.failure(err))
+                        
+                        // If account has password, try auto-refreshing session
+                        if let activeAcc = AppleAccountManager.shared.activeAccount, !activeAcc.password.isEmpty {
+                            AppLogger.shared.log("⚠️ 尝试使用账号密码自动重新认证...", category: .appleID)
+                            self.ensureAuthenticatedSession { [weak self] authRes in
+                                guard let self = self else { return }
+                                switch authRes {
+                                case .success(let newSession):
+                                    self.sendDeveloperRequest(action: action, session: newSession, parameters: parameters, isRetry: true, useFallbackHost: false, completion: completion)
+                                case .failure(let err):
+                                    completion(.failure(err))
+                                }
                             }
+                        } else {
+                            let userString = plist["userString"] as? String ?? plist["resultString"] as? String ?? "开发者会话已过期"
+                            completion(.failure(.general("[\(resultCode)] \(userString)")))
                         }
                     } else {
-                        if resultCode == 1100 {
-                            self.currentSession = nil
-                            if var acc = AppleAccountManager.shared.activeAccount {
-                                acc.myacinfo = nil
-                                acc.sessionCookies = nil
-                                AppleAccountManager.shared.addOrUpdateAccount(acc)
-                            }
-                        }
                         let userString = plist["userString"] as? String ?? plist["resultString"] as? String ?? "未知错误"
                         AppLogger.shared.log("⚠️ 苹果开发者接口状态码: [\(resultCode)] \(userString) (\(action).action)", category: .warn)
                         completion(.failure(.general("[\(resultCode)] \(userString)")))
@@ -550,9 +571,13 @@ public class AppleDeveloperService {
                     AppLogger.shared.log("✅ 成功匹配苹果开发者团队: \(effectiveTeamName) (Team ID: \(effectiveTeamId))", category: .appleID)
                 }
             case .failure(let err):
-                AppLogger.shared.log("获取团队列表失败: \(err.localizedDescription)", category: .error)
-                completion(.failure(err))
-                return
+                if !effectiveTeamId.isEmpty {
+                    AppLogger.shared.log("⚠️ 获取团队列表受限 (\(err.localizedDescription))，自动使用绑定团队: \(effectiveTeamName) (\(effectiveTeamId)) 继续签名流程...", category: .warn)
+                } else {
+                    AppLogger.shared.log("获取团队列表失败: \(err.localizedDescription)", category: .error)
+                    completion(.failure(err))
+                    return
+                }
             }
             
             // 2. Register Device UDID

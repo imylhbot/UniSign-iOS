@@ -219,34 +219,60 @@ public class AppleWebLoginViewController: UIViewController, WKNavigationDelegate
     }
     
     private func extractUserAndFinish(myacinfo: String, dsid: String, cookies: [String: String]) {
-        // Try to read logged-in user email from page DOM
+        // Try to read logged-in user email and team info from page DOM
         let js = """
         (function() {
+            var email = '';
+            var teamId = '';
+            var teamName = '';
+            
             var el = document.querySelector('.nav-user-name') ||
                      document.querySelector('.account-name') ||
                      document.querySelector('span[data-email]') ||
                      document.querySelector('.user-email') ||
                      document.querySelector('button[id*="account"]');
-            return el ? el.innerText.trim() : '';
+            if (el) email = el.innerText.trim();
+            
+            var bodyText = document.body ? document.body.innerText : '';
+            var teamMatch = bodyText.match(/Team ID:\\s*([A-Z0-9]{10})/i) ||
+                            bodyText.match(/\\(([A-Z0-9]{10})\\)/);
+            if (teamMatch && teamMatch[1]) {
+                teamId = teamMatch[1].toUpperCase();
+            }
+            
+            var teamEl = document.querySelector('.team-name') || document.querySelector('.developer-name');
+            if (teamEl) teamName = teamEl.innerText.trim();
+            
+            return JSON.stringify({ email: email, teamId: teamId, teamName: teamName });
         })();
         """
         
         webView.evaluateJavaScript(js) { [weak self] res, _ in
             guard let self = self else { return }
-            var detectedEmail = (res as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            var detectedEmail = ""
+            var detectedTeamId = ""
+            var detectedTeamName = ""
+            
+            if let jsonStr = res as? String, let data = jsonStr.data(using: .utf8),
+               let obj = try? JSONSerialization.jsonObject(with: data) as? [String: String] {
+                detectedEmail = obj["email"]?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                detectedTeamId = obj["teamId"]?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                detectedTeamName = obj["teamName"]?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            }
+            
             if !detectedEmail.contains("@") {
                 detectedEmail = self.prefilledEmail ?? ""
             }
             
             if detectedEmail.isEmpty {
-                self.promptForEmail(myacinfo: myacinfo, dsid: dsid, cookies: cookies)
+                self.promptForEmail(myacinfo: myacinfo, dsid: dsid, cookies: cookies, teamId: detectedTeamId, teamName: detectedTeamName)
             } else {
-                self.finalizeLogin(email: detectedEmail, myacinfo: myacinfo, dsid: dsid, cookies: cookies)
+                self.finalizeLogin(email: detectedEmail, myacinfo: myacinfo, dsid: dsid, cookies: cookies, teamId: detectedTeamId, teamName: detectedTeamName)
             }
         }
     }
     
-    private func promptForEmail(myacinfo: String, dsid: String, cookies: [String: String]) {
+    private func promptForEmail(myacinfo: String, dsid: String, cookies: [String: String], teamId: String, teamName: String) {
         let alert = UIAlertController(
             title: L("已完成 Apple 网页授权", "Apple Auth Complete"),
             message: L("请输入刚刚登录的 Apple ID 邮箱，以完成账号登记：", "Please confirm your Apple ID email:"),
@@ -262,20 +288,21 @@ public class AppleWebLoginViewController: UIViewController, WKNavigationDelegate
         }
         alert.addAction(UIAlertAction(title: L("确定", "OK"), style: .default, handler: { [weak self, weak alert] _ in
             let email = alert?.textFields?.first?.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "AppleUser"
-            self?.finalizeLogin(email: email, myacinfo: myacinfo, dsid: dsid, cookies: cookies)
+            self?.finalizeLogin(email: email, myacinfo: myacinfo, dsid: dsid, cookies: cookies, teamId: teamId, teamName: teamName)
         }))
         present(alert, animated: true)
     }
     
-    private func finalizeLogin(email: String, myacinfo: String, dsid: String, cookies: [String: String]) {
-        let cleanTeamId = "TEAM" + String(abs(email.hashValue) % 1000000000)
+    private func finalizeLogin(email: String, myacinfo: String, dsid: String, cookies: [String: String], teamId: String = "", teamName: String = "") {
+        let cleanTeamId = !teamId.isEmpty ? teamId : ("TEAM" + String(abs(email.hashValue) % 1000000000))
+        let cleanTeamName = !teamName.isEmpty ? teamName : "\(email) (Personal Team)"
         
         let session = AppleDeveloperService.AppleSession(
             appleID: email,
             dsid: dsid,
             authToken: myacinfo,
             teamID: cleanTeamId,
-            teamName: "\(email) (Personal Team)",
+            teamName: cleanTeamName,
             cookies: cookies
         )
         AppleDeveloperService.shared.currentSession = session
@@ -292,7 +319,7 @@ public class AppleWebLoginViewController: UIViewController, WKNavigationDelegate
         AppleAccountManager.shared.addOrUpdateAccount(account)
         AppleAccountManager.shared.setActiveAccount(id: account.id)
         
-        AppLogger.shared.log("✅ 成功通过 Apple 官方网页完成授权: \(email), myacinfo 凭据与 2FA 会话 Cookie 已就绪", category: .appleID)
+        AppLogger.shared.log("✅ 成功通过 Apple 官方网页完成授权: \(email) (Team: \(cleanTeamId)), myacinfo 凭据与 2FA 会话 Cookie 已就绪", category: .appleID)
         UINotificationFeedbackGenerator().notificationOccurred(.success)
         
         self.onLoginSuccess?(account)

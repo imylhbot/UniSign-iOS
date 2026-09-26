@@ -163,8 +163,8 @@ public class AnisetteClient {
         let oneTimePassword = otpData.base64EncodedString()
         
         return [
-            "X-Apple-I-MD": machineID,
-            "X-Apple-I-MD-M": oneTimePassword,
+            "X-Apple-I-MD": oneTimePassword,
+            "X-Apple-I-MD-M": machineID,
             "X-Apple-I-MD-RINFO": "17106176",
             "X-Apple-I-MD-LU": UUID().uuidString,
             "X-Mme-Device-Id": deviceID,

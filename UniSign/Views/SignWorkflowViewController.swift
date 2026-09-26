@@ -30,7 +30,7 @@ public class SignWorkflowViewController: UIViewController, UIDocumentPickerDeleg
     private var currentAppName: String = "SoulSign"
     private var currentBundleId: String = "com.soulsign.app"
     private var currentVersion: String = "1.0.0"
-    private var currentMinOS: String = "13.0"
+    private var currentMinOS: String = "15.0"
     private var currentWorkspaceNote: String = ""
     private var outputExportFormat: String = "ipa" // "ipa" or "tipa"
     private var isLoadControlEnabled: Bool = false
@@ -928,7 +928,7 @@ public class SignWorkflowViewController: UIViewController, UIDocumentPickerDeleg
             tf.text = self.currentVersion
         }
         alert.addTextField { tf in
-            tf.placeholder = L("最低系统 (如 13.0)", "Min OS (e.g. 13.0)")
+            tf.placeholder = L("最低系统 (如 15.0)", "Min OS (e.g. 15.0)")
             tf.text = self.currentMinOS
         }
         alert.addAction(UIAlertAction(title: L("保存", "Save"), style: .default, handler: { [weak self] _ in

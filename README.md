@@ -4,7 +4,7 @@
   <img src="soulsign.png" width="128" height="128" alt="SoulSign Logo" />
 </p>
 
-SoulSign 是一款专为 iOS 设备（支持 iOS 13.0 及以上版本）设计的**纯本地、免电脑、免越狱**的 IPA 代码签名与应用深度定制神器。同时配套提供 Windows 电脑端助手 **SoulSign Helper Pro**，实现全场景免越狱安装与设备管理。
+SoulSign 是一款专为 iOS 设备（支持 iOS 15.0 及以上版本）设计的**纯本地、免电脑、免越狱**的 IPA 代码签名与应用深度定制神器。同时配套提供 Windows 电脑端助手 **SoulSign Helper Pro**，实现全场景免越狱安装与设备管理。
 
 ---
 
