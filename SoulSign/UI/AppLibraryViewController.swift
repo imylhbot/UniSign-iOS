@@ -130,7 +130,17 @@ class AppLibraryViewController: UIViewController, UITableViewDataSource, UITable
         let statusStr = app.isExpired ? "🔴 已过期" : "🟢 剩余 \(days) 天"
         cell.detailTextLabel?.text = "账号: \(app.appleIDEmail) · \(app.bundleID) · \(statusStr)"
         cell.detailTextLabel?.textColor = app.isExpired ? SoulSignTheme.danger : SoulSignTheme.secondaryText
-        cell.accessoryType = .disclosureIndicator
+
+        let installBtn = UIButton(type: .system)
+        installBtn.setTitle("📲 安装", for: .normal)
+        installBtn.titleLabel?.font = UIFont.systemFont(ofSize: 13, weight: .bold)
+        installBtn.backgroundColor = SoulSignTheme.primary.withAlphaComponent(0.12)
+        installBtn.setTitleColor(SoulSignTheme.primary, for: .normal)
+        installBtn.layer.cornerRadius = 8
+        installBtn.frame = CGRect(x: 0, y: 0, width: 68, height: 32)
+        installBtn.tag = indexPath.row
+        installBtn.addTarget(self, action: #selector(installButtonTapped(_:)), for: .touchUpInside)
+        cell.accessoryView = installBtn
 
         return cell
     }
@@ -138,26 +148,38 @@ class AppLibraryViewController: UIViewController, UITableViewDataSource, UITable
     func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
         let app = apps[indexPath.row]
 
-        let renewAction = UIContextualAction(style: .normal, title: "⚡ 续签") { [weak self] _, _, completionHandler in
-            self?.renewSingleApp(app)
-            completionHandler(true)
-        }
-        renewAction.backgroundColor = SoulSignTheme.success
-
         let deleteAction = UIContextualAction(style: .destructive, title: "🗑️ 删除") { [weak self] _, _, completionHandler in
             AppLibraryStore.shared.deleteRecord(bundleID: app.bundleID)
             self?.loadData()
             completionHandler(true)
         }
 
-        return UISwipeActionsConfiguration(actions: [deleteAction, renewAction])
+        let renewAction = UIContextualAction(style: .normal, title: "⚡ 续签") { [weak self] _, _, completionHandler in
+            self?.renewSingleApp(app)
+            completionHandler(true)
+        }
+        renewAction.backgroundColor = SoulSignTheme.success
+
+        let installAction = UIContextualAction(style: .normal, title: "📲 安装") { [weak self] _, _, completionHandler in
+            self?.installApp(app)
+            completionHandler(true)
+        }
+        installAction.backgroundColor = SoulSignTheme.primary
+
+        return UISwipeActionsConfiguration(actions: [deleteAction, renewAction, installAction])
     }
 
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
         let app = apps[indexPath.row]
 
-        let sheet = UIAlertController(title: app.appName, message: "应用操作", preferredStyle: .actionSheet)
+        let sheet = UIAlertController(title: "【\(app.appName)】应用操作", message: "Bundle ID: \(app.bundleID)\n绑定账号: \(app.appleIDEmail)", preferredStyle: .actionSheet)
+        sheet.addAction(UIAlertAction(title: "📲 立即安装到本机", style: .default, handler: { [weak self] _ in
+            self?.installApp(app)
+        }))
+        sheet.addAction(UIAlertAction(title: "📤 导出 / 隔空投送 IPA", style: .default, handler: { [weak self] _ in
+            self?.exportApp(app)
+        }))
         sheet.addAction(UIAlertAction(title: "⚡ 立即单项续签 (7 天)", style: .default, handler: { [weak self] _ in
             self?.renewSingleApp(app)
         }))
@@ -166,6 +188,40 @@ class AppLibraryViewController: UIViewController, UITableViewDataSource, UITable
             self?.loadData()
         }))
         sheet.addAction(UIAlertAction(title: "取消", style: .cancel))
+        if let popover = sheet.popoverPresentationController, let cell = tableView.cellForRow(at: indexPath) {
+            popover.sourceView = cell
+            popover.sourceRect = cell.bounds
+        }
         present(sheet, animated: true)
+    }
+
+    @objc private func installButtonTapped(_ sender: UIButton) {
+        let index = sender.tag
+        guard index < apps.count else { return }
+        let app = apps[index]
+        installApp(app)
+    }
+
+    private func installApp(_ app: SignedAppRecord) {
+        guard let ipaPath = app.ipaPath, FileManager.default.fileExists(atPath: ipaPath) else {
+            showAlert(title: "安装包不存在", message: "未找到应用【\(app.appName)】的 IPA 文件，请在签名工作台重新签名。")
+            return
+        }
+        let url = URL(fileURLWithPath: ipaPath)
+        LocalInstallServer.shared.installApp(ipaURL: url, bundleID: app.bundleID, title: app.appName)
+    }
+
+    private func exportApp(_ app: SignedAppRecord) {
+        guard let ipaPath = app.ipaPath, FileManager.default.fileExists(atPath: ipaPath) else {
+            showAlert(title: "安装包不存在", message: "未找到应用【\(app.appName)】的 IPA 文件。")
+            return
+        }
+        let url = URL(fileURLWithPath: ipaPath)
+        let activity = UIActivityViewController(activityItems: [url], applicationActivities: nil)
+        if let popover = activity.popoverPresentationController {
+            popover.sourceView = view
+            popover.sourceRect = CGRect(x: view.bounds.midX, y: view.bounds.midY, width: 0, height: 0)
+        }
+        present(activity, animated: true)
     }
 }

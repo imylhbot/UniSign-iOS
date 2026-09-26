@@ -9,6 +9,10 @@ class LocalInstallServer {
     private var listener: NWListener?
     private(set) var isRunning: Bool = false
 
+    private var currentIPAURL: URL?
+    private var currentBundleID: String = "com.soulsign.signedapp"
+    private var currentAppTitle: String = "SoulSign App"
+
     private init() {}
 
     func start() {
@@ -21,9 +25,10 @@ class LocalInstallServer {
                 switch state {
                 case .ready:
                     self?.isRunning = true
-                    print("[SoulSign] 本地安装服务已就绪: http://127.0.0.1:\(self?.port ?? 24302)")
+                    AppLogger.shared.log("本地 OTA 安装服务已启动: http://127.0.0.1:\(self?.port ?? 24302)", category: .server)
                 case .failed:
                     self?.isRunning = false
+                    AppLogger.shared.log("本地 OTA 安装服务进入异常状态", category: .server)
                 default:
                     break
                 }
@@ -35,7 +40,7 @@ class LocalInstallServer {
 
             listener?.start(queue: .global(qos: .userInitiated))
         } catch {
-            print("[SoulSign] 启动本地服务失败: \(error)")
+            AppLogger.shared.log("启动本地安装服务失败: \(error.localizedDescription)", category: .server)
         }
     }
 
@@ -43,6 +48,33 @@ class LocalInstallServer {
         listener?.cancel()
         listener = nil
         isRunning = false
+    }
+
+    func installApp(ipaURL: URL, bundleID: String, title: String) {
+        self.currentIPAURL = ipaURL
+        self.currentBundleID = bundleID
+        self.currentAppTitle = title
+
+        AppLogger.shared.log("准备安装应用: \(title) (\(bundleID)), IPA 路径: \(ipaURL.lastPathComponent)", category: .server)
+
+        start()
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+            guard let self = self else { return }
+            let manifestURL = "http://127.0.0.1:\(self.port)/manifest.plist"
+            let itmsURLStr = "itms-services://?action=download-manifest&url=\(manifestURL)"
+
+            if let url = URL(string: itmsURLStr) {
+                AppLogger.shared.log("正在唤起 iOS SpringBoard 安装协议: \(itmsURLStr)", category: .server)
+                UIApplication.shared.open(url, options: [:]) { success in
+                    if success {
+                        AppLogger.shared.log("已成功触发系统安装弹窗，请在桌面查看安装进度", category: .server)
+                    } else {
+                        AppLogger.shared.log("唤起 itms-services 协议未成功", category: .server)
+                    }
+                }
+            }
+        }
     }
 
     private func handleConnection(_ connection: NWConnection) {
@@ -71,14 +103,33 @@ class LocalInstallServer {
     }
 
     private func routePath(_ path: String, reqStr: String, connection: NWConnection) {
+        let isHead = reqStr.hasPrefix("HEAD")
         if path.contains("manifest.plist") {
-            let manifest = generateManifestXML(bundleID: "com.soulsign.signedapp", title: "SoulSign Signed App")
-            let response = "HTTP/1.1 200 OK\r\nContent-Type: application/xml\r\nContent-Length: \(manifest.utf8.count)\r\nConnection: close\r\n\r\n\(manifest)"
+            let manifest = generateManifestXML(bundleID: currentBundleID, title: currentAppTitle)
+            let response = "HTTP/1.1 200 OK\r\nContent-Type: application/xml\r\nContent-Length: \(manifest.utf8.count)\r\nConnection: close\r\n\r\n" + (isHead ? "" : manifest)
             send(response, on: connection)
+            AppLogger.shared.log("已分发 manifest.plist 给系统安装程序", category: .server)
+
+        } else if path.contains("app.ipa") {
+            AppLogger.shared.log("系统安装程序请求下载 app.ipa", category: .server)
+            if let ipaURL = currentIPAURL, let ipaData = try? Data(contentsOf: ipaURL) {
+                let header = "HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nAccept-Ranges: bytes\r\nContent-Disposition: attachment; filename=\"app.ipa\"\r\nContent-Length: \(ipaData.count)\r\nConnection: close\r\n\r\n"
+                var fullResponse = header.data(using: .utf8)!
+                if !isHead {
+                    fullResponse.append(ipaData)
+                }
+                sendData(fullResponse, on: connection)
+                AppLogger.shared.log("已开始传输 IPA 安装包 (\(ipaData.count) 字节)", category: .server)
+            } else {
+                let notFound = "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+                send(notFound, on: connection)
+            }
+
         } else if path.contains("udid.mobileconfig") {
             let profile = generateUDIDProfileXML()
             let response = "HTTP/1.1 200 OK\r\nContent-Type: application/x-apple-aspen-config\r\nContent-Disposition: attachment; filename=\"SoulSignUDID.mobileconfig\"\r\nContent-Length: \(profile.utf8.count)\r\nConnection: close\r\n\r\n\(profile)"
             send(response, on: connection)
+
         } else if path.contains("receive_udid") {
             if let udid = extractUDID(from: reqStr) {
                 DeviceUDIDHelper.setCustomUDID(udid)
@@ -87,6 +138,7 @@ class LocalInstallServer {
             let html = "<html><body><h1>UDID 获取成功！请返回 SoulSign App</h1><script>setTimeout(function(){ window.location.href='soulsign://open'; }, 1000);</script></body></html>"
             let response = "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: \(html.utf8.count)\r\nConnection: close\r\n\r\n\(html)"
             send(response, on: connection)
+
         } else {
             let response = "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
             send(response, on: connection)
@@ -95,12 +147,16 @@ class LocalInstallServer {
 
     private func send(_ string: String, on connection: NWConnection) {
         if let data = string.data(using: .utf8) {
-            connection.send(content: data, completion: .contentProcessed({ _ in
-                connection.cancel()
-            }))
+            sendData(data, on: connection)
         } else {
             connection.cancel()
         }
+    }
+
+    private func sendData(_ data: Data, on connection: NWConnection) {
+        connection.send(content: data, completion: .contentProcessed({ _ in
+            connection.cancel()
+        }))
     }
 
     func installUDIDProfile() {

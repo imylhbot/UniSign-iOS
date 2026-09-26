@@ -18,6 +18,13 @@ class SignViewController: UIViewController, UIDocumentPickerDelegate {
     private let progressView = UIProgressView(progressViewStyle: .default)
     private let statusLabel = UILabel()
 
+    private let postSignStack = UIStackView()
+    private let installNowButton = UIButton(type: .system)
+    private let exportIPAButton = UIButton(type: .system)
+    private var lastSignedIPAURL: URL?
+    private var lastSignedBundleID: String?
+    private var lastSignedAppName: String?
+
     private var selectedIPAURL: URL?
     private var selectedAccount: AppleAccount?
     private var customization = IPAPackager.AppCustomization()
@@ -107,6 +114,25 @@ class SignViewController: UIViewController, UIDocumentPickerDelegate {
         statusLabel.textColor = .secondaryLabel
         statusLabel.textAlignment = .center
         contentStack.addArrangedSubview(statusLabel)
+
+        // 6. Post-Sign Action Buttons (Install & Export)
+        postSignStack.axis = .horizontal
+        postSignStack.distribution = .fillEqually
+        postSignStack.spacing = 12
+        postSignStack.isHidden = true
+
+        SoulSignTheme.stylePrimaryButton(installNowButton, title: "📲 立即安装应用")
+        installNowButton.backgroundColor = SoulSignTheme.success
+        installNowButton.heightAnchor.constraint(equalToConstant: 46).isActive = true
+        installNowButton.addTarget(self, action: #selector(installLatestTapped), for: .touchUpInside)
+
+        SoulSignTheme.styleSecondaryButton(exportIPAButton, title: "📤 导出 / 分享 IPA")
+        exportIPAButton.heightAnchor.constraint(equalToConstant: 46).isActive = true
+        exportIPAButton.addTarget(self, action: #selector(exportLatestTapped), for: .touchUpInside)
+
+        postSignStack.addArrangedSubview(installNowButton)
+        postSignStack.addArrangedSubview(exportIPAButton)
+        contentStack.addArrangedSubview(postSignStack)
     }
 
     private func setupIPACard() {
@@ -314,6 +340,7 @@ class SignViewController: UIViewController, UIDocumentPickerDelegate {
         progressView.isHidden = false
         progressView.progress = 0.15
         signButton.isEnabled = false
+        postSignStack.isHidden = true
         statusLabel.text = "1/4: 正在向苹果申请描述文件..."
 
         let deviceUDID = DeviceUDIDHelper.getDeviceUDID()
@@ -354,18 +381,38 @@ class SignViewController: UIViewController, UIDocumentPickerDelegate {
                     switch signResult {
                     case .success:
                         self.progressView.progress = 1.0
-                        self.statusLabel.text = "4/4: 签名完成！正在登记到应用库..."
+                        self.statusLabel.text = "4/4: 签名完成！正在生成已签名安装包..."
+
+                        let appName = self.customization.appName ?? ipaURL.deletingPathExtension().lastPathComponent
+                        let version = self.customization.version ?? "1.0.0"
+
+                        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+                        let signedDir = docs.appendingPathComponent("SignedIPAs", isDirectory: true)
+                        try? FileManager.default.createDirectory(at: signedDir, withIntermediateDirectories: true)
+                        let savedIPAURL = signedDir.appendingPathComponent("\(bundleID).ipa")
+
+                        try? FileManager.default.removeItem(at: savedIPAURL)
+                        if FileManager.default.fileExists(atPath: ipaURL.path) {
+                            try? FileManager.default.copyItem(at: ipaURL, to: savedIPAURL)
+                        } else {
+                            try? IPAPackager.shared.repackageIPA(workDir: workDir, outputIPAURL: savedIPAURL)
+                        }
 
                         let appRecord = SignedAppRecord(
                             bundleID: bundleID,
-                            appName: self.customization.appName ?? ipaURL.deletingPathExtension().lastPathComponent,
-                            version: self.customization.version ?? "1.0.0",
-                            appleIDEmail: account.email
+                            appName: appName,
+                            version: version,
+                            appleIDEmail: account.email,
+                            ipaPath: savedIPAURL.path
                         )
                         AppLibraryStore.shared.addOrUpdateRecord(appRecord)
-                        AppLogger.shared.log("签名完成并成功入库: \(bundleID) (\(appRecord.appName))", category: .signer)
+                        AppLogger.shared.log("签名完成并成功入库: \(bundleID) (\(appName)), 路径: \(savedIPAURL.lastPathComponent)", category: .signer)
 
-                        self.signingSuccess(bundleID: bundleID)
+                        self.lastSignedIPAURL = savedIPAURL
+                        self.lastSignedBundleID = bundleID
+                        self.lastSignedAppName = appName
+
+                        self.signingSuccess(bundleID: bundleID, appName: appName, savedIPAURL: savedIPAURL)
 
                     case .failure(let err):
                         AppLogger.shared.log("代码签名执行失败: \(err.localizedDescription)", category: .signer)
@@ -380,19 +427,47 @@ class SignViewController: UIViewController, UIDocumentPickerDelegate {
         }
     }
 
-    private func signingSuccess(bundleID: String) {
+    private func signingSuccess(bundleID: String, appName: String, savedIPAURL: URL) {
         signButton.isEnabled = true
         progressView.isHidden = true
-        statusLabel.text = "✅ 签名完成！"
+        postSignStack.isHidden = false
+        statusLabel.text = "✅ 签名完成！可点击下方按钮立即安装或导出"
         updateAccountCardUI()
 
         let alert = UIAlertController(
-            title: "🎉 签名成功",
-            message: "应用已使用 \(selectedAccount?.email ?? "") 签名成功！\n有效期 7 天，可在应用库随时一键续签。",
+            title: "🎉 签名成功！",
+            message: "应用【\(appName)】已使用 \(selectedAccount?.email ?? "") 签名成功！\n有效期 7 天，请选择操作：",
             preferredStyle: .alert
         )
-        alert.addAction(UIAlertAction(title: "确定", style: .default))
+        alert.addAction(UIAlertAction(title: "📲 立即安装到本机", style: .default, handler: { [weak self] _ in
+            self?.installLatestTapped()
+        }))
+        alert.addAction(UIAlertAction(title: "📤 导出 / 隔空投送 IPA", style: .default, handler: { [weak self] _ in
+            self?.exportLatestTapped()
+        }))
+        alert.addAction(UIAlertAction(title: "稍后安装", style: .cancel))
         present(alert, animated: true)
+    }
+
+    @objc private func installLatestTapped() {
+        guard let url = lastSignedIPAURL, let bundleID = lastSignedBundleID, let name = lastSignedAppName else {
+            showAlert(title: "提示", message: "尚未生成已签名的应用文件。")
+            return
+        }
+        LocalInstallServer.shared.installApp(ipaURL: url, bundleID: bundleID, title: name)
+    }
+
+    @objc private func exportLatestTapped() {
+        guard let url = lastSignedIPAURL else {
+            showAlert(title: "提示", message: "未找到已签名的 IPA 文件。")
+            return
+        }
+        let activity = UIActivityViewController(activityItems: [url], applicationActivities: nil)
+        if let popover = activity.popoverPresentationController {
+            popover.sourceView = exportIPAButton
+            popover.sourceRect = exportIPAButton.bounds
+        }
+        present(activity, animated: true)
     }
 
     private func signingFailed(_ reason: String) {

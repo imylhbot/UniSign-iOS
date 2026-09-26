@@ -34,6 +34,7 @@
 		A10000192C00000100000001 /* SettingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000192C00000100000001 /* SettingsViewController.swift */; };
 		A10000302C00000100000001 /* AppLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000302C00000100000001 /* AppLogger.swift */; };
 		A10000312C00000100000001 /* LogViewerViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000312C00000100000001 /* LogViewerViewController.swift */; };
+		A10000322C00000100000001 /* UDIDWebViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000322C00000100000001 /* UDIDWebViewController.swift */; };
 		A10000202C00000100000001 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B10000202C00000100000001 /* Assets.xcassets */; };
 		A10000212C00000100000001 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C10000012C00000100000001 /* Security.framework */; };
 		A10000222C00000100000001 /* Network.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C10000022C00000100000001 /* Network.framework */; };
@@ -68,6 +69,7 @@
 		B10000192C00000100000001 /* SettingsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsViewController.swift; sourceTree = "<group>"; };
 		B10000302C00000100000001 /* AppLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLogger.swift; sourceTree = "<group>"; };
 		B10000312C00000100000001 /* LogViewerViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LogViewerViewController.swift; sourceTree = "<group>"; };
+		B10000322C00000100000001 /* UDIDWebViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UDIDWebViewController.swift; sourceTree = "<group>"; };
 		B10000202C00000100000001 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		B10000212C00000100000001 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		C10000012C00000100000001 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
@@ -155,6 +157,7 @@
 				B10000182C00000100000001 /* AppLibraryViewController.swift */,
 				B10000192C00000100000001 /* SettingsViewController.swift */,
 				B10000312C00000100000001 /* LogViewerViewController.swift */,
+				B10000322C00000100000001 /* UDIDWebViewController.swift */,
 			);
 			path = UI;
 			sourceTree = "<group>";
@@ -268,6 +271,7 @@
 				A10000192C00000100000001 /* SettingsViewController.swift in Sources */,
 				A10000302C00000100000001 /* AppLogger.swift in Sources */,
 				A10000312C00000100000001 /* LogViewerViewController.swift in Sources */,
+				A10000322C00000100000001 /* UDIDWebViewController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -144,7 +144,9 @@ class SettingsViewController: UIViewController, UITableViewDataSource, UITableVi
                 alert.addAction(UIAlertAction(title: "关闭", style: .cancel))
                 present(alert, animated: true)
             } else if indexPath.row == 1 {
-                DeviceUDIDHelper.openUDIDAcquisitionInSafari()
+                let webVC = UDIDWebViewController()
+                let nav = UINavigationController(rootViewController: webVC)
+                present(nav, animated: true)
             } else {
                 promptManualUDID()
             }
@@ -174,21 +176,31 @@ class SettingsViewController: UIViewController, UITableViewDataSource, UITableVi
 
     private func promptManualUDID() {
         let alert = UIAlertController(
-            title: "手动设置真实物理 UDID",
-            message: "若通过网站 (https://udid.192688.xyz/) 获取了 UDID，请直接在此粘贴：",
+            title: "设置真实设备 UDID",
+            message: "可直接粘贴 25~40 位设备 UDID，或粘贴获取成功的完整网页网址 (如 https://udid.192688.xyz/result?udid=...)：",
             preferredStyle: .alert
         )
         alert.addTextField { tf in
-            tf.placeholder = "25~40 位设备 UDID"
-            if let pasteboard = UIPasteboard.general.string, pasteboard.count >= 24 {
+            tf.placeholder = "25~40 位 UDID 或结果网址"
+            if let pasteboard = UIPasteboard.general.string {
                 tf.text = pasteboard.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
             } else {
                 tf.text = DeviceUDIDHelper.getDeviceUDID()
             }
         }
-        alert.addAction(UIAlertAction(title: "保存", style: .default, handler: { [weak self] _ in
+        alert.addAction(UIAlertAction(title: "解析并保存", style: .default, handler: { [weak self] _ in
             if let text = alert.textFields?.first?.text?.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines), !text.isEmpty {
-                DeviceUDIDHelper.setCustomUDID(text)
+                if let parsed = DeviceUDIDHelper.parseUDIDResultURL(text) {
+                    DeviceUDIDHelper.setDeviceInfo(udid: parsed.udid, product: parsed.product)
+                } else if text.contains("udid=") {
+                    if let range = text.range(of: "udid=") {
+                        let sub = String(text[range.upperBound...])
+                        let udid = sub.components(separatedBy: "&").first ?? sub
+                        DeviceUDIDHelper.setCustomUDID(udid)
+                    }
+                } else {
+                    DeviceUDIDHelper.setCustomUDID(text)
+                }
                 self?.tableView.reloadData()
             }
         }))

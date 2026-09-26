@@ -38,6 +38,34 @@ class DeviceUDIDHelper {
         AppLogger.shared.log("已复制 UDID 到剪贴板: \(udid)", category: .server)
     }
 
+    private static let deviceProductKey = "SoulSign_DeviceProduct"
+
+    static func setDeviceInfo(udid: String, product: String? = nil) {
+        setCustomUDID(udid)
+        if let product = product, !product.isEmpty {
+            UserDefaults.standard.set(product, forKey: deviceProductKey)
+        }
+    }
+
+    static func getDeviceProduct() -> String? {
+        return UserDefaults.standard.string(forKey: deviceProductKey)
+    }
+
+    static func parseUDIDResultURL(_ urlString: String) -> (udid: String, product: String?, serial: String?, version: String?)? {
+        let clean = urlString.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
+        guard let url = URL(string: clean),
+              let comp = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
+            return nil
+        }
+        guard let udid = comp.queryItems?.first(where: { $0.name.lowercased() == "udid" })?.value, !udid.isEmpty else {
+            return nil
+        }
+        let product = comp.queryItems?.first(where: { $0.name.lowercased() == "product" })?.value
+        let serial = comp.queryItems?.first(where: { $0.name.lowercased() == "serial" })?.value
+        let version = comp.queryItems?.first(where: { $0.name.lowercased() == "version" })?.value
+        return (udid: udid, product: product, serial: serial, version: version)
+    }
+
     static func openUDIDAcquisitionInSafari() {
         AppLogger.shared.log("正在打开指定 UDID 获取网站: \(customUDIDURL)", category: .server)
         if let url = URL(string: customUDIDURL) {
