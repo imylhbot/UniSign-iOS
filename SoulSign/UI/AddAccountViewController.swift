@@ -126,7 +126,7 @@ class AddAccountViewController: UIViewController {
 
         setLoading(true)
 
-        GrandSlamClient.shared.authenticate(username: email, password: password) { [weak self] result in
+        GrandSlamClient.shared.authenticate(appleID: email, password: password) { [weak self] (result: Result<DeveloperSession, AuthError>) in
             guard let self = self else { return }
 
             switch result {
@@ -176,7 +176,7 @@ class AddAccountViewController: UIViewController {
             }
 
             self.setLoading(true)
-            GrandSlamClient.shared.submitTwoFactorCode(code: code) { result in
+            GrandSlamClient.shared.submitTwoFactorCode(code: code) { (result: Result<DeveloperSession, AuthError>) in
                 switch result {
                 case .success(let session):
                     DeveloperPortalAPI.shared.listTeams(session: session) { teamResult in

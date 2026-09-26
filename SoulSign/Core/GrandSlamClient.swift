@@ -30,6 +30,10 @@ class GrandSlamClient {
     static let shared = GrandSlamClient()
 
     private let authURL = URL(string: "https://gsa.apple.com/grandslam/GsService2")!
+    private var pendingAppleID: String?
+    private var pendingPassword: String?
+
+    private init() {}
 
     func authenticate(
         appleID: String,
@@ -37,6 +41,9 @@ class GrandSlamClient {
         twoFactorCode: String? = nil,
         completion: @escaping (Result<DeveloperSession, AuthError>) -> Void
     ) {
+        self.pendingAppleID = appleID
+        self.pendingPassword = password
+
         AnisetteProvider.shared.fetchAnisetteHeaders { anisetteHeaders in
             var request = URLRequest(url: self.authURL)
             request.httpMethod = "POST"
@@ -121,21 +128,22 @@ class GrandSlamClient {
                     return
                 }
 
-                let spsNode = responseNode["sps"] as? [String: Any] ?? [:]
-                let token = spsNode["token"] as? String ?? ""
-
+                // Extract authentication token
+                let spData = responseNode["sp-data"] as? String ?? ""
                 var cookies: [String: String] = [:]
                 if let fields = httpResponse.allHeaderFields as? [String: String],
-                   let url = response?.url {
-                    let parsedCookies = HTTPCookie.cookies(withResponseHeaderFields: fields, for: url)
-                    for cookie in parsedCookies {
-                        cookies[cookie.name] = cookie.value
+                   let setCookie = fields["Set-Cookie"] {
+                    for cookie in setCookie.components(separatedBy: ",") {
+                        let parts = cookie.components(separatedBy: ";")[0].components(separatedBy: "=")
+                        if parts.count == 2 {
+                            cookies[parts[0].trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)] = parts[1].trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
+                        }
                     }
                 }
 
                 let session = DeveloperSession(
                     appleID: appleID,
-                    authToken: token,
+                    authToken: spData,
                     cookies: cookies,
                     expirationDate: Date().addingTimeInterval(86400 * 7)
                 )
@@ -145,5 +153,24 @@ class GrandSlamClient {
                 }
             }.resume()
         }
+    }
+
+    func authenticate(
+        username: String,
+        password: String,
+        completion: @escaping (Result<DeveloperSession, AuthError>) -> Void
+    ) {
+        authenticate(appleID: username, password: password, twoFactorCode: nil, completion: completion)
+    }
+
+    func submitTwoFactorCode(
+        code: String,
+        completion: @escaping (Result<DeveloperSession, AuthError>) -> Void
+    ) {
+        guard let appleID = pendingAppleID, let password = pendingPassword else {
+            completion(.failure(.sessionExpired))
+            return
+        }
+        authenticate(appleID: appleID, password: password, twoFactorCode: code, completion: completion)
     }
 }

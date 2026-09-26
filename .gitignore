@@ -3,12 +3,16 @@ __pycache__/
 *.py[cod]
 *$py.class
 *.spec
-UniSign-Helper/build/
-UniSign-Helper/dist/
-UniSign-Helper/package/
-UniSign-Helper/bin/
+SoulSign-Helper/build/
+SoulSign-Helper/dist/
+SoulSign-Helper/package/
+SoulSign-Helper/bin/
 *.exe
 *.zip
+*.log
+check_ci*.py
+fetch_log*.py
+
 
 # Xcode / macOS
 .DS_Store
