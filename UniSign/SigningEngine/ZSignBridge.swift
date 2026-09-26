@@ -508,7 +508,7 @@ public class ZSignBridge {
             } else if cmd == LC_SEGMENT_64 {
                 if curOffset + 56 <= sliceData.count {
                     let segNameData = sliceData.subdata(in: (curOffset + 8)..<(curOffset + 24))
-                    if let segName = String(data: segNameData, encoding: .utf8), segName.hasPrefix("__LINKEDIT") {
+                    if segNameData.starts(with: [0x5f, 0x5f, 0x4c, 0x49, 0x4e, 0x4b, 0x45, 0x44, 0x49, 0x54]) { // __LINKEDIT
                         linkeditCmdOffset = curOffset
                         linkeditVMSize = Int(sliceData.readUInt64LE(at: curOffset + 32))
                         linkeditFileOff = Int(sliceData.readUInt64LE(at: curOffset + 40))
@@ -565,7 +565,7 @@ public class ZSignBridge {
         var entHash = Data(repeating: 0, count: 32)
         if !entitlementsData.isEmpty {
             entBlob = buildEntitlementsBlob(entitlementsData)
-            entHash = sha256(entitlementsData)
+            entHash = sha256(entBlob) // Must hash the whole fade7171 blob for Slot -5
         }
         
         // 3. Build CodeDirectory Blob
