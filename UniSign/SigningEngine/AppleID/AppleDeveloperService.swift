@@ -613,17 +613,6 @@ public class AppleDeveloperService {
             }
         }
         
-        // 3. "developer" dictionary from viewDeveloper
-        if let devDict = plist["developer"] as? [String: Any] {
-            let devId = ((devDict["developerId"] as? String) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-            let firstName = (devDict["firstName"] as? String) ?? (devDict["dsFirstName"] as? String) ?? ""
-            let lastName = (devDict["lastName"] as? String) ?? (devDict["dsLastName"] as? String) ?? ""
-            let devName = "\(firstName) \(lastName)".trimmingCharacters(in: .whitespaces)
-            if devId.count == 10 && !devId.starts(with: "TEAM") {
-                results.append((id: devId, name: devName.isEmpty ? "Personal Team" : "\(devName) (Personal Team)", status: "active"))
-            }
-        }
-        
         return results
     }
     
@@ -690,41 +679,17 @@ public class AppleDeveloperService {
             return
         }
         
-        // If not found and haven't tried fallback web host yet, try fallback host
-        if !triedFallback {
-            AppLogger.shared.log("主服务未返回团队，尝试通过开发者网页网关请求团队列表...", category: .appleID)
-            self.sendDeveloperRequest(action: "listTeams", session: session, parameters: [:], useFallbackHost: true) { [weak self] fallbackRes in
-                guard let self = self else { return }
-                self.processListTeamsResult(
-                    teamRes: fallbackRes,
-                    session: session,
-                    devRecordTeamId: devRecordTeamId,
-                    devRecordTeamName: devRecordTeamName,
-                    triedFallback: true,
-                    completion: completion
-                )
+        // If listTeams succeeded with 0 teams, clear any bogus cached teamID like VZDYQKQ2T7 or TEAMxxx
+        if case .success = teamRes {
+            AppleAccountManager.shared.updateTeam(for: session.appleID, teamID: "", teamName: "")
+            if var cur = self.currentSession, cur.appleID.lowercased() == session.appleID.lowercased() {
+                cur.teamID = nil
+                self.currentSession = cur
             }
-            return
-        }
-        
-        // If listTeams didn't yield a team, but viewDeveloper gave a valid 10-char teamId
-        if let devTeamId = devRecordTeamId, devTeamId.count == 10 {
-            let devName = devRecordTeamName ?? "\(session.appleID) (Personal Team)"
-            AppLogger.shared.log("✅ 使用 viewDeveloper 记录中获得的开发者团队 ID: \(devName) (\(devTeamId))", category: .appleID)
-            completion(.success((teamId: devTeamId, teamName: devName)))
-            return
-        }
-        
-        // If session already had a valid 10-character team ID (not dummy TEAMxxx)
-        if let existingId = session.teamID, existingId.count == 10, !existingId.starts(with: "TEAM") {
-            let existingName = session.teamName ?? "\(session.appleID) (Personal Team)"
-            AppLogger.shared.log("✅ 使用既有已绑定的有效开发者团队: \(existingName) (\(existingId))", category: .appleID)
-            completion(.success((teamId: existingId, teamName: existingName)))
-            return
         }
         
         // No valid team found
-        let errDesc = "未能从 Apple 获取有效的开发者团队 (Team ID)。请登录 developer.apple.com 确认是否已同意《Apple Developer Agreement》开发者协议以激活免费开发者团队。"
+        let errDesc = "当前 Apple ID (\(session.appleID)) 名下未检测到开发者团队 (Team)。若为新账号或普通 Apple ID，请使用电脑或手机浏览器打开 https://developer.apple.com/account/ 登录并同意《Apple Developer Agreement》协议，激活免费个人团队后重试。"
         AppLogger.shared.log("❌ \(errDesc)", category: .error)
         completion(.failure(.general(errDesc)))
     }
