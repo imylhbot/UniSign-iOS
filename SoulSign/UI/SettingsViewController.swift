@@ -54,9 +54,9 @@ class SettingsViewController: UIViewController, UITableViewDataSource, UITableVi
 
     func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
         switch section {
-        case 0: return "📱 设备 UDID 硬件凭据"
-        case 1: return "⚙️ SideStore 认证设置"
-        case 2: return "ℹ️ 关于 SoulSign"
+        case 0: return "设备 UDID 硬件凭据"
+        case 1: return "SideStore 认证设置"
+        case 2: return "关于 SoulSign"
         default: return nil
         }
     }
@@ -72,27 +72,27 @@ class SettingsViewController: UIViewController, UITableViewDataSource, UITableVi
                 cell.detailTextLabel?.text = String(DeviceUDIDHelper.getDeviceUDID().prefix(16)) + "..."
                 cell.accessoryType = .disclosureIndicator
             } else {
-                cell.textLabel?.text = "�?Safari 一键获取真实物�?UDID"
+                cell.textLabel?.text = "Safari 一键获取真实物理 UDID"
                 cell.textLabel?.textColor = SoulSignTheme.primary
                 cell.accessoryType = .disclosureIndicator
             }
 
         case 1:
             if indexPath.row == 0 {
-                cell.textLabel?.text = "Anisette 远程服务�?
+                cell.textLabel?.text = "Anisette 远程服务器"
                 cell.detailTextLabel?.text = AnisetteProvider.shared.customServerURL ?? "内置本地引擎"
                 cell.accessoryType = .disclosureIndicator
             } else {
-                cell.textLabel?.text = "🧹 清理应用临时缓存"
+                cell.textLabel?.text = "清理应用临时缓存"
                 cell.accessoryType = .disclosureIndicator
             }
 
         case 2:
             if indexPath.row == 0 {
                 cell.textLabel?.text = "系统版本要求"
-                cell.detailTextLabel?.text = "iOS 15.0 及更�?
+                cell.detailTextLabel?.text = "iOS 15.0 及更高"
             } else {
-                cell.textLabel?.text = "版本�?
+                cell.textLabel?.text = "版本号"
                 cell.detailTextLabel?.text = "SoulSign v2.5.0"
             }
 
@@ -133,7 +133,7 @@ class SettingsViewController: UIViewController, UITableViewDataSource, UITableVi
 
     private func promptCustomAnisette() {
         let alert = UIAlertController(
-            title: "配置 Anisette 服务�?,
+            title: "配置 Anisette 服务器",
             message: "默认使用内置本地引擎，如需接入 SideStore 外部 Provision 节点请在此输入：",
             preferredStyle: .alert
         )
@@ -142,8 +142,10 @@ class SettingsViewController: UIViewController, UITableViewDataSource, UITableVi
             tf.text = AnisetteProvider.shared.customServerURL
         }
         alert.addAction(UIAlertAction(title: "保存", style: .default, handler: { [weak self] _ in
-            let text = alert.textFields?.first?.text?.trimmingCharacters(in: .whitespacesAndNewlines)
-            AnisetteProvider.shared.customServerURL = text?.isEmpty == false ? text : nil
+            if let tfText = alert.textFields?.first?.text {
+                let text = tfText.trimmingCharacters(in: CharacterSetCharacterSet.whitespacesAndNewlines)
+                AnisetteProvider.shared.customServerURL = text.isEmpty ? nil : text
+            }
             self?.tableView.reloadData()
         }))
         alert.addAction(UIAlertAction(title: "恢复默认", style: .destructive, handler: { [weak self] _ in
@@ -159,7 +161,7 @@ class SettingsViewController: UIViewController, UITableViewDataSource, UITableVi
         try? FileManager.default.removeItem(at: tmp)
         try? FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
 
-        let alert = UIAlertController(title: "清理成功", message: "临时解包与签名缓存已全部清除�?, preferredStyle: .alert)
+        let alert = UIAlertController(title: "清理成功", message: "临时解包与签名缓存已全部清除。", preferredStyle: .alert)
         alert.addAction(UIAlertAction(title: "确定", style: .default))
         present(alert, animated: true)
     }

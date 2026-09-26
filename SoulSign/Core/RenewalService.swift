@@ -13,11 +13,11 @@ class RenewalService {
 
         var errorDescription: String? {
             switch self {
-            case .accountNotFound: return "未找到绑定的 Apple ID 账号"
-            case .sessionInvalid: return "Apple ID 会话已失效，请重新登�?
-            case .noAppsToRenew: return "当前账号名下暂无可续签的应用"
-            case .appNotFound: return "未找到目标应用记�?
-            case .renewalFailed(let msg): return "续签失败: \(msg)"
+            case .accountNotFound: return "鏈鎵惧埌缁戝畾鐨 Apple ID 璐﹀彿"
+            case .sessionInvalid: return "Apple ID 浼氳瘽宸插け鏁堬紝璇烽噸鏂扮櫥褰?
+            case .noAppsToRenew: return "褰撳墠璐﹀彿鍚嶄笅鏆傛棤鍙缁绛剧殑搴旂敤"
+            case .appNotFound: return "鏈鎵惧埌鐩鏍囧簲鐢ㄨ板?
+            case .renewalFailed(let msg): return "缁绛惧け璐: \(msg)"
             }
         }
     }

@@ -17,7 +17,7 @@ class DeviceUDIDHelper {
 
     /// Sets verified physical UDID
     static func setCustomUDID(_ udid: String) {
-        let cleaned = udid.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleaned = udid.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
         UserDefaults.standard.set(cleaned, forKey: udidKey)
     }
 

@@ -12,7 +12,7 @@ class AppCustomizerViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        title = "应用深度定制"
+        title = "搴旂敤娣卞害瀹氬埗"
         view.backgroundColor = SoulSignTheme.background
         setupNavigation()
         setupUI()
@@ -20,7 +20,7 @@ class AppCustomizerViewController: UIViewController {
 
     private func setupNavigation() {
         navigationItem.rightBarButtonItem = UIBarButtonItem(
-            title: "保存",
+            title: "淇濆瓨",
             style: .done,
             target: self,
             action: #selector(saveTapped)
@@ -33,24 +33,24 @@ class AppCustomizerViewController: UIViewController {
         view.addSubview(container)
         container.translatesAutoresizingMaskIntoConstraints = false
 
-        bundleIDField.placeholder = "Bundle Identifier (�? com.app.signed)"
+        bundleIDField.placeholder = "Bundle Identifier (濡? com.app.signed)"
         bundleIDField.text = customization.bundleID
         styleTextField(bundleIDField)
 
-        appNameField.placeholder = "应用显示名称"
+        appNameField.placeholder = "搴旂敤鏄剧ず鍚嶇О"
         appNameField.text = customization.appName
         styleTextField(appNameField)
 
-        versionField.placeholder = "版本�?(�? 1.0.0)"
+        versionField.placeholder = "鐗堟湰鍙?(濡? 1.0.0)"
         versionField.text = customization.version
         styleTextField(versionField)
 
-        minOSField.placeholder = "最低支�?iOS 版本 (�? 15.0)"
+        minOSField.placeholder = "鏈浣庢敮鎸?iOS 鐗堟湰 (濡? 15.0)"
         minOSField.text = customization.minimumOS
         styleTextField(minOSField)
 
         let switchLabel = UILabel()
-        switchLabel.text = "开启系统「文件」应用沙盒互�?
+        switchLabel.text = "寮鍚绯荤粺銆屾枃浠躲嶅簲鐢ㄦ矙鐩掍簰閫?
         switchLabel.font = UIFont.systemFont(ofSize: 14, weight: .medium)
 
         fileSharingSwitch.isOn = customization.enableFileSharing
@@ -101,10 +101,10 @@ class AppCustomizerViewController: UIViewController {
     }
 
     @objc private func saveTapped() {
-        customization.bundleID = bundleIDField.text?.trimmingCharacters(in: .whitespacesAndNewlines)
-        customization.appName = appNameField.text?.trimmingCharacters(in: .whitespacesAndNewlines)
-        customization.version = versionField.text?.trimmingCharacters(in: .whitespacesAndNewlines)
-        customization.minimumOS = minOSField.text?.trimmingCharacters(in: .whitespacesAndNewlines)
+        customization.bundleID = bundleIDField.text?.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
+        customization.appName = appNameField.text?.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
+        customization.version = versionField.text?.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
+        customization.minimumOS = minOSField.text?.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
         customization.enableFileSharing = fileSharingSwitch.isOn
 
         onSave?(customization)

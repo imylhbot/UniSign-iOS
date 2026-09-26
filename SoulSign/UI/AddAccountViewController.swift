@@ -9,14 +9,14 @@ class AddAccountViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        title = "添加 Apple ID"
+        title = "娣诲姞 Apple ID"
         view.backgroundColor = SoulSignTheme.background
         setupUI()
     }
 
     private func setupUI() {
         navigationItem.leftBarButtonItem = UIBarButtonItem(
-            title: "取消",
+            title: "鍙栨秷",
             style: .plain,
             target: self,
             action: #selector(cancelTapped)
@@ -27,17 +27,17 @@ class AddAccountViewController: UIViewController {
         view.addSubview(container)
         container.translatesAutoresizingMaskIntoConstraints = false
 
-        styleTextField(emailField, placeholder: "Apple ID 账号 (邮箱)")
+        styleTextField(emailField, placeholder: "Apple ID 璐﹀彿 (閭绠)")
         emailField.keyboardType = .emailAddress
         emailField.autocapitalizationType = .none
 
-        styleTextField(passwordField, placeholder: "Apple ID 密码")
+        styleTextField(passwordField, placeholder: "Apple ID 瀵嗙爜")
         passwordField.isSecureTextEntry = true
 
-        SoulSignTheme.stylePrimaryButton(loginButton, title: "登录并授�?)
+        SoulSignTheme.stylePrimaryButton(loginButton, title: "鐧诲綍骞舵巿鏉?)
         loginButton.addTarget(self, action: #selector(loginTapped), for: .touchUpInside)
 
-        webLoginButton.setTitle("🌐 遇到风控？使用网页版 WebAuth 登录", for: .normal)
+        webLoginButton.setTitle("馃寪 閬囧埌椋庢帶锛熶娇鐢ㄧ綉椤电増 WebAuth 鐧诲綍", for: .normal)
         webLoginButton.titleLabel?.font = UIFont.systemFont(ofSize: 13, weight: .medium)
         webLoginButton.setTitleColor(SoulSignTheme.primary, for: .normal)
         webLoginButton.addTarget(self, action: #selector(webLoginTapped), for: .touchUpInside)
@@ -90,13 +90,13 @@ class AddAccountViewController: UIViewController {
     }
 
     @objc private func loginTapped() {
-        guard let email = emailField.text?.trimmingCharacters(in: .whitespacesAndNewlines), !email.isEmpty else {
-            showAlert(title: "提示", message: "请输入有效的 Apple ID 账号�?)
+        guard let email = emailField.text?.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines), !email.isEmpty else {
+            showAlert(title: "鎻愮ず", message: "璇疯緭鍏ユ湁鏁堢殑 Apple ID 璐﹀彿銆?)
             return
         }
 
         guard let pwd = passwordField.text, !pwd.isEmpty else {
-            showAlert(title: "提示", message: "请输�?Apple ID 密码�?)
+            showAlert(title: "鎻愮ず", message: "璇疯緭鍏?Apple ID 瀵嗙爜銆?)
             return
         }
 
@@ -137,7 +137,7 @@ class AddAccountViewController: UIViewController {
                 if case .twoFactorRequired = error {
                     self?.promptFor2FACode(email: email, password: password)
                 } else {
-                    self?.showAlert(title: "登录失败", message: error.localizedDescription)
+                    self?.showAlert(title: "鐧诲綍澶辫触", message: error.localizedDescription)
                 }
             }
         }
@@ -145,23 +145,23 @@ class AddAccountViewController: UIViewController {
 
     private func promptFor2FACode(email: String, password: String) {
         let alert = UIAlertController(
-            title: "双重认证 (2FA)",
-            message: "已向您的受信�?Apple 设备发送了 6 位验证码，请输入以继续：",
+            title: "鍙岄噸璁よ瘉 (2FA)",
+            message: "宸插悜鎮ㄧ殑鍙椾俊浠?Apple 璁惧囧彂閫佷簡 6 浣嶉獙璇佺爜锛岃疯緭鍏ヤ互缁х画锛",
             preferredStyle: .alert
         )
 
         alert.addTextField { tf in
-            tf.placeholder = "6 位数字验证码"
+            tf.placeholder = "6 浣嶆暟瀛楅獙璇佺爜"
             tf.keyboardType = .numberPad
             tf.textAlignment = .center
         }
 
-        alert.addAction(UIAlertAction(title: "确认", style: .default, handler: { [weak self] _ in
-            let code = alert.textFields?.first?.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        alert.addAction(UIAlertAction(title: "纭璁", style: .default, handler: { [weak self] _ in
+            let code = alert.textFields?.first?.text?.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines) ?? ""
             self?.performLogin(email: email, password: password, twoFactorCode: code)
         }))
 
-        alert.addAction(UIAlertAction(title: "取消", style: .cancel))
+        alert.addAction(UIAlertAction(title: "鍙栨秷", style: .cancel))
         present(alert, animated: true)
     }
 
@@ -185,7 +185,7 @@ class AddAccountViewController: UIViewController {
 
     private func showAlert(title: String, message: String) {
         let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "确定", style: .default))
+        alert.addAction(UIAlertAction(title: "纭瀹", style: .default))
         present(alert, animated: true)
     }
 }

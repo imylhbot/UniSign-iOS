@@ -46,7 +46,7 @@ class AccountCardCell: UITableViewCell {
         emailLabel.font = UIFont.systemFont(ofSize: 17, weight: .bold)
         emailLabel.textColor = .label
 
-        activeBadge.text = "活跃签名账号"
+        activeBadge.text = "娲昏穬绛惧悕璐﹀彿"
         activeBadge.font = UIFont.systemFont(ofSize: 11, weight: .semibold)
         activeBadge.textColor = .white
         activeBadge.backgroundColor = SoulSignTheme.primary
@@ -64,7 +64,7 @@ class AccountCardCell: UITableViewCell {
         teamLabel.textColor = SoulSignTheme.secondaryText
 
         // Quota Section
-        quotaTitleLabel.text = "3-App 开发者签名配�?"
+        quotaTitleLabel.text = "3-App 寮鍙戣呯惧悕閰嶉?"
         quotaTitleLabel.font = UIFont.systemFont(ofSize: 13, weight: .medium)
         quotaTitleLabel.textColor = .secondaryLabel
 
@@ -93,13 +93,13 @@ class AccountCardCell: UITableViewCell {
         statusRow.alignment = .center
 
         // Action Buttons Row
-        styleActionButton(checkButton, title: "🔍 检测有效�?, color: SoulSignTheme.primary)
+        styleActionButton(checkButton, title: "馃攳 妫娴嬫湁鏁堟?, color: SoulSignTheme.primary)
         checkButton.addTarget(self, action: #selector(checkTapped), for: .touchUpInside)
 
-        styleActionButton(renewButton, title: "�?一键续�?, color: SoulSignTheme.success)
+        styleActionButton(renewButton, title: "鈿?涓閿缁绛?, color: SoulSignTheme.success)
         renewButton.addTarget(self, action: #selector(renewTapped), for: .touchUpInside)
 
-        styleActionButton(moreButton, title: "••�?更多", color: .systemGray)
+        styleActionButton(moreButton, title: "鈥⑩⑩?鏇村", color: .systemGray)
         moreButton.addTarget(self, action: #selector(moreTapped), for: .touchUpInside)
 
         let buttonRow = UIStackView(arrangedSubviews: [checkButton, renewButton, moreButton])
@@ -152,15 +152,15 @@ class AccountCardCell: UITableViewCell {
         emailLabel.text = account.email
         activeBadge.isHidden = !account.isActive
 
-        let team = account.teamName ?? account.teamID ?? "个人开发者团�?
-        teamLabel.text = "团队: \(team)"
+        let team = account.teamName ?? account.teamID ?? "涓浜哄紑鍙戣呭洟闃?
+        teamLabel.text = "鍥㈤槦: \(team)"
 
         // Configure 3-App Quota
         let used = AccountManager.shared.activeAppsCount(for: account.email)
         let total = AccountManager.maxQuotaPerAccount
         let remaining = AccountManager.shared.remainingQuota(for: account.email)
 
-        quotaCountLabel.text = "\(used)/\(total) (可用: \(remaining) �?"
+        quotaCountLabel.text = "\(used)/\(total) (鍙鐢: \(remaining) 涓?"
         quotaProgressView.progress = Float(used) / Float(total)
 
         if used >= total {
@@ -194,9 +194,9 @@ class AccountCardCell: UITableViewCell {
         if let lastChecked = account.lastCheckedDate {
             let df = DateFormatter()
             df.dateFormat = "MM-dd HH:mm"
-            lastCheckedLabel.text = "检测于: \(df.string(from: lastChecked))"
+            lastCheckedLabel.text = "妫娴嬩簬: \(df.string(from: lastChecked))"
         } else {
-            lastCheckedLabel.text = "尚未检�?
+            lastCheckedLabel.text = "灏氭湭妫娴?
         }
     }
 

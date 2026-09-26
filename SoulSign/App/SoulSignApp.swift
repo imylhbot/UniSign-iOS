@@ -58,7 +58,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                    let udidValue = udidItem.value, !udidValue.isEmpty {
                     DeviceUDIDHelper.setCustomUDID(udidValue)
                     NotificationCenter.default.post(name: NSNotification.Name("SoulSignUDIDUpdatedNotification"), object: nil)
-                    print("[SoulSign] 成功�?URL Scheme 接收并同步设备真�?UDID: \(udidValue)")
+                    print("[SoulSign] 鎴愬姛浠?URL Scheme 鎺ユ敹骞跺悓姝ヨ惧囩湡鏈?UDID: \(udidValue)")
                     return
                 }
             }
@@ -69,7 +69,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         let tempDest = FileManager.default.temporaryDirectory.appendingPathComponent(url.lastPathComponent)
         try? FileManager.default.removeItem(at: tempDest)
         try? FileManager.default.copyItem(at: url, to: tempDest)
-        print("[SoulSign] 接收到外部导入文�? \(tempDest.path)")
+        print("[SoulSign] 鎺ユ敹鍒板栭儴瀵煎叆鏂囦? \(tempDest.path)")
         NotificationCenter.default.post(name: NSNotification.Name("SoulSignFileImportedNotification"), object: tempDest)
     }
 }

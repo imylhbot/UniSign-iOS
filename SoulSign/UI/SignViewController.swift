@@ -24,7 +24,7 @@ class SignViewController: UIViewController, UIDocumentPickerDelegate {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        title = "签名工作�?
+        title = "绛惧悕宸ヤ綔鍙?
         view.backgroundColor = SoulSignTheme.background
         setupNavigation()
         setupUI()
@@ -75,7 +75,7 @@ class SignViewController: UIViewController, UIDocumentPickerDelegate {
         contentStack.addArrangedSubview(accountCard)
 
         // 3. Customization Button
-        customizeButton.setTitle("🛠�?深度定制 (修改 Bundle ID / 名称 / 注入插件)", for: .normal)
+        customizeButton.setTitle("馃洜锔?娣卞害瀹氬埗 (淇鏀 Bundle ID / 鍚嶇О / 娉ㄥ叆鎻掍欢)", for: .normal)
         customizeButton.titleLabel?.font = UIFont.systemFont(ofSize: 14, weight: .semibold)
         customizeButton.setTitleColor(SoulSignTheme.primary, for: .normal)
         customizeButton.backgroundColor = SoulSignTheme.primary.withAlphaComponent(0.1)
@@ -85,7 +85,7 @@ class SignViewController: UIViewController, UIDocumentPickerDelegate {
         contentStack.addArrangedSubview(customizeButton)
 
         // 4. Sign Action Button
-        SoulSignTheme.stylePrimaryButton(signButton, title: "🚀 开始签名并安装到本�?)
+        SoulSignTheme.stylePrimaryButton(signButton, title: "馃殌 寮濮嬬惧悕骞跺畨瑁呭埌鏈鏈?)
         signButton.heightAnchor.constraint(equalToConstant: 50).isActive = true
         signButton.addTarget(self, action: #selector(signTapped), for: .touchUpInside)
         contentStack.addArrangedSubview(signButton)
@@ -104,15 +104,15 @@ class SignViewController: UIViewController, UIDocumentPickerDelegate {
 
     private func setupIPACard() {
         SoulSignTheme.styleCardView(ipaCard)
-        ipaNameLabel.text = "尚未选择 IPA 安装�?
+        ipaNameLabel.text = "灏氭湭閫夋嫨 IPA 瀹夎呭?
         ipaNameLabel.font = UIFont.systemFont(ofSize: 16, weight: .bold)
         ipaNameLabel.textColor = .label
 
-        ipaSizeLabel.text = "点击下方按钮从系统「文件」选择或隔空投�?IPA"
+        ipaSizeLabel.text = "鐐瑰嚮涓嬫柟鎸夐挳浠庣郴缁熴屾枃浠躲嶉夋嫨鎴栭殧绌烘姇閫?IPA"
         ipaSizeLabel.font = UIFont.systemFont(ofSize: 12, weight: .regular)
         ipaSizeLabel.textColor = SoulSignTheme.secondaryText
 
-        selectIPAButton.setTitle("📁 选取待签 IPA", for: .normal)
+        selectIPAButton.setTitle("馃搧 閫夊彇寰呯 IPA", for: .normal)
         selectIPAButton.titleLabel?.font = UIFont.systemFont(ofSize: 14, weight: .semibold)
         selectIPAButton.setTitleColor(.white, for: .normal)
         selectIPAButton.backgroundColor = SoulSignTheme.primary
@@ -138,7 +138,7 @@ class SignViewController: UIViewController, UIDocumentPickerDelegate {
         SoulSignTheme.styleCardView(accountCard)
 
         let titleLabel = UILabel()
-        titleLabel.text = "当前签名 Apple ID"
+        titleLabel.text = "褰撳墠绛惧悕 Apple ID"
         titleLabel.font = UIFont.systemFont(ofSize: 13, weight: .semibold)
         titleLabel.textColor = SoulSignTheme.secondaryText
 
@@ -148,7 +148,7 @@ class SignViewController: UIViewController, UIDocumentPickerDelegate {
         accountQuotaLabel.font = UIFont.systemFont(ofSize: 13, weight: .medium)
         accountStatusLabel.font = UIFont.systemFont(ofSize: 12, weight: .semibold)
 
-        changeAccountButton.setTitle("🔄 切换账号", for: .normal)
+        changeAccountButton.setTitle("馃攧 鍒囨崲璐﹀彿", for: .normal)
         changeAccountButton.titleLabel?.font = UIFont.systemFont(ofSize: 13, weight: .semibold)
         changeAccountButton.setTitleColor(SoulSignTheme.primary, for: .normal)
         changeAccountButton.addTarget(self, action: #selector(changeAccountTapped), for: .touchUpInside)
@@ -184,10 +184,10 @@ class SignViewController: UIViewController, UIDocumentPickerDelegate {
 
     private func updateAccountCardUI() {
         guard let acc = selectedAccount else {
-            accountEmailLabel.text = "未登�?Apple ID"
-            accountQuotaLabel.text = "请前往「账号中心」添�?
+            accountEmailLabel.text = "鏈鐧诲?Apple ID"
+            accountQuotaLabel.text = "璇峰墠寰銆岃处鍙蜂腑蹇冦嶆坊鍔?
             accountQuotaLabel.textColor = .secondaryLabel
-            accountStatusLabel.text = "�?未检�?
+            accountStatusLabel.text = "鈿?鏈妫娴?
             accountStatusLabel.textColor = .secondaryLabel
             return
         }
@@ -197,14 +197,14 @@ class SignViewController: UIViewController, UIDocumentPickerDelegate {
         let total = AccountManager.maxQuotaPerAccount
         let remaining = AccountManager.shared.remainingQuota(for: acc.email)
 
-        accountQuotaLabel.text = "配额占用: \(used)/\(total) (可用: \(remaining) �?"
+        accountQuotaLabel.text = "閰嶉濆崰鐢: \(used)/\(total) (鍙鐢: \(remaining) 涓?"
         if used >= total {
             accountQuotaLabel.textColor = SoulSignTheme.danger
         } else {
             accountQuotaLabel.textColor = SoulSignTheme.success
         }
 
-        accountStatusLabel.text = "会话: \(acc.sessionStatus.title)"
+        accountStatusLabel.text = "浼氳瘽: \(acc.sessionStatus.title)"
         accountStatusLabel.textColor = (acc.sessionStatus == .valid) ? SoulSignTheme.success : SoulSignTheme.danger
     }
 
@@ -222,28 +222,28 @@ class SignViewController: UIViewController, UIDocumentPickerDelegate {
         if let attrs = try? FileManager.default.attributesOfItem(atPath: url.path),
            let size = attrs[.size] as? Int64 {
             let mb = Double(size) / (1024.0 * 1024.0)
-            ipaSizeLabel.text = String(format: "大小: %.1f MB", mb)
+            ipaSizeLabel.text = String(format: "澶у皬: %.1f MB", mb)
         }
     }
 
     @objc private func changeAccountTapped() {
         let accounts = AccountManager.shared.getAllAccounts()
         guard !accounts.isEmpty else {
-            showAlert(title: "提示", message: "尚未添加任何 Apple ID 账号，请在账号管理中心添加�?)
+            showAlert(title: "鎻愮ず", message: "灏氭湭娣诲姞浠讳綍 Apple ID 璐﹀彿锛岃峰湪璐﹀彿绠＄悊涓蹇冩坊鍔犮?)
             return
         }
 
-        let sheet = UIAlertController(title: "选择签名 Apple ID", message: "每个账号最多允许签名激�?3 �?App", preferredStyle: .actionSheet)
+        let sheet = UIAlertController(title: "閫夋嫨绛惧悕 Apple ID", message: "姣忎釜璐﹀彿鏈澶氬厑璁哥惧悕婵娲?3 涓?App", preferredStyle: .actionSheet)
         for acc in accounts {
             let used = AccountManager.shared.activeAppsCount(for: acc.email)
             let total = AccountManager.maxQuotaPerAccount
-            let title = "\(acc.email) [配额: \(used)/\(total)] (\(acc.sessionStatus.title))"
+            let title = "\(acc.email) [閰嶉: \(used)/\(total)] (\(acc.sessionStatus.title))"
             sheet.addAction(UIAlertAction(title: title, style: .default, handler: { [weak self] _ in
                 self?.selectedAccount = acc
                 self?.updateAccountCardUI()
             }))
         }
-        sheet.addAction(UIAlertAction(title: "取消", style: .cancel))
+        sheet.addAction(UIAlertAction(title: "鍙栨秷", style: .cancel))
         present(sheet, animated: true)
     }
 
@@ -258,12 +258,12 @@ class SignViewController: UIViewController, UIDocumentPickerDelegate {
 
     @objc private func signTapped() {
         guard let ipaURL = selectedIPAURL else {
-            showAlert(title: "提示", message: "请先选择需要签名的 IPA 文件�?)
+            showAlert(title: "鎻愮ず", message: "璇峰厛閫夋嫨闇瑕佺惧悕鐨 IPA 鏂囦欢銆?)
             return
         }
 
         guard let account = selectedAccount else {
-            showAlert(title: "提示", message: "请先在账号中心登�?Apple ID�?)
+            showAlert(title: "鎻愮ず", message: "璇峰厛鍦ㄨ处鍙蜂腑蹇冪櫥褰?Apple ID銆?)
             return
         }
 
@@ -272,20 +272,20 @@ class SignViewController: UIViewController, UIDocumentPickerDelegate {
         // 3-App Quota Interception
         if !AccountManager.shared.canSignNewApp(email: account.email, bundleID: targetBundleID) {
             let alert = UIAlertController(
-                title: "⚠️ 签名配额已满 (3/3)",
-                message: "当前 Apple ID (\(account.email)) 绑定的应用数已达苹果免费配额上限 (3 �?！\n\n请在上方切换到其他有空闲配额�?Apple ID，或前往「应用库」删除不再使用的应用�?,
+                title: "鈿狅笍 绛惧悕閰嶉濆凡婊 (3/3)",
+                message: "褰撳墠 Apple ID (\(account.email)) 缁戝畾鐨勫簲鐢ㄦ暟宸茶揪鑻规灉鍏嶈垂閰嶉濅笂闄 (3 涓?锛乗n\n璇峰湪涓婃柟鍒囨崲鍒板叾浠栨湁绌洪棽閰嶉濈?Apple ID锛屾垨鍓嶅線銆屽簲鐢ㄥ簱銆嶅垹闄や笉鍐嶄娇鐢ㄧ殑搴旂敤銆?,
                 preferredStyle: .alert
             )
-            alert.addAction(UIAlertAction(title: "切换其他账号", style: .default, handler: { [weak self] _ in
+            alert.addAction(UIAlertAction(title: "鍒囨崲鍏朵粬璐﹀彿", style: .default, handler: { [weak self] _ in
                 self?.changeAccountTapped()
             }))
-            alert.addAction(UIAlertAction(title: "我知道了", style: .cancel))
+            alert.addAction(UIAlertAction(title: "鎴戠煡閬撲簡", style: .cancel))
             present(alert, animated: true)
             return
         }
 
         guard let session = AccountManager.shared.getSession(for: account.email) else {
-            showAlert(title: "会话失效", message: "当前账号会话已失效，请在账号中心重新登录�?)
+            showAlert(title: "浼氳瘽澶辨晥", message: "褰撳墠璐﹀彿浼氳瘽宸插け鏁堬紝璇峰湪璐﹀彿涓蹇冮噸鏂扮櫥褰曘?)
             return
         }
 
@@ -296,7 +296,7 @@ class SignViewController: UIViewController, UIDocumentPickerDelegate {
         progressView.isHidden = false
         progressView.progress = 0.15
         signButton.isEnabled = false
-        statusLabel.text = "1/4: 正在向苹果申请描述文�?.."
+        statusLabel.text = "1/4: 姝ｅ湪鍚戣嫻鏋滅敵璇锋弿杩版枃浠?.."
 
         let deviceUDID = DeviceUDIDHelper.getDeviceUDID()
 
@@ -310,18 +310,18 @@ class SignViewController: UIViewController, UIDocumentPickerDelegate {
             switch result {
             case .success(let profileData):
                 self.progressView.progress = 0.50
-                self.statusLabel.text = "2/4: 正在解包并应用定制参�?.."
+                self.statusLabel.text = "2/4: 姝ｅ湪瑙ｅ寘骞跺簲鐢ㄥ畾鍒跺弬鏁?.."
 
                 let workDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
                 guard let appBundle = try? IPAPackager.shared.unpackIPA(ipaURL: ipaURL, workDir: workDir) else {
-                    self.signingFailed("解包 IPA 失败")
+                    self.signingFailed("瑙ｅ寘 IPA 澶辫触")
                     return
                 }
 
                 IPAPackager.shared.applyCustomizations(appBundleURL: appBundle, customization: self.customization)
 
                 self.progressView.progress = 0.75
-                self.statusLabel.text = "3/4: 正在生成 Mach-O 代码签名..."
+                self.statusLabel.text = "3/4: 姝ｅ湪鐢熸垚 Mach-O 浠ｇ爜绛惧悕..."
 
                 CodeSigner.shared.signAppBundle(
                     appBundleURL: appBundle,
@@ -332,7 +332,7 @@ class SignViewController: UIViewController, UIDocumentPickerDelegate {
                     switch signResult {
                     case .success:
                         self.progressView.progress = 1.0
-                        self.statusLabel.text = "4/4: 签名完成！正在登记到应用�?.."
+                        self.statusLabel.text = "4/4: 绛惧悕瀹屾垚锛佹ｅ湪鐧昏板埌搴旂敤搴?.."
 
                         // Save to library
                         let appRecord = SignedAppRecord(
@@ -359,28 +359,28 @@ class SignViewController: UIViewController, UIDocumentPickerDelegate {
     private func signingSuccess(bundleID: String) {
         signButton.isEnabled = true
         progressView.isHidden = true
-        statusLabel.text = "�?签名完成�?
+        statusLabel.text = "鉁?绛惧悕瀹屾垚锛?
         updateAccountCardUI()
 
         let alert = UIAlertController(
-            title: "🎉 签名成功",
-            message: "应用已使�?\(selectedAccount?.email ?? "") 签名成功！\n有效�?7 天，可在应用库随时一键续签�?,
+            title: "馃帀 绛惧悕鎴愬姛",
+            message: "搴旂敤宸蹭娇鐢?\(selectedAccount?.email ?? "") 绛惧悕鎴愬姛锛乗n鏈夋晥鏈?7 澶╋紝鍙鍦ㄥ簲鐢ㄥ簱闅忔椂涓閿缁绛俱?,
             preferredStyle: .alert
         )
-        alert.addAction(UIAlertAction(title: "确定", style: .default))
+        alert.addAction(UIAlertAction(title: "纭瀹", style: .default))
         present(alert, animated: true)
     }
 
     private func signingFailed(_ reason: String) {
         signButton.isEnabled = true
         progressView.isHidden = true
-        statusLabel.text = "�?签名中断"
-        showAlert(title: "签名失败", message: reason)
+        statusLabel.text = "鉂?绛惧悕涓鏂"
+        showAlert(title: "绛惧悕澶辫触", message: reason)
     }
 
     private func showAlert(title: String, message: String) {
         let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "确定", style: .default))
+        alert.addAction(UIAlertAction(title: "纭瀹", style: .default))
         present(alert, animated: true)
     }
 }

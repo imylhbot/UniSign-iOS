@@ -2,17 +2,17 @@ import Foundation
 
 /// Lifecycle session status of an Apple Developer Account
 enum SessionStatus: String, Codable {
-    case valid              // 🟢 Session active & valid
-    case expired            // 🔴 Session expired / cookie revoked
-    case twoFactorRequired  // 🟡 2FA Challenge pending
-    case unchecked          // �?Not checked yet
+    case valid              // 馃煝 Session active & valid
+    case expired            // 馃敶 Session expired / cookie revoked
+    case twoFactorRequired  // 馃煛 2FA Challenge pending
+    case unchecked          // 鈿?Not checked yet
 
     var title: String {
         switch self {
-        case .valid: return "有效"
-        case .expired: return "会话已失�?
-        case .twoFactorRequired: return "需 2FA 验证"
-        case .unchecked: return "未检�?
+        case .valid: return "鏈夋晥"
+        case .expired: return "浼氳瘽宸插け鏁?
+        case .twoFactorRequired: return "闇 2FA 楠岃瘉"
+        case .unchecked: return "鏈妫娴?
         }
     }
 

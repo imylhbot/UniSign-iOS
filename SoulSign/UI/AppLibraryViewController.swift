@@ -6,7 +6,7 @@ class AppLibraryViewController: UIViewController, UITableViewDataSource, UITable
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        title = "应用�?
+        title = "搴旂敤搴?
         view.backgroundColor = SoulSignTheme.background
         setupNavigation()
         setupTableView()
@@ -24,7 +24,7 @@ class AppLibraryViewController: UIViewController, UITableViewDataSource, UITable
         navigationController?.navigationBar.prefersLargeTitles = true
 
         let renewAllButton = UIBarButtonItem(
-            title: "�?一键续签全�?,
+            title: "鈿?涓閿缁绛惧叏閮?,
             style: .plain,
             target: self,
             action: #selector(renewAllTapped)
@@ -56,24 +56,24 @@ class AppLibraryViewController: UIViewController, UITableViewDataSource, UITable
     // MARK: - Actions
     @objc private func renewAllTapped() {
         guard !apps.isEmpty else {
-            showAlert(title: "提示", message: "应用库中暂无已签名的应用�?)
+            showAlert(title: "鎻愮ず", message: "搴旂敤搴撲腑鏆傛棤宸茬惧悕鐨勫簲鐢ㄣ?)
             return
         }
 
-        let progressAlert = UIAlertController(title: "�?一键续签全�?, message: "正在刷新所有应�?7 天证�?..", preferredStyle: .alert)
+        let progressAlert = UIAlertController(title: "鈿?涓閿缁绛惧叏閮?, message: "姝ｅ湪鍒锋柊鎵鏈夊簲鐢?7 澶╄瘉涔?..", preferredStyle: .alert)
         present(progressAlert, animated: true)
 
         RenewalService.shared.renewAllApps(
             progress: { cur, total, name in
-                progressAlert.message = "正在续签�?\(cur)/\(total) 个应�? \(name)..."
+                progressAlert.message = "姝ｅ湪缁绛剧?\(cur)/\(total) 涓搴旂? \(name)..."
             },
             completion: { [weak self] result in
                 progressAlert.dismiss(animated: true) {
                     switch result {
                     case .success(let count):
-                        self?.showAlert(title: "续签完成", message: "成功刷新 \(count) 个应用的 7 天有效期�?)
+                        self?.showAlert(title: "缁绛惧畬鎴", message: "鎴愬姛鍒锋柊 \(count) 涓搴旂敤鐨 7 澶╂湁鏁堟湡锛?)
                     case .failure(let err):
-                        self?.showAlert(title: "续签失败", message: err.localizedDescription)
+                        self?.showAlert(title: "缁绛惧け璐", message: err.localizedDescription)
                     }
                     self?.loadData()
                 }
@@ -82,16 +82,16 @@ class AppLibraryViewController: UIViewController, UITableViewDataSource, UITable
     }
 
     private func renewSingleApp(_ app: SignedAppRecord) {
-        let progressAlert = UIAlertController(title: "�?正在续签", message: "正在刷新 \(app.appName) 7 天证�?..", preferredStyle: .alert)
+        let progressAlert = UIAlertController(title: "鈿?姝ｅ湪缁绛", message: "姝ｅ湪鍒锋柊 \(app.appName) 7 澶╄瘉涔?..", preferredStyle: .alert)
         present(progressAlert, animated: true)
 
         RenewalService.shared.renewSingleApp(bundleID: app.bundleID) { [weak self] result in
             progressAlert.dismiss(animated: true) {
                 switch result {
                 case .success:
-                    self?.showAlert(title: "续签成功", message: "\(app.appName) 已成功续�?7 天！")
+                    self?.showAlert(title: "缁绛炬垚鍔", message: "\(app.appName) 宸叉垚鍔熺画鏈?7 澶╋紒")
                 case .failure(let err):
-                    self?.showAlert(title: "续签失败", message: err.localizedDescription)
+                    self?.showAlert(title: "缁绛惧け璐", message: err.localizedDescription)
                 }
                 self?.loadData()
             }
@@ -100,7 +100,7 @@ class AppLibraryViewController: UIViewController, UITableViewDataSource, UITable
 
     private func showAlert(title: String, message: String) {
         let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "确定", style: .default))
+        alert.addAction(UIAlertAction(title: "纭瀹", style: .default))
         present(alert, animated: true)
     }
 
@@ -108,7 +108,7 @@ class AppLibraryViewController: UIViewController, UITableViewDataSource, UITable
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         if apps.isEmpty {
             let label = UILabel()
-            label.text = "暂无已签名应用\n请在「签名」页面导�?IPA 体验极速签�?
+            label.text = "鏆傛棤宸茬惧悕搴旂敤\n璇峰湪銆岀惧悕銆嶉〉闈㈠煎?IPA 浣撻獙鏋侀熺惧?
             label.numberOfLines = 2
             label.textAlignment = .center
             label.textColor = .secondaryLabel
@@ -127,8 +127,8 @@ class AppLibraryViewController: UIViewController, UITableViewDataSource, UITable
         cell.textLabel?.font = UIFont.systemFont(ofSize: 16, weight: .bold)
 
         let days = app.remainingDays
-        let statusStr = app.isExpired ? "🔴 已过�? : "🟢 剩余 \(days) �?
-        cell.detailTextLabel?.text = "账号: \(app.appleIDEmail) · \(app.bundleID) · \(statusStr)"
+        let statusStr = app.isExpired ? "馃敶 宸茶繃鏈? : "馃煝 鍓╀綑 \(days) 澶?
+        cell.detailTextLabel?.text = "璐﹀彿: \(app.appleIDEmail) 路 \(app.bundleID) 路 \(statusStr)"
         cell.detailTextLabel?.textColor = app.isExpired ? SoulSignTheme.danger : SoulSignTheme.secondaryText
         cell.accessoryType = .disclosureIndicator
 
@@ -138,13 +138,13 @@ class AppLibraryViewController: UIViewController, UITableViewDataSource, UITable
     func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
         let app = apps[indexPath.row]
 
-        let renewAction = UIContextualAction(style: .normal, title: "�?续签") { [weak self] _, _, completionHandler in
+        let renewAction = UIContextualAction(style: .normal, title: "鈿?缁绛") { [weak self] _, _, completionHandler in
             self?.renewSingleApp(app)
             completionHandler(true)
         }
         renewAction.backgroundColor = SoulSignTheme.success
 
-        let deleteAction = UIContextualAction(style: .destructive, title: "🗑�?删除") { [weak self] _, _, completionHandler in
+        let deleteAction = UIContextualAction(style: .destructive, title: "馃棏锔?鍒犻櫎") { [weak self] _, _, completionHandler in
             AppLibraryStore.shared.deleteRecord(bundleID: app.bundleID)
             self?.loadData()
             completionHandler(true)
@@ -157,15 +157,15 @@ class AppLibraryViewController: UIViewController, UITableViewDataSource, UITable
         tableView.deselectRow(at: indexPath, animated: true)
         let app = apps[indexPath.row]
 
-        let sheet = UIAlertController(title: app.appName, message: "应用操作", preferredStyle: .actionSheet)
-        sheet.addAction(UIAlertAction(title: "�?立即单项续签 (7 �?", style: .default, handler: { [weak self] _ in
+        let sheet = UIAlertController(title: app.appName, message: "搴旂敤鎿嶄綔", preferredStyle: .actionSheet)
+        sheet.addAction(UIAlertAction(title: "鈿?绔嬪嵆鍗曢」缁绛 (7 澶?", style: .default, handler: { [weak self] _ in
             self?.renewSingleApp(app)
         }))
-        sheet.addAction(UIAlertAction(title: "🗑�?从应用库移除", style: .destructive, handler: { [weak self] _ in
+        sheet.addAction(UIAlertAction(title: "馃棏锔?浠庡簲鐢ㄥ簱绉婚櫎", style: .destructive, handler: { [weak self] _ in
             AppLibraryStore.shared.deleteRecord(bundleID: app.bundleID)
             self?.loadData()
         }))
-        sheet.addAction(UIAlertAction(title: "取消", style: .cancel))
+        sheet.addAction(UIAlertAction(title: "鍙栨秷", style: .cancel))
         present(sheet, animated: true)
     }
 }

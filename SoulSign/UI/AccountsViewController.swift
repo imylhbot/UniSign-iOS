@@ -7,7 +7,7 @@ class AccountsViewController: UIViewController, UITableViewDataSource, UITableVi
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        title = "Apple ID 账号中心"
+        title = "Apple ID 璐﹀彿涓蹇"
         view.backgroundColor = SoulSignTheme.background
         setupNavigation()
         setupTableView()
@@ -31,14 +31,14 @@ class AccountsViewController: UIViewController, UITableViewDataSource, UITableVi
         navigationController?.navigationBar.prefersLargeTitles = true
 
         let addButton = UIBarButtonItem(
-            title: "�?添加",
+            title: "鉃?娣诲姞",
             style: .plain,
             target: self,
             action: #selector(addAccountTapped)
         )
 
         let checkAllButton = UIBarButtonItem(
-            title: "🔍 检测全�?,
+            title: "馃攳 妫娴嬪叏閮?,
             style: .plain,
             target: self,
             action: #selector(checkAllAccountsTapped)
@@ -54,7 +54,7 @@ class AccountsViewController: UIViewController, UITableViewDataSource, UITableVi
         tableView.delegate = self
         tableView.register(AccountCardCell.self, forCellReuseIdentifier: AccountCardCell.identifier)
 
-        refreshControl.attributedTitle = NSAttributedString(string: "下拉一键检测所有账号登录状�?..")
+        refreshControl.attributedTitle = NSAttributedString(string: "涓嬫媺涓閿妫娴嬫墍鏈夎处鍙风櫥褰曠姸鎬?..")
         refreshControl.addTarget(self, action: #selector(handlePullToRefresh), for: .valueChanged)
         tableView.refreshControl = refreshControl
 
@@ -82,7 +82,7 @@ class AccountsViewController: UIViewController, UITableViewDataSource, UITableVi
 
     @objc private func checkAllAccountsTapped() {
         guard !accounts.isEmpty else {
-            showAlert(title: "提示", message: "尚未添加任何 Apple ID 账号�?)
+            showAlert(title: "鎻愮ず", message: "灏氭湭娣诲姞浠讳綍 Apple ID 璐﹀彿銆?)
             return
         }
 
@@ -90,7 +90,7 @@ class AccountsViewController: UIViewController, UITableViewDataSource, UITableVi
         SessionValidator.shared.checkAllAccounts { [weak self] _ in
             self?.refreshControl.endRefreshing()
             self?.loadData()
-            self?.showAlert(title: "检测完�?, message: "所�?Apple ID 账号的登录会话有效性已刷新�?)
+            self?.showAlert(title: "妫娴嬪畬鎴?, message: "鎵鏈?Apple ID 璐﹀彿鐨勭櫥褰曚細璇濇湁鏁堟у凡鍒锋柊銆?)
         }
     }
 
@@ -102,14 +102,14 @@ class AccountsViewController: UIViewController, UITableViewDataSource, UITableVi
     }
 
     private func checkSingleAccount(_ account: AppleAccount) {
-        let alert = UIAlertController(title: "正在检�?, message: "正在向苹果服务器探测 \(account.email) 的登录会话有效�?..", preferredStyle: .alert)
+        let alert = UIAlertController(title: "姝ｅ湪妫娴?, message: "姝ｅ湪鍚戣嫻鏋滄湇鍔″櫒鎺㈡祴 \(account.email) 鐨勭櫥褰曚細璇濇湁鏁堟?..", preferredStyle: .alert)
         present(alert, animated: true)
 
         SessionValidator.shared.checkValidity(for: account.email) { [weak self] status, msg in
             alert.dismiss(animated: true) {
                 self?.loadData()
-                let title = (status == .valid) ? "🟢 账号有效" : "🔴 检测结�?
-                self?.showAlert(title: title, message: "账号: \(account.email)\n状�? \(status.title)\n详情: \(msg)")
+                let title = (status == .valid) ? "馃煝 璐﹀彿鏈夋晥" : "馃敶 妫娴嬬粨鏋?
+                self?.showAlert(title: title, message: "璐﹀彿: \(account.email)\n鐘舵? \(status.title)\n璇︽儏: \(msg)")
             }
         }
     }
@@ -117,13 +117,13 @@ class AccountsViewController: UIViewController, UITableViewDataSource, UITableVi
     private func renewAccountApps(_ account: AppleAccount) {
         let appsCount = AccountManager.shared.activeAppsCount(for: account.email)
         guard appsCount > 0 else {
-            showAlert(title: "无需续签", message: "\(account.email) 名下暂无已签名的应用�?)
+            showAlert(title: "鏃犻渶缁绛", message: "\(account.email) 鍚嶄笅鏆傛棤宸茬惧悕鐨勫簲鐢ㄣ?)
             return
         }
 
         let progressAlert = UIAlertController(
-            title: "�?正在续签",
-            message: "准备向苹果申请证书并刷新 7 天生命周�?..",
+            title: "鈿?姝ｅ湪缁绛",
+            message: "鍑嗗囧悜鑻规灉鐢宠疯瘉涔﹀苟鍒锋柊 7 澶╃敓鍛藉懆鏈?..",
             preferredStyle: .alert
         )
         present(progressAlert, animated: true)
@@ -131,15 +131,15 @@ class AccountsViewController: UIViewController, UITableViewDataSource, UITableVi
         RenewalService.shared.renewAppsForAccount(
             email: account.email,
             progress: { current, total, name in
-                progressAlert.message = "正在续签�?\(current)/\(total) 个应�?\n\(name)..."
+                progressAlert.message = "姝ｅ湪缁绛剧?\(current)/\(total) 涓搴旂?\n\(name)..."
             },
             completion: { [weak self] result in
                 progressAlert.dismiss(animated: true) {
                     switch result {
                     case .success(let count):
-                        self?.showAlert(title: "续签完成", message: "已成功为 \(account.email) 续期 \(count) 个应�?7 天证书！")
+                        self?.showAlert(title: "缁绛惧畬鎴", message: "宸叉垚鍔熶负 \(account.email) 缁鏈 \(count) 涓搴旂?7 澶╄瘉涔︼紒")
                     case .failure(let err):
-                        self?.showAlert(title: "续签失败", message: err.localizedDescription)
+                        self?.showAlert(title: "缁绛惧け璐", message: err.localizedDescription)
                     }
                     self?.loadData()
                 }
@@ -148,32 +148,32 @@ class AccountsViewController: UIViewController, UITableViewDataSource, UITableVi
     }
 
     private func showMoreActions(for account: AppleAccount) {
-        let sheet = UIAlertController(title: account.email, message: "账号操作", preferredStyle: .actionSheet)
+        let sheet = UIAlertController(title: account.email, message: "璐﹀彿鎿嶄綔", preferredStyle: .actionSheet)
 
         if !account.isActive {
-            sheet.addAction(UIAlertAction(title: "�?设为当前活跃签名账号", style: .default, handler: { [weak self] _ in
+            sheet.addAction(UIAlertAction(title: "猸?璁句负褰撳墠娲昏穬绛惧悕璐﹀彿", style: .default, handler: { [weak self] _ in
                 AccountManager.shared.setActiveAccount(email: account.email)
                 self?.loadData()
             }))
         }
 
-        sheet.addAction(UIAlertAction(title: "🗑�?删除此账�?, style: .destructive, handler: { [weak self] _ in
-            let confirm = UIAlertController(title: "确认删除", message: "确定要从本机移除账号 \(account.email) 吗？", preferredStyle: .alert)
-            confirm.addAction(UIAlertAction(title: "取消", style: .cancel))
-            confirm.addAction(UIAlertAction(title: "删除", style: .destructive, handler: { _ in
+        sheet.addAction(UIAlertAction(title: "馃棏锔?鍒犻櫎姝よ处鍙?, style: .destructive, handler: { [weak self] _ in
+            let confirm = UIAlertController(title: "纭璁ゅ垹闄", message: "纭瀹氳佷粠鏈鏈虹Щ闄よ处鍙 \(account.email) 鍚楋紵", preferredStyle: .alert)
+            confirm.addAction(UIAlertAction(title: "鍙栨秷", style: .cancel))
+            confirm.addAction(UIAlertAction(title: "鍒犻櫎", style: .destructive, handler: { _ in
                 AccountManager.shared.removeAccount(email: account.email)
                 self?.loadData()
             }))
             self?.present(confirm, animated: true)
         }))
 
-        sheet.addAction(UIAlertAction(title: "取消", style: .cancel))
+        sheet.addAction(UIAlertAction(title: "鍙栨秷", style: .cancel))
         present(sheet, animated: true)
     }
 
     private func showAlert(title: String, message: String) {
         let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "确定", style: .default))
+        alert.addAction(UIAlertAction(title: "纭瀹", style: .default))
         present(alert, animated: true)
     }
 
@@ -181,7 +181,7 @@ class AccountsViewController: UIViewController, UITableViewDataSource, UITableVi
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         if accounts.isEmpty {
             let emptyLabel = UILabel()
-            emptyLabel.text = "暂未添加 Apple ID\n点击右上角「➕ 添加」即可绑定账�?
+            emptyLabel.text = "鏆傛湭娣诲姞 Apple ID\n鐐瑰嚮鍙充笂瑙掋屸灂 娣诲姞銆嶅嵆鍙缁戝畾璐﹀?
             emptyLabel.numberOfLines = 2
             emptyLabel.textAlignment = .center
             emptyLabel.textColor = .secondaryLabel
