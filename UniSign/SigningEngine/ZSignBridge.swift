@@ -732,6 +732,55 @@ public class ZSignBridge {
         return superBlob
     }
     
+    private static func extractIssuerAndSerialFromDER(_ certDER: Data) -> (issuer: Data, serial: Data)? {
+        guard certDER.count > 32 else { return nil }
+        let bytes = [UInt8](certDER)
+        
+        func readTLV(offset: Int) -> (tag: UInt8, hdrSize: Int, len: Int, total: Int)? {
+            guard offset + 2 <= bytes.count else { return nil }
+            let tag = bytes[offset]
+            let lenByte = bytes[offset + 1]
+            if lenByte < 0x80 {
+                let length = Int(lenByte)
+                return (tag, 2, length, 2 + length)
+            } else {
+                let numBytes = Int(lenByte & 0x7F)
+                guard offset + 2 + numBytes <= bytes.count else { return nil }
+                var length = 0
+                for i in 0..<numBytes {
+                    length = (length << 8) | Int(bytes[offset + 2 + i])
+                }
+                let hdr = 2 + numBytes
+                return (tag, hdr, length, hdr + length)
+            }
+        }
+        
+        guard let certTLV = readTLV(offset: 0), certTLV.tag == 0x30 else { return nil }
+        let tbsOffset = certTLV.hdrSize
+        guard let tbsTLV = readTLV(offset: tbsOffset), tbsTLV.tag == 0x30 else { return nil }
+        
+        var cur = tbsOffset + tbsTLV.hdrSize
+        let tbsEnd = tbsOffset + tbsTLV.total
+        
+        if cur < tbsEnd && bytes[cur] == 0xa0 {
+            if let verTLV = readTLV(offset: cur) {
+                cur += verTLV.total
+            }
+        }
+        
+        guard let serialTLV = readTLV(offset: cur), serialTLV.tag == 0x02, cur + serialTLV.total <= bytes.count else { return nil }
+        let serialDER = certDER.subdata(in: cur..<(cur + serialTLV.total))
+        cur += serialTLV.total
+        
+        guard let sigAlgTLV = readTLV(offset: cur), cur + sigAlgTLV.total <= bytes.count else { return nil }
+        cur += sigAlgTLV.total
+        
+        guard let issuerTLV = readTLV(offset: cur), issuerTLV.tag == 0x30, cur + issuerTLV.total <= bytes.count else { return nil }
+        let issuerDER = certDER.subdata(in: cur..<(cur + issuerTLV.total))
+        
+        return (issuer: issuerDER, serial: serialDER)
+    }
+
     private static func buildCMSSignature(cdHash: Data, certDER: Data, privateKey: SecKey?) -> Data {
         var sigBytes = Data(repeating: 0, count: 256)
         if let privKey = privateKey {
@@ -754,7 +803,11 @@ public class ZSignBridge {
         let encapContent = derWrap(tag: 0x30, value: derWrap(tag: 0x06, value: oid_data))
         let certsBlob = derWrap(tag: 0xa0, value: certDER.isEmpty ? Data(repeating: 0, count: 64) : certDER)
         
-        let signerId = derWrap(tag: 0x30, value: derWrap(tag: 0x02, value: Data([0x01])) + derWrap(tag: 0x02, value: Data([0x01])))
+        var signerId = derWrap(tag: 0x30, value: derWrap(tag: 0x30, value: Data([0x06, 0x03, 0x55, 0x04, 0x03, 0x13, 0x08, 0x53, 0x6f, 0x75, 0x6c, 0x53, 0x69, 0x67, 0x6e])) + derWrap(tag: 0x02, value: Data([0x01])))
+        if let parsed = extractIssuerAndSerialFromDER(certDER) {
+            signerId = derWrap(tag: 0x30, value: parsed.issuer + parsed.serial)
+        }
+        
         let sigAlg = derWrap(tag: 0x30, value: derWrap(tag: 0x06, value: oid_sha256_rsa) + derWrap(tag: 0x05, value: Data()))
         let sigVal = derWrap(tag: 0x04, value: sigBytes)
         

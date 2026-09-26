@@ -168,6 +168,17 @@ public class IPAManager {
                 if let newIcon = config.replacementIcon {
                     progress(0.50, "正在替换应用桌面图标...")
                     try? IconReplacer.replaceIcon(inAppURL: appURL, withImage: newIcon)
+                    if let newPng = newIcon.pngData() {
+                        LocalInstallServer.shared.currentIconData = newPng
+                    }
+                } else {
+                    if let appFiles = try? fileManager.contentsOfDirectory(atPath: appURL.path) {
+                        if let iconFile = appFiles.first(where: { $0.hasPrefix("AppIcon") && $0.hasSuffix(".png") }) ?? appFiles.first(where: { $0.lowercased().contains("icon") && $0.hasSuffix(".png") }) {
+                            if let iconData = try? Data(contentsOf: appURL.appendingPathComponent(iconFile)) {
+                                LocalInstallServer.shared.currentIconData = iconData
+                            }
+                        }
+                    }
                 }
                 
                 // 5. Mach-O & Dylib Injection / Removal

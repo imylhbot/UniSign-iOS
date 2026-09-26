@@ -14,6 +14,7 @@ public class LocalInstallServer {
     public private(set) var isRunning: Bool = false
     public var port: UInt16 = 24302
     
+    public var currentIconData: Data?
     private var currentIPAURL: URL?
     private var currentBundleID: String = "com.soulsign.signedapp"
     private var currentVersion: String = "1.0.0"
@@ -346,6 +347,13 @@ public class LocalInstallServer {
             let response = "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: \(redirectHTML.utf8.count)\r\nConnection: close\r\n\r\n\(redirectHTML)"
             sendResponse(connection: connection, data: response.data(using: .utf8) ?? Data())
             
+        } else if path.contains("icon.png") {
+            let iconData = self.currentIconData ?? Data()
+            let response = "HTTP/1.1 200 OK\r\nContent-Type: image/png\r\nContent-Length: \(iconData.count)\r\nAccess-Control-Allow-Origin: *\r\nConnection: close\r\n\r\n"
+            var full = response.data(using: .utf8) ?? Data()
+            full.append(iconData)
+            sendResponse(connection: connection, data: full)
+            
         } else if path.hasSuffix(".ipa") || path.contains("app.ipa") {
             serveIPAFile(connection: connection, rangeHeader: rangeHeader)
             
@@ -471,6 +479,7 @@ public class LocalInstallServer {
     
     public func generateManifestXML() -> String {
         let localIPAURL = "http://127.0.0.1:\(port)/\(currentIPAName)"
+        let iconURL = "http://127.0.0.1:\(port)/icon.png"
         return """
         <?xml version="1.0" encoding="UTF-8"?>
         <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -486,6 +495,22 @@ public class LocalInstallServer {
                             <string>software-package</string>
                             <key>url</key>
                             <string>\(localIPAURL)</string>
+                        </dict>
+                        <dict>
+                            <key>kind</key>
+                            <string>display-image</string>
+                            <key>needs-shine</key>
+                            <false/>
+                            <key>url</key>
+                            <string>\(iconURL)</string>
+                        </dict>
+                        <dict>
+                            <key>kind</key>
+                            <string>full-size-image</string>
+                            <key>needs-shine</key>
+                            <false/>
+                            <key>url</key>
+                            <string>\(iconURL)</string>
                         </dict>
                     </array>
                     <key>metadata</key>
