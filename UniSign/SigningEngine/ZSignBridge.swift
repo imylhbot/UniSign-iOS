@@ -213,6 +213,10 @@ public class ZSignBridge {
                     teamId = tId
                 }
                 
+                if certDER.isEmpty, let rawCerts = parsed["DeveloperCertificates"] as? [Data], let firstCert = rawCerts.first {
+                    certDER = firstCert
+                }
+                
                 if let ent = parsed["Entitlements"] as? [String: Any] {
                     var mutableEnt = ent
                     if let targetBundleId = bundleId, !targetBundleId.isEmpty {
@@ -627,20 +631,20 @@ public class ZSignBridge {
         slot4_app: Data,
         slot5_ent: Data
     ) -> Data {
-        let headerSize: UInt32 = 44 // v0x00020400
+        let headerSize: UInt32 = 52 // v0x00020200 (CS_SUPPORTSTEAMID: exactly 52 bytes)
         let idBytes = (bundleId.data(using: .utf8) ?? Data()) + Data([0])
         let teamBytes = (teamId.data(using: .utf8) ?? Data()) + Data([0])
         
-        let identOffset = headerSize
-        let teamOffset = identOffset + UInt32(idBytes.count)
+        let identOffset: UInt32 = headerSize
+        let teamOffset: UInt32 = identOffset + UInt32(idBytes.count)
         let specialSlotsCount: UInt32 = 5
-        let hashOffset = teamOffset + UInt32(teamBytes.count) + specialSlotsCount * 32
-        let totalSize = hashOffset + UInt32(pageHashes.count * 32)
+        let hashOffset: UInt32 = teamOffset + UInt32(teamBytes.count) + specialSlotsCount * 32
+        let totalSize: UInt32 = hashOffset + UInt32(pageHashes.count * 32)
         
         var cd = Data()
-        cd.appendUInt32BE(0xfade0c02) // magic
+        cd.appendUInt32BE(0xfade0c02) // magic (CSMAGIC_CODEDIRECTORY)
         cd.appendUInt32BE(totalSize)   // length
-        cd.appendUInt32BE(0x00020400) // version
+        cd.appendUInt32BE(0x00020200) // version (CS_SUPPORTSTEAMID = 0x20200)
         cd.appendUInt32BE(0x00000000) // flags
         cd.appendUInt32BE(hashOffset) // hashOffset
         cd.appendUInt32BE(identOffset) // identOffset

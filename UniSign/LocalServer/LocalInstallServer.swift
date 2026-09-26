@@ -266,46 +266,24 @@ public class LocalInstallServer {
         }
     }
     
-    /// Opens Safari to install the Local CA configuration profile via direct link
+    /// Opens Safari to install the Local CA configuration profile directly
     public func installLocalCAProfile() {
         beginBackgroundKeepAlive()
         if !isRunning {
             try? start()
         }
-        
-        let profileXML = generateCAProfileXML()
-        uploadTextToOnlineHost(content: profileXML) { [weak self] onlineURL in
-            DispatchQueue.main.async {
-                if let url = onlineURL {
-                    UIApplication.shared.open(url, options: [:], completionHandler: nil)
-                } else {
-                    let port = self?.port ?? 24302
-                    let fallbackURL = URL(string: "http://127.0.0.1:\(port)/ca.mobileconfig")!
-                    UIApplication.shared.open(fallbackURL, options: [:], completionHandler: nil)
-                }
-            }
-        }
+        let url = URL(string: "http://127.0.0.1:\(port)/ca.mobileconfig")!
+        UIApplication.shared.open(url, options: [:], completionHandler: nil)
     }
     
-    /// Opens Safari to install the UDID configuration profile via direct link
+    /// Opens Safari to install the UDID configuration profile directly
     public func installUDIDProfile() {
         beginBackgroundKeepAlive()
         if !isRunning {
             try? start()
         }
-        
-        let profileXML = generateUDIDProfileXML()
-        uploadTextToOnlineHost(content: profileXML) { [weak self] onlineURL in
-            DispatchQueue.main.async {
-                if let url = onlineURL {
-                    UIApplication.shared.open(url, options: [:], completionHandler: nil)
-                } else {
-                    let port = self?.port ?? 24302
-                    let fallbackURL = URL(string: "http://127.0.0.1:\(port)/udid.mobileconfig")!
-                    UIApplication.shared.open(fallbackURL, options: [:], completionHandler: nil)
-                }
-            }
-        }
+        let url = URL(string: "http://127.0.0.1:\(port)/udid.mobileconfig")!
+        UIApplication.shared.open(url, options: [:], completionHandler: nil)
     }
     
     // MARK: - Connection & HTTP Request Handling
