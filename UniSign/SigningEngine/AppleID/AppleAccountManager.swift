@@ -8,6 +8,8 @@ public struct AppleAccount: Codable, Identifiable, Equatable {
     public var teamName: String?
     public var lastUsedDate: Date
     public var isActive: Bool
+    public var myacinfo: String?
+    public var sessionCookies: [String: String]?
     
     public init(
         id: String = UUID().uuidString,
@@ -16,7 +18,9 @@ public struct AppleAccount: Codable, Identifiable, Equatable {
         teamID: String? = nil,
         teamName: String? = nil,
         lastUsedDate: Date = Date(),
-        isActive: Bool = false
+        isActive: Bool = false,
+        myacinfo: String? = nil,
+        sessionCookies: [String: String]? = nil
     ) {
         self.id = id
         self.email = email
@@ -25,6 +29,8 @@ public struct AppleAccount: Codable, Identifiable, Equatable {
         self.teamName = teamName
         self.lastUsedDate = lastUsedDate
         self.isActive = isActive
+        self.myacinfo = myacinfo
+        self.sessionCookies = sessionCookies
     }
 }
 

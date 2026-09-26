@@ -27,8 +27,13 @@ public class AppleIDLoginViewController: UIViewController {
     
     // Status & Error
     private let errorLabel = UILabel()
+    private let webAuthButton = GradientButton(
+        title: L("🌐 Apple 官方页面快捷登录 (推荐/支持二次验证)", "Official Web Sign In (Recommended - 2FA)"),
+        style: .primaryCyber,
+        icon: UIImage(systemName: "safari.fill")
+    )
     private let loginButton = GradientButton(
-        title: L("安全登录并授权", "Sign In & Authorize"),
+        title: L("账号密码手动登录", "Manual Sign In"),
         style: .appleBrand,
         icon: UIImage(systemName: "applelogo")
     )
@@ -122,7 +127,19 @@ public class AppleIDLoginViewController: UIViewController {
         
         stackView.addArrangedSubview(headerStack)
         
-        // 2. Form Inputs Card
+        // 2. Web Auth Fast Sign In Button
+        webAuthButton.heightAnchor.constraint(equalToConstant: 50).isActive = true
+        webAuthButton.addTarget(self, action: #selector(openWebLogin), for: .touchUpInside)
+        stackView.addArrangedSubview(webAuthButton)
+        
+        let orLabel = UILabel()
+        orLabel.text = "— " + L("或通过账号密码手动登录", "or sign in manually below") + " —"
+        orLabel.font = .systemFont(ofSize: 12, weight: .medium)
+        orLabel.textColor = .tertiaryLabel
+        orLabel.textAlignment = .center
+        stackView.addArrangedSubview(orLabel)
+        
+        // 3. Form Inputs Card
         let formInnerStack = UIStackView()
         formInnerStack.axis = .vertical
         formInnerStack.spacing = 0
@@ -265,6 +282,18 @@ public class AppleIDLoginViewController: UIViewController {
         passwordField.isSecureTextEntry.toggle()
         let icon = passwordField.isSecureTextEntry ? "eye.slash.fill" : "eye.fill"
         togglePasswordButton.setImage(UIImage(systemName: icon), for: .normal)
+    }
+    
+    @objc private func openWebLogin() {
+        let webVC = AppleWebLoginViewController()
+        webVC.prefilledEmail = emailField.text?.trimmingCharacters(in: .whitespacesAndNewlines)
+        webVC.onLoginSuccess = { [weak self] _ in
+            self?.onLoginSuccess?()
+            self?.dismiss(animated: true)
+        }
+        let nav = UINavigationController(rootViewController: webVC)
+        nav.modalPresentationStyle = .pageSheet
+        present(nav, animated: true)
     }
     
     @objc private func cancelAction() {

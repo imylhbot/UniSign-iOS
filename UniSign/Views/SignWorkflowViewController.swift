@@ -1338,6 +1338,16 @@ public class SignWorkflowViewController: UIViewController, UIDocumentPickerDeleg
                         ProgressHUD.shared.hide()
                         AppLogger.shared.log("Apple ID 证书申请失败: \(err.localizedDescription)", category: .error)
                         let alert = UIAlertController(title: L("证书申请失败", "Cert Request Failed"), message: err.localizedDescription, preferredStyle: .alert)
+                        alert.addAction(UIAlertAction(title: "🌐 " + L("通过网页重新授权 / 登录", "Refresh Web Auth"), style: .default, handler: { [weak self] _ in
+                            let webVC = AppleWebLoginViewController()
+                            webVC.prefilledEmail = activeAccount?.email
+                            webVC.onLoginSuccess = { [weak self] _ in
+                                self?.updateCertCardText()
+                            }
+                            let nav = UINavigationController(rootViewController: webVC)
+                            nav.modalPresentationStyle = .pageSheet
+                            self?.present(nav, animated: true)
+                        }))
                         alert.addAction(UIAlertAction(title: "📋 " + L("查看诊断日志", "View Diagnostics"), style: .default, handler: { [weak self] _ in
                             let logVC = LogViewerViewController()
                             let nav = UINavigationController(rootViewController: logVC)

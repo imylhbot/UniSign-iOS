@@ -152,12 +152,20 @@ public class AppleDeveloperService {
             
             // Check for 2FA requirement
             if httpResponse.statusCode == 409 || httpResponse.allHeaderFields["X-Apple-2SV-Pin"] != nil || httpResponse.allHeaderFields["x-apple-2sv-pin"] != nil {
+                AppLogger.shared.log("检测到 Apple ID 已开启双重认证 (2FA)，需要验证码", category: .warn)
                 completion(.failure(.twoFactorRequired))
                 return
             }
             
             if httpResponse.statusCode == 401 || httpResponse.statusCode == 403 {
+                AppLogger.shared.log("Apple ID 账号或密码不正确 (HTTP \(httpResponse.statusCode))", category: .error)
                 completion(.failure(.invalidCredentials))
+                return
+            }
+            
+            if httpResponse.statusCode != 200 {
+                AppLogger.shared.log("苹果身份认证返回非 200 状态 (HTTP \(httpResponse.statusCode))，建议使用「网页官方授权」", category: .warn)
+                completion(.failure(.general("苹果身份服务返回状态码 HTTP \(httpResponse.statusCode)，建议在证书管理中使用「网页安全授权」登录")))
                 return
             }
             
@@ -200,11 +208,20 @@ public class AppleDeveloperService {
                 cookieDict["myacinfo"] = token
             }
             
+            // Validate that we actually obtained a valid token or myacinfo cookie
+            let validAuthToken = !token.isEmpty && token.count > 10
+            let validMyacinfo = (cookieDict["myacinfo"]?.count ?? 0) > 10
+            guard validAuthToken || validMyacinfo else {
+                AppLogger.shared.log("苹果服务器未签发授权 Token，账号可能需要通过网页完成二次安全验证", category: .warn)
+                completion(.failure(.general("未能获取有效的 Apple 开发者身份令牌，可能需要通过二次验证。请在证书管理中使用「网页安全授权」登录。")))
+                return
+            }
+            
             let cleanTeamId = "TEAM" + String(abs(appleID.hashValue) % 1000000000)
             var session = AppleSession(
                 appleID: appleID,
                 dsid: dsid,
-                authToken: token,
+                authToken: token.isEmpty ? (cookieDict["myacinfo"] ?? "") : token,
                 teamID: cleanTeamId,
                 teamName: "\(appleID) (Personal Team)",
                 cookies: cookieDict
@@ -218,7 +235,9 @@ public class AppleDeveloperService {
                 password: password,
                 teamID: session.teamID,
                 teamName: session.teamName,
-                isActive: true
+                isActive: true,
+                myacinfo: cookieDict["myacinfo"],
+                sessionCookies: cookieDict
             )
             AppleAccountManager.shared.addOrUpdateAccount(acc)
             
@@ -230,8 +249,29 @@ public class AppleDeveloperService {
     
     public func getActiveSession() -> AppleSession? {
         if let activeAcc = AppleAccountManager.shared.activeAccount {
-            if let s = currentSession, s.appleID.lowercased() == activeAcc.email.lowercased(), !s.authToken.isEmpty, !s.authToken.contains("-"), s.authToken.count > 30 {
-                return s
+            if let s = currentSession, s.appleID.lowercased() == activeAcc.email.lowercased() {
+                let validToken = !s.authToken.isEmpty && !s.authToken.contains("-") && s.authToken.count > 20
+                let validCookie = (s.cookies["myacinfo"]?.count ?? 0) > 20
+                if validToken || validCookie {
+                    return s
+                }
+            }
+            
+            // Check if active account has cached valid myacinfo cookie
+            if let myacinfo = activeAcc.myacinfo ?? activeAcc.sessionCookies?["myacinfo"], myacinfo.count > 20 {
+                var cookies = activeAcc.sessionCookies ?? [:]
+                cookies["myacinfo"] = myacinfo
+                let cleanTeamId = activeAcc.teamID ?? ("TEAM" + String(abs(activeAcc.email.hashValue) % 1000000000))
+                let restored = AppleSession(
+                    appleID: activeAcc.email,
+                    dsid: cookies["dsid"] ?? "",
+                    authToken: myacinfo,
+                    teamID: cleanTeamId,
+                    teamName: activeAcc.teamName ?? "\(activeAcc.email) (Personal Team)",
+                    cookies: cookies
+                )
+                self.currentSession = restored
+                return restored
             }
         }
         return nil
@@ -244,7 +284,12 @@ public class AppleDeveloperService {
         }
         
         guard let activeAcc = AppleAccountManager.shared.activeAccount else {
-            completion(.failure(.general("未找到活跃的 Apple ID 账号，请在证书中心先登录或选择账号。")))
+            completion(.failure(.general("未找到活跃的 Apple ID 账号，请在「证书管理」中先添加或授权账号。")))
+            return
+        }
+        
+        guard !activeAcc.password.isEmpty else {
+            completion(.failure(.general("账号 [\(activeAcc.email)] 的开发者授权已过期，请在「证书管理」点击该账号进行「网页安全授权」以刷新登录凭据。")))
             return
         }
         

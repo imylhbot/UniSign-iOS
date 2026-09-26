@@ -418,11 +418,25 @@ public class CertificateManagerViewController: UIViewController, UIDocumentPicke
     }
     
     @objc private func promptAddAppleAccount() {
-        let loginVC = AppleIDLoginViewController()
-        loginVC.onLoginSuccess = { [weak self] in
-            self?.reloadAppleAccounts()
-        }
-        present(loginVC, animated: true)
+        let sheet = UIAlertController(title: L("添加 Apple ID", "Add Apple ID"), message: L("请选择登录与授权方式：", "Select authorization method:"), preferredStyle: .actionSheet)
+        sheet.addAction(UIAlertAction(title: "🌐 " + L("Apple 官方网页安全登录 (推荐，完整支持双重验证/验证码)", "Official Web Login (Recommended)"), style: .default, handler: { [weak self] _ in
+            let webVC = AppleWebLoginViewController()
+            webVC.onLoginSuccess = { [weak self] _ in
+                self?.reloadAppleAccounts()
+            }
+            let nav = UINavigationController(rootViewController: webVC)
+            nav.modalPresentationStyle = .pageSheet
+            self?.present(nav, animated: true)
+        }))
+        sheet.addAction(UIAlertAction(title: "✏️ " + L("账号密码手动登录", "Manual Sign In"), style: .default, handler: { [weak self] _ in
+            let loginVC = AppleIDLoginViewController()
+            loginVC.onLoginSuccess = { [weak self] in
+                self?.reloadAppleAccounts()
+            }
+            self?.present(loginVC, animated: true)
+        }))
+        sheet.addAction(UIAlertAction(title: L("取消", "Cancel"), style: .cancel))
+        present(sheet, animated: true)
     }
     
     private func reloadAppleAccounts() {
@@ -471,6 +485,16 @@ public class CertificateManagerViewController: UIViewController, UIDocumentPicke
             message: "\(L("当前活跃签名应用数", "Active Signed Apps")): \(count)/3",
             preferredStyle: .actionSheet
         )
+        sheet.addAction(UIAlertAction(title: "🌐 " + L("刷新官方网页授权 (会话过期时)", "Refresh Web Authorization"), style: .default, handler: { [weak self] _ in
+            let webVC = AppleWebLoginViewController()
+            webVC.prefilledEmail = acc.email
+            webVC.onLoginSuccess = { [weak self] _ in
+                self?.reloadAppleAccounts()
+            }
+            let nav = UINavigationController(rootViewController: webVC)
+            nav.modalPresentationStyle = .pageSheet
+            self?.present(nav, animated: true)
+        }))
         sheet.addAction(UIAlertAction(title: L("设为当前默认签名账号", "Set as Active Signing Account"), style: .default, handler: { [weak self] _ in
             AppleAccountManager.shared.setActiveAccount(id: acc.id)
             self?.reloadAppleAccounts()
