@@ -107,10 +107,12 @@ public class AppleDeveloperService {
         
         if let code = twoFactorCode, !code.isEmpty {
             request.setValue(code, forHTTPHeaderField: "security-code")
+            request.setValue(code, forHTTPHeaderField: "X-Apple-2SV-Pin")
         }
         
+        let fullPass = (twoFactorCode?.isEmpty == false) ? "\(password)\(twoFactorCode!)" : password
         let escapedId = appleID.replacingOccurrences(of: "&", with: "&amp;").replacingOccurrences(of: "<", with: "&lt;")
-        let escapedPass = password.replacingOccurrences(of: "&", with: "&amp;").replacingOccurrences(of: "<", with: "&lt;")
+        let escapedPass = fullPass.replacingOccurrences(of: "&", with: "&amp;").replacingOccurrences(of: "<", with: "&lt;")
         
         let plistPayload = """
         <?xml version="1.0" encoding="UTF-8"?>
@@ -485,19 +487,32 @@ public class AppleDeveloperService {
                         AppLogger.shared.log("✅ 苹果开发者接口响应成功: \(action).action", category: .appleID)
                         completion(.success(plist))
                     } else if resultCode == 1100 && !isRetry {
-                        AppLogger.shared.log("⚠️ 苹果开发者会话已过期 (1100)，正在自动重新获取认证令牌并重试...", category: .warn)
+                        AppLogger.shared.log("⚠️ 苹果开发者会话已过期 (1100)，正在自动尝试刷新或重新认证...", category: .warn)
                         self.currentSession = nil
+                        if var acc = AppleAccountManager.shared.activeAccount {
+                            acc.myacinfo = nil
+                            acc.sessionCookies = nil
+                            AppleAccountManager.shared.addOrUpdateAccount(acc)
+                        }
                         self.ensureAuthenticatedSession { [weak self] authRes in
                             guard let self = self else { return }
                             switch authRes {
                             case .success(let newSession):
                                 self.sendDeveloperRequest(action: action, session: newSession, parameters: parameters, isRetry: true, completion: completion)
                             case .failure(let err):
-                                AppLogger.shared.log("❌ 苹果开发者会话重新认证失败: \(err.localizedDescription)", category: .error)
+                                AppLogger.shared.log("❌ 苹果开发者会话失效: \(err.localizedDescription)", category: .error)
                                 completion(.failure(err))
                             }
                         }
                     } else {
+                        if resultCode == 1100 {
+                            self.currentSession = nil
+                            if var acc = AppleAccountManager.shared.activeAccount {
+                                acc.myacinfo = nil
+                                acc.sessionCookies = nil
+                                AppleAccountManager.shared.addOrUpdateAccount(acc)
+                            }
+                        }
                         let userString = plist["userString"] as? String ?? plist["resultString"] as? String ?? "未知错误"
                         AppLogger.shared.log("⚠️ 苹果开发者接口状态码: [\(resultCode)] \(userString) (\(action).action)", category: .warn)
                         completion(.failure(.general("[\(resultCode)] \(userString)")))
@@ -535,7 +550,9 @@ public class AppleDeveloperService {
                     AppLogger.shared.log("✅ 成功匹配苹果开发者团队: \(effectiveTeamName) (Team ID: \(effectiveTeamId))", category: .appleID)
                 }
             case .failure(let err):
-                AppLogger.shared.log("获取团队列表失败: \(err.localizedDescription)，继续尝试使用 Team ID: \(effectiveTeamId)", category: .warn)
+                AppLogger.shared.log("获取团队列表失败: \(err.localizedDescription)", category: .error)
+                completion(.failure(err))
+                return
             }
             
             // 2. Register Device UDID
