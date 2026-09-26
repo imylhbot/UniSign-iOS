@@ -1267,7 +1267,7 @@ public class SignWorkflowViewController: UIViewController, UIDocumentPickerDeleg
         let targetBundleID = currentBundleId.isEmpty ? "com.unisign.app.\(UUID().uuidString.prefix(6))" : currentBundleId
         let deviceUDID = DeviceInfoHelper.getDeviceUDID()
         
-        let executeSigning: (URL, URL?, String) -> Void = { [weak self] p12URL, provURL, pass in
+        let executeSigning: (URL, URL?, String, SecKey?, Data?) -> Void = { [weak self] p12URL, provURL, pass, customKey, customCert in
             guard let self = self else { return }
             
             let config = IPAManager.SignConfig(
@@ -1278,7 +1278,9 @@ public class SignWorkflowViewController: UIViewController, UIDocumentPickerDeleg
                 options: opts,
                 replacementIcon: self.selectedIconImage,
                 dylibsToInject: self.dylibsToInject,
-                dylibsToRemove: self.dylibsToRemove
+                dylibsToRemove: self.dylibsToRemove,
+                customPrivateKey: customKey,
+                customCertDER: customCert
             )
             
             IPAManager.processAndSign(config: config, progress: { pct, step in
@@ -1331,7 +1333,7 @@ public class SignWorkflowViewController: UIViewController, UIDocumentPickerDeleg
                 DispatchQueue.main.async {
                     switch res {
                     case .success(let materials):
-                        executeSigning(materials.p12URL, materials.provisionURL, "")
+                        executeSigning(materials.p12URL, materials.provisionURL, "", materials.privateKey, materials.certDER)
                     case .failure(let err):
                         ProgressHUD.shared.hide()
                         AppLogger.shared.log("Apple ID 证书申请失败: \(err.localizedDescription)", category: .error)
@@ -1364,7 +1366,7 @@ public class SignWorkflowViewController: UIViewController, UIDocumentPickerDeleg
             
             let prov = CertificateStorageManager.shared.currentProvisionURL
             let pass = CertificateStorageManager.shared.currentP12Password
-            executeSigning(p12, prov, pass)
+            executeSigning(p12, prov, pass, nil, nil)
         }
     }
     

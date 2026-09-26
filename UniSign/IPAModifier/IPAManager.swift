@@ -13,6 +13,8 @@ public class IPAManager {
         public var replacementIcon: UIImage?
         public var dylibsToInject: [URL]
         public var dylibsToRemove: [String]
+        public var customPrivateKey: SecKey?
+        public var customCertDER: Data?
         
         public init(
             ipaURL: URL,
@@ -22,7 +24,9 @@ public class IPAManager {
             options: PlistModifier.CustomizationOptions = PlistModifier.CustomizationOptions(),
             replacementIcon: UIImage? = nil,
             dylibsToInject: [URL] = [],
-            dylibsToRemove: [String] = []
+            dylibsToRemove: [String] = [],
+            customPrivateKey: SecKey? = nil,
+            customCertDER: Data? = nil
         ) {
             self.ipaURL = ipaURL
             self.p12URL = p12URL
@@ -32,6 +36,8 @@ public class IPAManager {
             self.replacementIcon = replacementIcon
             self.dylibsToInject = dylibsToInject
             self.dylibsToRemove = dylibsToRemove
+            self.customPrivateKey = customPrivateKey
+            self.customCertDER = customCertDER
         }
     }
     
@@ -235,6 +241,8 @@ public class IPAManager {
                         bundleId: config.options.bundleIdentifier,
                         displayName: config.options.displayName,
                         injectedDylibs: config.dylibsToInject.map { $0.lastPathComponent },
+                        customPrivateKey: config.customPrivateKey,
+                        customCertDER: config.customCertDER,
                         logCallback: { log in
                             progress(0.85, log)
                         }

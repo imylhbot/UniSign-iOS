@@ -153,7 +153,9 @@ public class ZSignBridge {
         bundleId: String?,
         displayName: String?,
         injectedDylibs: [String]?,
-        logCallback: ((String) -> Void)?
+        customPrivateKey: SecKey? = nil,
+        customCertDER: Data? = nil,
+        logCallback: ((String) -> Void)? = nil
     ) throws -> Bool {
         
         let log: (String) -> Void = { msg in
@@ -170,53 +172,62 @@ public class ZSignBridge {
         AppLogger.shared.log("开始处理 App: \(appURL.lastPathComponent) (路径: \(appPath))", category: .sign)
         
         // 1. Import P12 Identity and Keys
-        log("[*] 正在加载开发者证书与私钥签名凭证...")
-        AppLogger.shared.log("正在加载 P12 开发者证书: \(URL(fileURLWithPath: p12Path).lastPathComponent)", category: .cert)
-        let p12Data = try Data(contentsOf: URL(fileURLWithPath: p12Path))
-        let importOptions = [kSecImportExportPassphrase as String: p12Password] as CFDictionary
-        var rawItems: CFArray?
-        let status = SecPKCS12Import(p12Data as CFData, importOptions, &rawItems)
-        
         var secIdentity: SecIdentity?
         var certDER: Data = Data()
         var certChainDERs: [Data] = []
         var privateKey: SecKey?
         
-        if status == errSecSuccess, let items = rawItems as? [[String: Any]], let first = items.first,
-           let idVal = first[kSecImportItemIdentity as String] {
-            let id = idVal as! SecIdentity
-            secIdentity = id
+        if let customKey = customPrivateKey, let customCert = customCertDER, !customCert.isEmpty {
+            privateKey = customKey
+            certDER = customCert
+            certChainDERs.append(customCert)
+            AppLogger.shared.log("✅ 使用内存中的 Apple ID 专属 RSA 密钥与开发者证书进行签名 (证书大小: \(customCert.count) 字节)", category: .cert)
+        } else if fm.fileExists(atPath: p12Path) {
+            log("[*] 正在加载开发者证书与私钥签名凭证...")
+            AppLogger.shared.log("正在加载 P12 开发者证书: \(URL(fileURLWithPath: p12Path).lastPathComponent)", category: .cert)
+            let p12Data = try Data(contentsOf: URL(fileURLWithPath: p12Path))
+            let importOptions = [kSecImportExportPassphrase as String: p12Password] as CFDictionary
+            var rawItems: CFArray?
+            let status = SecPKCS12Import(p12Data as CFData, importOptions, &rawItems)
             
-            var certRef: SecCertificate?
-            if SecIdentityCopyCertificate(id, &certRef) == errSecSuccess, let cert = certRef {
-                certDER = SecCertificateCopyData(cert) as Data
-                certChainDERs.append(certDER)
-                if let summary = SecCertificateCopySubjectSummary(cert) {
-                    AppLogger.shared.log("主证书名称 (Subject): \(summary)", category: .cert)
-                }
-            }
-            if let chain = first[kSecImportItemCertChain as String] as? [SecCertificate] {
-                for c in chain {
-                    let d = SecCertificateCopyData(c) as Data
-                    if !certChainDERs.contains(d) {
-                        certChainDERs.append(d)
+            if status == errSecSuccess, let items = rawItems as? [[String: Any]], let first = items.first,
+               let idVal = first[kSecImportItemIdentity as String] {
+                let id = idVal as! SecIdentity
+                secIdentity = id
+                
+                var certRef: SecCertificate?
+                if SecIdentityCopyCertificate(id, &certRef) == errSecSuccess, let cert = certRef {
+                    certDER = SecCertificateCopyData(cert) as Data
+                    certChainDERs.append(certDER)
+                    if let summary = SecCertificateCopySubjectSummary(cert) {
+                        AppLogger.shared.log("主证书名称 (Subject): \(summary)", category: .cert)
                     }
                 }
-                AppLogger.shared.log("已获取完整证书信任链，包含 \(certChainDERs.count) 个证书 (包含苹果中间 CA)", category: .cert)
-            }
-            var keyRef: SecKey?
-            if SecIdentityCopyPrivateKey(id, &keyRef) == errSecSuccess, let k = keyRef {
-                privateKey = k
-                AppLogger.shared.log("RSA 私钥加载成功，可用于生成 CMS 签名", category: .cert)
+                if let chain = first[kSecImportItemCertChain as String] as? [SecCertificate] {
+                    for c in chain {
+                        let d = SecCertificateCopyData(c) as Data
+                        if !certChainDERs.contains(d) {
+                            certChainDERs.append(d)
+                        }
+                    }
+                    AppLogger.shared.log("已获取完整证书信任链，包含 \(certChainDERs.count) 个证书 (包含苹果中间 CA)", category: .cert)
+                }
+                var keyRef: SecKey?
+                if SecIdentityCopyPrivateKey(id, &keyRef) == errSecSuccess, let k = keyRef {
+                    privateKey = k
+                    AppLogger.shared.log("RSA 私钥加载成功，可用于生成 CMS 签名", category: .cert)
+                } else {
+                    AppLogger.shared.log("⚠️ 警告: P12 中未找到可导出的 RSA 私钥！", category: .warn)
+                }
+            } else if p12Data.count > 32 {
+                certDER = p12Data
+                certChainDERs.append(p12Data)
+                AppLogger.shared.log("使用原始证书数据进行签名 (\(p12Data.count) 字节)", category: .cert)
             } else {
-                AppLogger.shared.log("⚠️ 警告: P12 中未找到可导出的 RSA 私钥！", category: .warn)
+                AppLogger.shared.log("⚠️ P12 导入状态码: \(status) (密码验证失败或数据格式错误)", category: .error)
             }
-        } else if p12Data.count > 32 {
-            certDER = p12Data
-            certChainDERs.append(p12Data)
-            AppLogger.shared.log("使用原始证书数据进行签名 (\(p12Data.count) 字节)", category: .cert)
         } else {
-            AppLogger.shared.log("⚠️ P12 导入状态码: \(status) (密码验证失败或数据格式错误)", category: .error)
+            AppLogger.shared.log("⚠️ 未提供有效的签名证书或 RSA 私钥", category: .error)
         }
         
         // 2. Parse Provisioning Profile & Entitlements
@@ -240,10 +251,14 @@ public class ZSignBridge {
                     teamId = tId
                 }
                 
-                if certDER.isEmpty, let rawCerts = parsed["DeveloperCertificates"] as? [Data], let firstCert = rawCerts.first {
-                    certDER = firstCert
-                    if certChainDERs.isEmpty {
-                        certChainDERs.append(firstCert)
+                if let rawCerts = parsed["DeveloperCertificates"] as? [Data] {
+                    for c in rawCerts {
+                        if !certChainDERs.contains(c) {
+                            certChainDERs.append(c)
+                        }
+                    }
+                    if certDER.isEmpty, let firstCert = rawCerts.first {
+                        certDER = firstCert
                     }
                 }
                 

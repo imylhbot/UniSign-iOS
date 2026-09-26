@@ -77,7 +77,9 @@ public class RenewalService {
                                 bundleIdentifier: record.bundleId,
                                 displayName: record.name,
                                 versionString: record.version
-                            )
+                            ),
+                            customPrivateKey: materials.privateKey,
+                            customCertDER: materials.certDER
                         )
                         
                         IPAManager.processAndSign(config: config, progress: { pct, msg in

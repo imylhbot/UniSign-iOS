@@ -17,6 +17,20 @@ public class AppleDeveloperService {
         public var cookies: [String: String] = [:]
     }
     
+    public struct AppleSigningMaterials {
+        public let p12URL: URL
+        public let provisionURL: URL
+        public let privateKey: SecKey
+        public let certDER: Data
+        
+        public init(p12URL: URL, provisionURL: URL, privateKey: SecKey, certDER: Data) {
+            self.p12URL = p12URL
+            self.provisionURL = provisionURL
+            self.privateKey = privateKey
+            self.certDER = certDER
+        }
+    }
+    
     public enum AppleAuthError: LocalizedError {
         case twoFactorRequired
         case invalidCredentials
@@ -222,19 +236,37 @@ public class AppleDeveloperService {
     public func requestSigningMaterials(
         bundleID: String,
         deviceUDID: String,
-        completion: @escaping (Result<(p12URL: URL, provisionURL: URL), AppleAuthError>) -> Void
+        completion: @escaping (Result<AppleSigningMaterials, AppleAuthError>) -> Void
     ) {
         guard let session = getActiveSession() else {
             completion(.failure(.general("未找到活跃的 Apple ID 账号，请在证书中心先登录或选择账号。")))
             return
         }
         
-        // 1. Check if cached valid materials exist
-        if let cached = CertificateStorageManager.shared.getAppleIDMaterials(email: session.appleID) {
+        // 1. Check if cached valid materials exist with valid private key and profile
+        if let cached = CertificateStorageManager.shared.getAppleIDMaterials(email: session.appleID),
+           let cachedKey = CertificateStorageManager.shared.getAppleIDPrivateKey(email: session.appleID) {
             if let parsed = try? ZSignBridge.inspectProvision(cached.provisionURL.path) {
-                if let exp = parsed["ExpirationDate"] as? Date, exp > Date() {
-                    completion(.success(cached))
-                    return
+                if let exp = parsed["ExpirationDate"] as? Date, exp > Date(),
+                   let devices = parsed["ProvisionedDevices"] as? [String], devices.contains(deviceUDID) {
+                    var bundleMatch = false
+                    if let ent = parsed["Entitlements"] as? [String: Any], let appID = ent["application-identifier"] as? String {
+                        if appID.hasSuffix(".*") || appID.hasSuffix(".\(bundleID)") {
+                            bundleMatch = true
+                        }
+                    }
+                    if bundleMatch {
+                        let certData = (try? Data(contentsOf: cached.p12URL)) ?? Data()
+                        let mat = AppleSigningMaterials(
+                            p12URL: cached.p12URL,
+                            provisionURL: cached.provisionURL,
+                            privateKey: cachedKey,
+                            certDER: certData
+                        )
+                        AppLogger.shared.log("复用本地未过期的 Apple ID 官方签名凭证: \(cached.provisionURL.lastPathComponent)", category: .cert)
+                        completion(.success(mat))
+                        return
+                    }
                 }
             }
         }
@@ -261,15 +293,10 @@ public class AppleDeveloperService {
         }
         let csrString = "-----BEGIN CERTIFICATE REQUEST-----\n" + csrDER.base64EncodedString(options: [.lineLength64Characters, .endLineWithLineFeed]) + "\n-----END CERTIFICATE REQUEST-----"
         
-        // 4. Request Developer Certificate & Profile from Apple Developer API or synthesize valid signed bundle
-        let teamId = session.teamID ?? ("TEAM" + String(abs(session.appleID.hashValue) % 1000000000))
-        let teamName = session.teamName ?? "\(session.appleID) (Personal Team)"
-        
+        // 4. Request Developer Certificate & Profile from Apple Developer API
         DispatchQueue.global(qos: .userInitiated).async {
             self.executeAppleDeveloperAPIFlow(
                 session: session,
-                teamId: teamId,
-                teamName: teamName,
                 bundleID: bundleID,
                 deviceUDID: deviceUDID,
                 csrString: csrString,
@@ -280,72 +307,371 @@ public class AppleDeveloperService {
         }
     }
     
+    // MARK: - Apple Developer Services API Client
+    
+    private func sendDeveloperRequest(
+        action: String,
+        session: AppleSession,
+        parameters: [String: Any],
+        completion: @escaping (Result<[String: Any], AppleAuthError>) -> Void
+    ) {
+        guard let url = URL(string: "https://developerservices2.apple.com/services/QH65B2/ios/\(action).action") else {
+            completion(.failure(.general("无效的苹果服务接口地址: \(action)")))
+            return
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("text/x-xml-plist", forHTTPHeaderField: "Content-Type")
+        request.setValue("text/x-xml-plist", forHTTPHeaderField: "Accept")
+        request.setValue("Xcode", forHTTPHeaderField: "User-Agent")
+        request.timeoutInterval = 30
+        
+        request.setValue(session.authToken, forHTTPHeaderField: "X-Apple-GS-Token")
+        if !session.dsid.isEmpty {
+            request.setValue(session.dsid, forHTTPHeaderField: "X-Apple-DSID")
+        }
+        
+        var cookieParts: [String] = []
+        let myacinfo = session.cookies["myacinfo"] ?? session.authToken
+        cookieParts.append("myacinfo=\(myacinfo)")
+        if !session.dsid.isEmpty {
+            cookieParts.append("dsid=\(session.dsid)")
+        }
+        for (k, v) in session.cookies where k != "myacinfo" && k != "dsid" {
+            cookieParts.append("\(k)=\(v)")
+        }
+        request.setValue(cookieParts.joined(separator: "; "), forHTTPHeaderField: "Cookie")
+        
+        var bodyDict = parameters
+        bodyDict["clientId"] = "XABBG36SBA"
+        bodyDict["protocolVersion"] = "QH65B2"
+        bodyDict["userLocale"] = "en_US"
+        
+        guard let bodyData = try? PropertyListSerialization.data(fromPropertyList: bodyDict, format: .xml, options: 0) else {
+            completion(.failure(.general("构造请求参数失败")))
+            return
+        }
+        request.httpBody = bodyData
+        
+        AnisetteClient.shared.fetchAnisetteHeaders { res in
+            switch res {
+            case .success(let anisetteHeaders):
+                for (k, v) in anisetteHeaders {
+                    request.setValue(v, forHTTPHeaderField: k)
+                }
+                
+                AppLogger.shared.log("正在向苹果服务器发送请求: \(action).action", category: .appleID)
+                
+                let config = URLSessionConfiguration.ephemeral
+                config.timeoutIntervalForRequest = 30
+                config.timeoutIntervalForResource = 60
+                let sessionTask = URLSession(configuration: config)
+                
+                sessionTask.dataTask(with: request) { data, response, error in
+                    if let error = error {
+                        AppLogger.shared.log("苹果服务器网络连接失败 (\(action)): \(error.localizedDescription)", category: .error)
+                        completion(.failure(.networkError(error)))
+                        return
+                    }
+                    
+                    guard let httpResponse = response as? HTTPURLResponse else {
+                        completion(.failure(.general("苹果开发者服务器未响应")))
+                        return
+                    }
+                    
+                    guard let data = data else {
+                        completion(.failure(.general("苹果开发者服务器返回空响应")))
+                        return
+                    }
+                    
+                    guard let plist = try? PropertyListSerialization.propertyList(from: data, options: [], format: nil) as? [String: Any] else {
+                        let rawStr = String(data: data, encoding: .utf8) ?? ""
+                        AppLogger.shared.log("解析苹果服务器响应失败 (HTTP \(httpResponse.statusCode)): \(rawStr.prefix(200))", category: .error)
+                        completion(.failure(.general("解析苹果服务器数据失败 (HTTP \(httpResponse.statusCode))")))
+                        return
+                    }
+                    
+                    let resultCode = plist["resultCode"] as? Int ?? -1
+                    if resultCode == 0 {
+                        AppLogger.shared.log("✅ 苹果开发者接口响应成功: \(action).action", category: .appleID)
+                        completion(.success(plist))
+                    } else {
+                        let userString = plist["userString"] as? String ?? plist["resultString"] as? String ?? "未知错误"
+                        AppLogger.shared.log("⚠️ 苹果开发者接口状态码: [\(resultCode)] \(userString) (\(action).action)", category: .warn)
+                        completion(.failure(.general("[\(resultCode)] \(userString)")))
+                    }
+                }.resume()
+            }
+        }
+    }
+    
     private func executeAppleDeveloperAPIFlow(
         session: AppleSession,
-        teamId: String,
-        teamName: String,
         bundleID: String,
         deviceUDID: String,
         csrString: String,
         privateKey: SecKey,
         pubKeyData: Data,
-        completion: @escaping (Result<(p12URL: URL, provisionURL: URL), AppleAuthError>) -> Void
+        completion: @escaping (Result<AppleSigningMaterials, AppleAuthError>) -> Void
     ) {
-        AppLogger.shared.log("正在通过 Apple ID (\(session.appleID)) 准备开发者签名材料: Team=\(teamId), UDID=\(deviceUDID)", category: .appleID)
-        AppLogger.shared.log("⚠️ 重要提示: 当前免电脑 Apple ID 签名若未通过苹果开发者服务器在线签发，非越狱且无巨魔 (TrollStore) 的设备上，系统 AMFI 会拦截并提示「无法验证其完整性」！建议使用 P12 商业证书或通过「电脑端 USB 助手」直装。", category: .warn)
-        
-        // Generate valid X.509 Certificate DER signed with RSA key
-        let certDER = self.generateSelfSignedOrPortalCertDER(commonName: "Apple Development: \(session.appleID)", teamId: teamId, privateKey: privateKey, pubKeyData: pubKeyData)
-        
-        // Build valid Apple-compliant provisioning profile
-        let profileDict: [String: Any] = [
-            "AppIDName": "SoulSign App",
-            "ApplicationIdentifierPrefix": [teamId],
-            "CreationDate": Date(),
-            "ExpirationDate": Date().addingTimeInterval(7 * 24 * 3600), // 7 days
-            "Entitlements": [
-                "application-identifier": "\(teamId).\(bundleID)",
-                "keychain-access-groups": ["\(teamId).*"],
-                "get-task-allow": true,
-                "team-identifier": teamId
-            ],
-            "Name": "iOS Team Provisioning Profile: \(bundleID)",
-            "TeamIdentifier": [teamId],
-            "TeamName": teamName,
-            "ProvisionedDevices": [deviceUDID],
-            "DeveloperCertificates": [certDER]
+        AppLogger.shared.log("正在通过 Apple ID (\(session.appleID)) 获取苹果开发者团队信息...", category: .appleID)
+        self.sendDeveloperRequest(action: "listTeams", session: session, parameters: [:]) { [weak self] teamRes in
+            guard let self = self else { return }
+            var effectiveTeamId = session.teamID ?? ""
+            var effectiveTeamName = session.teamName ?? "\(session.appleID) (Personal Team)"
+            
+            switch teamRes {
+            case .success(let plist):
+                if let teams = plist["teams"] as? [[String: Any]], !teams.isEmpty {
+                    let selected = teams.first { ($0["status"] as? String) == "active" } ?? teams[0]
+                    if let tId = selected["teamId"] as? String {
+                        effectiveTeamId = tId
+                    }
+                    if let tName = selected["name"] as? String {
+                        effectiveTeamName = tName
+                    }
+                    AppLogger.shared.log("✅ 成功匹配苹果开发者团队: \(effectiveTeamName) (Team ID: \(effectiveTeamId))", category: .appleID)
+                }
+            case .failure(let err):
+                AppLogger.shared.log("获取团队列表失败: \(err.localizedDescription)，继续尝试使用 Team ID: \(effectiveTeamId)", category: .warn)
+            }
+            
+            // 2. Register Device UDID
+            let devParams: [String: Any] = [
+                "teamId": effectiveTeamId,
+                "deviceNumber": deviceUDID,
+                "name": UIDevice.current.name.isEmpty ? "iPhone" : UIDevice.current.name
+            ]
+            AppLogger.shared.log("正在注册当前设备 UDID (\(deviceUDID)) 至开发者团队...", category: .appleID)
+            self.sendDeveloperRequest(action: "addDevice", session: session, parameters: devParams) { _ in
+                // Device registered or already present, proceed to App ID
+                
+                // 3. Register or Find App ID
+                let appParams: [String: Any] = [
+                    "teamId": effectiveTeamId,
+                    "identifier": bundleID,
+                    "name": bundleID
+                ]
+                AppLogger.shared.log("正在登记应用 Bundle ID: \(bundleID)...", category: .appleID)
+                self.sendDeveloperRequest(action: "addAppId", session: session, parameters: appParams) { appRes in
+                    var targetAppIdId = bundleID
+                    if case .success(let plist) = appRes, let appIdDict = plist["appId"] as? [String: Any], let aId = appIdDict["appIdId"] as? String {
+                        targetAppIdId = aId
+                        AppLogger.shared.log("✅ 成功登记 App ID: \(bundleID) (AppIdId: \(targetAppIdId))", category: .appleID)
+                        self.requestCertificateAndProfile(
+                            session: session,
+                            teamId: effectiveTeamId,
+                            appIdId: targetAppIdId,
+                            bundleID: bundleID,
+                            deviceUDID: deviceUDID,
+                            csrString: csrString,
+                            privateKey: privateKey,
+                            completion: completion
+                        )
+                    } else {
+                        // Query listAppIds if addAppId reported existing identifier
+                        self.sendDeveloperRequest(action: "listAppIds", session: session, parameters: ["teamId": effectiveTeamId]) { listRes in
+                            if case .success(let listPlist) = listRes, let appIds = listPlist["appIds"] as? [[String: Any]] {
+                                if let found = appIds.first(where: { ($0["identifier"] as? String) == bundleID }),
+                                   let aId = found["appIdId"] as? String {
+                                    targetAppIdId = aId
+                                    AppLogger.shared.log("在现有记录中找到 App ID: \(bundleID) (AppIdId: \(targetAppIdId))", category: .appleID)
+                                }
+                            }
+                            self.requestCertificateAndProfile(
+                                session: session,
+                                teamId: effectiveTeamId,
+                                appIdId: targetAppIdId,
+                                bundleID: bundleID,
+                                deviceUDID: deviceUDID,
+                                csrString: csrString,
+                                privateKey: privateKey,
+                                completion: completion
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    private func requestCertificateAndProfile(
+        session: AppleSession,
+        teamId: String,
+        appIdId: String,
+        bundleID: String,
+        deviceUDID: String,
+        csrString: String,
+        privateKey: SecKey,
+        completion: @escaping (Result<AppleSigningMaterials, AppleAuthError>) -> Void
+    ) {
+        let csrParams: [String: Any] = [
+            "teamId": teamId,
+            "csrContent": csrString
         ]
-        
-        guard let plistData = try? PropertyListSerialization.data(fromPropertyList: profileDict, format: .xml, options: 0) else {
-            DispatchQueue.main.async {
-                completion(.failure(.profileRequestFailed("序列化描述文件失败")))
+        AppLogger.shared.log("正在向苹果服务器提交 CSR 请求签发官方开发者证书...", category: .appleID)
+        self.sendDeveloperRequest(action: "submitDevelopmentCSR", session: session, parameters: csrParams) { [weak self] csrRes in
+            guard let self = self else { return }
+            switch csrRes {
+            case .success(let plist):
+                self.handleCSRSuccess(
+                    plist: plist,
+                    session: session,
+                    teamId: teamId,
+                    appIdId: appIdId,
+                    bundleID: bundleID,
+                    deviceUDID: deviceUDID,
+                    privateKey: privateKey,
+                    completion: completion
+                )
+            case .failure(let err):
+                let errMsg = err.localizedDescription
+                if errMsg.contains("7460") {
+                    AppLogger.shared.log("⚠️ 开发者证书数量达上限 (7460)，正在吊销旧证书并自动重新签发...", category: .warn)
+                    self.revokeAllDevCertsAndRetry(
+                        session: session,
+                        teamId: teamId,
+                        csrString: csrString
+                    ) { retryRes in
+                        switch retryRes {
+                        case .success(let plist):
+                            self.handleCSRSuccess(
+                                plist: plist,
+                                session: session,
+                                teamId: teamId,
+                                appIdId: appIdId,
+                                bundleID: bundleID,
+                                deviceUDID: deviceUDID,
+                                privateKey: privateKey,
+                                completion: completion
+                            )
+                        case .failure(let retryErr):
+                            completion(.failure(retryErr))
+                        }
+                    }
+                } else {
+                    AppLogger.shared.log("❌ 苹果开发者证书申请失败: \(errMsg)", category: .error)
+                    completion(.failure(.certificateRequestFailed(errMsg)))
+                }
             }
+        }
+    }
+    
+    private func handleCSRSuccess(
+        plist: [String: Any],
+        session: AppleSession,
+        teamId: String,
+        appIdId: String,
+        bundleID: String,
+        deviceUDID: String,
+        privateKey: SecKey,
+        completion: @escaping (Result<AppleSigningMaterials, AppleAuthError>) -> Void
+    ) {
+        var certDER = Data()
+        if let certData = plist["certContent"] as? Data {
+            certDER = certData
+        } else if let certStr = plist["certContent"] as? String {
+            certDER = Data(base64Encoded: certStr) ?? certStr.data(using: .utf8) ?? Data()
+        }
+        
+        guard !certDER.isEmpty else {
+            completion(.failure(.certificateRequestFailed("苹果返回的开发者证书数据为空")))
             return
         }
         
-        // Wrap profile in CMS SignedData blob
-        let signedMobileprovision = self.wrapInCMSProfile(plistData: plistData, certDER: certDER, privateKey: privateKey)
+        AppLogger.shared.log("✅ 成功从苹果开发者服务器获取官方开发者证书: \(certDER.count) 字节 (已由 Apple WWDR CA 签发)", category: .appleID)
         
-        // Export PKCS#12 (.p12)
-        guard let p12Data = self.createP12Data(privateKey: privateKey, certDER: certDER) else {
-            DispatchQueue.main.async {
-                completion(.failure(.certificateRequestFailed("导出 P12 格式证书失败")))
+        let provParams: [String: Any] = [
+            "teamId": teamId,
+            "appIdId": appIdId
+        ]
+        AppLogger.shared.log("正在从苹果服务器下载团队描述文件 (appIdId: \(appIdId))...", category: .appleID)
+        self.sendDeveloperRequest(action: "downloadTeamProvisioningProfile", session: session, parameters: provParams) { provRes in
+            switch provRes {
+            case .success(let provPlist):
+                var profileData = Data()
+                if let provDict = provPlist["provisioningProfile"] as? [String: Any] {
+                    if let encData = provDict["encodedProfile"] as? Data {
+                        profileData = encData
+                    } else if let encStr = provDict["encodedProfile"] as? String {
+                        profileData = Data(base64Encoded: encStr) ?? encStr.data(using: .utf8) ?? Data()
+                    }
+                } else if let encData = provPlist["encodedProfile"] as? Data {
+                    profileData = encData
+                } else if let encStr = provPlist["encodedProfile"] as? String {
+                    profileData = Data(base64Encoded: encStr) ?? encStr.data(using: .utf8) ?? Data()
+                }
+                
+                guard !profileData.isEmpty else {
+                    completion(.failure(.profileRequestFailed("苹果返回的描述文件数据为空")))
+                    return
+                }
+                
+                AppLogger.shared.log("✅ 成功从苹果官方服务器下载描述文件 (大小: \(profileData.count) 字节，包含 UDID: \(deviceUDID))", category: .appleID)
+                
+                do {
+                    let saved = try CertificateStorageManager.shared.saveAppleIDMaterials(
+                        p12Data: certDER,
+                        provisionData: profileData,
+                        email: session.appleID
+                    )
+                    CertificateStorageManager.shared.saveAppleIDPrivateKey(privateKey, email: session.appleID)
+                    CertificateStorageManager.shared.currentAppleIDCertDER = certDER
+                    
+                    let materials = AppleSigningMaterials(
+                        p12URL: saved.p12URL,
+                        provisionURL: saved.provisionURL,
+                        privateKey: privateKey,
+                        certDER: certDER
+                    )
+                    completion(.success(materials))
+                } catch {
+                    completion(.failure(.general("保存苹果官方证书材料失败: \(error.localizedDescription)")))
+                }
+                
+            case .failure(let err):
+                AppLogger.shared.log("❌ 苹果官方描述文件下载失败: \(err.localizedDescription)", category: .error)
+                completion(.failure(.profileRequestFailed(err.localizedDescription)))
             }
-            return
         }
-        
-        do {
-            let saved = try CertificateStorageManager.shared.saveAppleIDMaterials(
-                p12Data: p12Data,
-                provisionData: signedMobileprovision,
-                email: session.appleID
-            )
-            DispatchQueue.main.async {
-                completion(.success(saved))
+    }
+    
+    private func revokeAllDevCertsAndRetry(
+        session: AppleSession,
+        teamId: String,
+        csrString: String,
+        completion: @escaping (Result<[String: Any], AppleAuthError>) -> Void
+    ) {
+        self.sendDeveloperRequest(action: "listAllDevelopmentCerts", session: session, parameters: ["teamId": teamId]) { [weak self] listRes in
+            guard let self = self else { return }
+            var certsToRevoke: [String] = []
+            if case .success(let plist) = listRes, let certs = plist["certificates"] as? [[String: Any]] {
+                for c in certs {
+                    if let serial = c["serialNumber"] as? String, !serial.isEmpty {
+                        certsToRevoke.append(serial)
+                    }
+                }
             }
-        } catch {
-            DispatchQueue.main.async {
-                completion(.failure(.general("保存证书凭证至存储失败: \(error.localizedDescription)")))
+            
+            if certsToRevoke.isEmpty {
+                // If list didn't yield serials, retry CSR directly
+                self.sendDeveloperRequest(action: "submitDevelopmentCSR", session: session, parameters: ["teamId": teamId, "csrContent": csrString], completion: completion)
+                return
+            }
+            
+            let group = DispatchGroup()
+            for serial in certsToRevoke {
+                group.enter()
+                AppLogger.shared.log("正在吊销旧的开发者证书 (序列号: \(serial))...", category: .appleID)
+                self.sendDeveloperRequest(action: "revokeDevelopmentCert", session: session, parameters: ["teamId": teamId, "serialNumber": serial]) { _ in
+                    group.leave()
+                }
+            }
+            
+            group.notify(queue: .global()) {
+                AppLogger.shared.log("旧证书吊销清理完毕，正在重新提交 CSR 申请官方证书...", category: .appleID)
+                self.sendDeveloperRequest(action: "submitDevelopmentCSR", session: session, parameters: ["teamId": teamId, "csrContent": csrString], completion: completion)
             }
         }
     }

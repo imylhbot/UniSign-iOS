@@ -1,10 +1,14 @@
 import Foundation
+import Security
 
 /// Central persistent storage manager for P12 certificates, passwords, and mobileprovision profiles.
 public class CertificateStorageManager {
     public static let shared = CertificateStorageManager()
     
     private let certsDir: URL
+    
+    public var currentAppleIDPrivateKey: SecKey?
+    public var currentAppleIDCertDER: Data?
     
     private init() {
         let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
@@ -89,5 +93,45 @@ public class CertificateStorageManager {
         } catch {
             return false
         }
+    }
+    
+    public func saveAppleIDPrivateKey(_ key: SecKey, email: String) {
+        self.currentAppleIDPrivateKey = key
+        let tag = "com.unisign.appleid.key.\(email.lowercased())".data(using: .utf8)!
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassKey,
+            kSecAttrApplicationTag as String: tag
+        ]
+        SecItemDelete(query as CFDictionary)
+        
+        let addQuery: [String: Any] = [
+            kSecClass as String: kSecClassKey,
+            kSecAttrApplicationTag as String: tag,
+            kSecAttrKeyType as String: kSecAttrKeyTypeRSA,
+            kSecValueRef as String: key,
+            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock
+        ]
+        let status = SecItemAdd(addQuery as CFDictionary, nil)
+        AppLogger.shared.log("Keychain 保存 Apple ID 私钥状态: \(status)", category: .cert)
+    }
+    
+    public func getAppleIDPrivateKey(email: String) -> SecKey? {
+        if let memKey = currentAppleIDPrivateKey {
+            return memKey
+        }
+        let tag = "com.unisign.appleid.key.\(email.lowercased())".data(using: .utf8)!
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassKey,
+            kSecAttrApplicationTag as String: tag,
+            kSecReturnRef as String: true
+        ]
+        var item: CFTypeRef?
+        let status = SecItemCopyMatching(query as CFDictionary, &item)
+        if status == errSecSuccess, let keyRef = item {
+            let key = (keyRef as! SecKey)
+            self.currentAppleIDPrivateKey = key
+            return key
+        }
+        return nil
     }
 }
