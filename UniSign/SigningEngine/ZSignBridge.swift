@@ -795,9 +795,7 @@ private extension Data {
     }
     
     mutating func appendUInt32BE(_ value: UInt32) {
-        let be = value.bigEndian
-        withUnsafeBytes(of: be) {
-            self.append(contentsOf: $0)
-        }
+        var be = value.bigEndian
+        self.append(Data(bytes: &be, count: MemoryLayout<UInt32>.size))
     }
 }

@@ -139,6 +139,65 @@ public class LocalInstallServer {
         return getManifestInstallURL()
     }
     
+    /// Uploads manifest.plist to a public temporary raw HTTPS host (e.g. paste.rs / cl1p.net)
+    /// to provide a 100% genuine, SSL-trusted public manifest URL for iOS itms-services.
+    public func uploadManifestToOnlineHost(manifestXML: String, completion: @escaping (URL?) -> Void) {
+        guard let postData = manifestXML.data(using: .utf8) else {
+            completion(nil)
+            return
+        }
+        
+        // 1. Try paste.rs (Fast, instant raw HTTPS direct link)
+        if let pasteURL = URL(string: "https://paste.rs") {
+            var request = URLRequest(url: pasteURL)
+            request.httpMethod = "POST"
+            request.httpBody = postData
+            request.timeoutInterval = 3.5
+            request.setValue("text/plain; charset=utf-8", forHTTPHeaderField: "Content-Type")
+            request.setValue("SoulSign/1.0", forHTTPHeaderField: "User-Agent")
+            
+            let task = URLSession.shared.dataTask(with: request) { data, response, error in
+                if let data = data, let rawStr = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines),
+                   rawStr.hasPrefix("https://"), let directURL = URL(string: rawStr) {
+                    let itmsStr = "itms-services://?action=download-manifest&url=\(directURL.absoluteString)"
+                    if let finalURL = URL(string: itmsStr) {
+                        DispatchQueue.main.async { completion(finalURL) }
+                        return
+                    }
+                }
+                
+                // 2. Fallback to cl1p.net
+                let clipId = "soulsign-" + UUID().uuidString.prefix(12).lowercased()
+                if let clipURL = URL(string: "https://api.cl1p.net/\(clipId)") {
+                    var clipReq = URLRequest(url: clipURL)
+                    clipReq.httpMethod = "POST"
+                    clipReq.httpBody = postData
+                    clipReq.timeoutInterval = 3.5
+                    clipReq.setValue("text/plain", forHTTPHeaderField: "Content-Type")
+                    
+                    let clipTask = URLSession.shared.dataTask(with: clipReq) { _, _, _ in
+                        let directURLStr = "https://api.cl1p.net/\(clipId)"
+                        let itmsStr = "itms-services://?action=download-manifest&url=\(directURLStr)"
+                        DispatchQueue.main.async {
+                            if let finalURL = URL(string: itmsStr) {
+                                completion(finalURL)
+                            } else {
+                                completion(nil)
+                            }
+                        }
+                    }
+                    clipTask.resume()
+                } else {
+                    DispatchQueue.main.async { completion(nil) }
+                }
+            }
+            task.resume()
+            return
+        }
+        
+        completion(nil)
+    }
+
     /// Starts serving the specified IPA for local installation
     public func startServing(
         ipaURL: URL,
@@ -155,14 +214,22 @@ public class LocalInstallServer {
         
         beginBackgroundKeepAlive()
         
-        if isRunning {
-            completion(.success(getManifestInstallURL()))
-            return
-        }
-        
         do {
-            try start()
-            completion(.success(getManifestInstallURL()))
+            if !isRunning {
+                try start()
+            }
+            
+            // Upload small manifest XML to public raw HTTPS host for 100% reliable iOS install
+            let manifestXML = generateManifestXML()
+            uploadManifestToOnlineHost(manifestXML: manifestXML) { [weak self] onlineURL in
+                guard let self = self else { return }
+                if let url = onlineURL {
+                    completion(.success(url))
+                } else {
+                    // Fallback to trusted reflector / direct manifest
+                    completion(.success(self.getManifestInstallURL()))
+                }
+            }
         } catch {
             completion(.failure(error))
         }
