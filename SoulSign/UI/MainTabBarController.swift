@@ -10,34 +10,34 @@ class MainTabBarController: UITabBarController {
     private func setupTabs() {
         let accountsVC = UINavigationController(rootViewController: AccountsViewController())
         accountsVC.tabBarItem = UITabBarItem(
-            title: "璐﹀彿涓蹇",
+            title: "账号中心",
             image: UIImage(systemName: "person.2.circle"),
             selectedImage: UIImage(systemName: "person.2.circle.fill")
         )
 
         let signVC = UINavigationController(rootViewController: SignViewController())
         signVC.tabBarItem = UITabBarItem(
-            title: "绛惧悕",
+            title: "签名",
             image: UIImage(systemName: "signature"),
             selectedImage: UIImage(systemName: "signature")
         )
 
         let libraryVC = UINavigationController(rootViewController: AppLibraryViewController())
         libraryVC.tabBarItem = UITabBarItem(
-            title: "搴旂敤搴?,
+            title: "应用库",
             image: UIImage(systemName: "square.stack.3d.up"),
             selectedImage: UIImage(systemName: "square.stack.3d.up.fill")
         )
 
         let settingsVC = UINavigationController(rootViewController: SettingsViewController())
         settingsVC.tabBarItem = UITabBarItem(
-            title: "璁剧疆",
+            title: "设置",
             image: UIImage(systemName: "gearshape"),
             selectedImage: UIImage(systemName: "gearshape.fill")
         )
 
         viewControllers = [accountsVC, signVC, libraryVC, settingsVC]
-        selectedIndex = 1 // Default to Sign workbench
+        selectedIndex = 1
     }
 
     private func setupAppearance() {

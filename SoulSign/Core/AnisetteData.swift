@@ -1,7 +1,6 @@
 import Foundation
 import UIKit
 
-/// Represents Apple Anisette provisioning data required for GrandSlam authentication
 struct AnisetteData: Codable {
     var machineID: String
     var oneTimePassword: String
@@ -26,7 +25,6 @@ struct AnisetteData: Codable {
         self.localUserUUID = localUserUUID
     }
 
-    /// Converts the Anisette data into standard Apple authentication HTTP headers
     var httpHeaders: [String: String] {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
@@ -46,7 +44,6 @@ struct AnisetteData: Codable {
     }
 }
 
-/// Provides Anisette headers locally or from configured remote Anisette servers (SideStore style)
 class AnisetteProvider {
     static let shared = AnisetteProvider()
 
@@ -57,7 +54,6 @@ class AnisetteProvider {
     }
 
     func fetchAnisetteHeaders(completion: @escaping ([String: String]) -> Void) {
-        // If a remote server is provided (e.g. SideStore provision server), attempt network fetch
         if let serverStr = customServerURL, !serverStr.isEmpty, let url = URL(string: serverStr) {
             var request = URLRequest(url: url)
             request.timeoutInterval = 5.0
@@ -68,13 +64,11 @@ class AnisetteProvider {
                     DispatchQueue.main.async { completion(json) }
                     return
                 }
-                // Fallback to local generated headers
                 DispatchQueue.main.async {
                     completion(AnisetteData().httpHeaders)
                 }
             }.resume()
         } else {
-            // Default built-in local Anisette headers
             completion(AnisetteData().httpHeaders)
         }
     }

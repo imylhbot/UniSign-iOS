@@ -1,32 +1,30 @@
 import Foundation
 
-/// Lifecycle session status of an Apple Developer Account
 enum SessionStatus: String, Codable {
-    case valid              // 馃煝 Session active & valid
-    case expired            // 馃敶 Session expired / cookie revoked
-    case twoFactorRequired  // 馃煛 2FA Challenge pending
-    case unchecked          // 鈿?Not checked yet
+    case valid
+    case expired
+    case twoFactorRequired
+    case unchecked
 
     var title: String {
         switch self {
-        case .valid: return "鏈夋晥"
-        case .expired: return "浼氳瘽宸插け鏁?
-        case .twoFactorRequired: return "闇 2FA 楠岃瘉"
-        case .unchecked: return "鏈妫娴?
+        case .valid: return "有效"
+        case .expired: return "会话已失效"
+        case .twoFactorRequired: return "需 2FA 验证"
+        case .unchecked: return "未检测"
         }
     }
 
     var badgeColorHex: String {
         switch self {
-        case .valid: return "#28C840"           // Green
-        case .expired: return "#FF3B30"         // Red
-        case .twoFactorRequired: return "#FF9500" // Orange
-        case .unchecked: return "#8E8E93"       // Gray
+        case .valid: return "#28C840"
+        case .expired: return "#FF3B30"
+        case .twoFactorRequired: return "#FF9500"
+        case .unchecked: return "#8E8E93"
         }
     }
 }
 
-/// Represents a configured Apple Developer Account in SoulSign
 struct AppleAccount: Codable, Identifiable, Equatable {
     var id: String { email }
     var email: String

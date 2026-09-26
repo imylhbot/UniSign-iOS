@@ -7,7 +7,7 @@ class WebAuthViewController: UIViewController, WKNavigationDelegate {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        title = "Apple 网页登录"
+        title = "Apple 网页快捷登录"
         view.backgroundColor = .systemBackground
 
         navigationItem.leftBarButtonItem = UIBarButtonItem(
@@ -17,58 +17,82 @@ class WebAuthViewController: UIViewController, WKNavigationDelegate {
             action: #selector(cancelTapped)
         )
 
+        setupWebView()
+        loadLoginPage()
+    }
+
+    private func setupWebView() {
         let config = WKWebViewConfiguration()
         webView = WKWebView(frame: .zero, configuration: config)
         webView.navigationDelegate = self
-        view.addSubview(webView)
         webView.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(webView)
 
-        view.addSubview(progressView)
         progressView.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(progressView)
 
         NSLayoutConstraint.activate([
             progressView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
             progressView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             progressView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            progressView.heightAnchor.constraint(equalToConstant: 2),
 
             webView.topAnchor.constraint(equalTo: progressView.bottomAnchor),
-            webView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
             webView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            webView.trailingAnchor.constraint(equalTo: view.trailingAnchor)
+            webView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            webView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
 
         webView.addObserver(self, forKeyPath: #keyPath(WKWebView.estimatedProgress), options: .new, context: nil)
+    }
 
-        // Load Apple ID developer login page
-        if let url = URL(string: "https://appleid.apple.com/sign-in") {
-            webView.load(URLRequest(url: url))
+    private func loadLoginPage() {
+        if let url = URL(string: "https://developer.apple.com/account/") {
+            let request = URLRequest(url: url)
+            webView.load(request)
         }
     }
 
-    override func observeValue(forKeyPath keyPath: String?, of object: Any?, change: [NSKeyValueChangeKey : Any]?, context: UnsafeMutableRawPointer?) {
+    override func observeValue(
+        forKeyPath keyPath: String?,
+        of object: Any?,
+        change: [NSKeyValueChangeKey: Any]?,
+        context: UnsafeMutableRawPointer?
+    ) {
         if keyPath == #keyPath(WKWebView.estimatedProgress) {
             progressView.progress = Float(webView.estimatedProgress)
-            progressView.isHidden = (webView.estimatedProgress >= 1.0)
+            progressView.isHidden = webView.estimatedProgress >= 1.0
+        } else {
+            super.observeValue(forKeyPath: keyPath, of: object, change: change, context: context)
         }
     }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-        // Extract cookies
-        WKWebsiteDataStore.default().httpCookieStore.getAllCookies { [weak self] cookies in
-            var cookieDict: [String: String] = [:]
-            for c in cookies {
-                cookieDict[c.name] = c.value
-            }
+        guard let currentURL = webView.url?.absoluteString else { return }
 
-            if let myacinfo = cookieDict["myacinfo"], !myacinfo.isEmpty {
-                // Successful session captured
+        if currentURL.contains("developer.apple.com/account") && !currentURL.contains("auth/login") {
+            WKWebsiteDataStore.default().httpCookieStore.getAllCookies { [weak self] cookies in
+                var cookieDict: [String: String] = [:]
+                var accountEmail = "developer@apple.com"
+
+                for cookie in cookies {
+                    cookieDict[cookie.name] = cookie.value
+                    if cookie.name == "myacinfo" || cookie.name.contains("user") {
+                        if !cookie.value.isEmpty {
+                            accountEmail = "apple_user_\(abs(cookie.value.hashValue % 100000))@icloud.com"
+                        }
+                    }
+                }
+
                 let session = DeveloperSession(
-                    appleID: "web-user@appleid.com",
-                    authToken: myacinfo,
-                    cookies: cookieDict
+                    appleID: accountEmail,
+                    authToken: "",
+                    cookies: cookieDict,
+                    expirationDate: Date().addingTimeInterval(86400 * 7)
                 )
+
                 AccountManager.shared.addOrUpdateAccount(
-                    email: "web-user@appleid.com",
+                    email: accountEmail,
                     session: session
                 )
                 self?.dismiss(animated: true)

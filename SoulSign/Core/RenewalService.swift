@@ -1,6 +1,5 @@
 import Foundation
 
-/// Orchestrates 1-Click automatic certificate & provisioning renewal
 class RenewalService {
     static let shared = RenewalService()
 
@@ -13,22 +12,23 @@ class RenewalService {
 
         var errorDescription: String? {
             switch self {
-            case .accountNotFound: return "鏈鎵惧埌缁戝畾鐨 Apple ID 璐﹀彿"
-            case .sessionInvalid: return "Apple ID 浼氳瘽宸插け鏁堬紝璇烽噸鏂扮櫥褰?
-            case .noAppsToRenew: return "褰撳墠璐﹀彿鍚嶄笅鏆傛棤鍙缁绛剧殑搴旂敤"
-            case .appNotFound: return "鏈鎵惧埌鐩鏍囧簲鐢ㄨ板?
-            case .renewalFailed(let msg): return "缁绛惧け璐: \(msg)"
+            case .accountNotFound: return "未找到绑定的 Apple ID 账号"
+            case .sessionInvalid: return "Apple ID 会话已失效，请重新登录"
+            case .noAppsToRenew: return "当前账号名下暂无可续签的应用"
+            case .appNotFound: return "未找到目标应用记录"
+            case .renewalFailed(let msg): return "续签失败: \(msg)"
             }
         }
     }
 
-    /// Renews all apps associated with a specific Apple ID account (1-Click Account Renewal)
+    private init() {}
+
     func renewAppsForAccount(
         email: String,
         progress: @escaping (Int, Int, String) -> Void,
         completion: @escaping (Result<Int, RenewalError>) -> Void
     ) {
-        guard let account = AccountManager.shared.getAccount(email: email) else {
+        guard let _ = AccountManager.shared.getAccount(email: email) else {
             completion(.failure(.accountNotFound))
             return
         }
@@ -63,8 +63,7 @@ class RenewalService {
                 deviceUDID: deviceUDID
             ) { result in
                 switch result {
-                case .success(let profileData):
-                    // Update record expiration
+                case .success:
                     app.signedDate = Date()
                     app.expirationDate = Date().addingTimeInterval(86400 * 7)
                     AppLibraryStore.shared.addOrUpdateRecord(app)
@@ -72,7 +71,6 @@ class RenewalService {
                     renewNext(index: index + 1)
 
                 case .failure:
-                    // Continue with next even if one fails
                     renewNext(index: index + 1)
                 }
             }
@@ -81,7 +79,6 @@ class RenewalService {
         renewNext(index: 0)
     }
 
-    /// Renews a single specific app
     func renewSingleApp(
         bundleID: String,
         completion: @escaping (Result<Void, RenewalError>) -> Void
@@ -116,7 +113,6 @@ class RenewalService {
         }
     }
 
-    /// Renews all apps across all accounts (Global 1-Click Renewal)
     func renewAllApps(
         progress: @escaping (Int, Int, String) -> Void,
         completion: @escaping (Result<Int, RenewalError>) -> Void

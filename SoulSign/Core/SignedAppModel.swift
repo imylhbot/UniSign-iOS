@@ -1,6 +1,5 @@
 import Foundation
 
-/// Record of an installed/signed IPA on the device
 struct SignedAppRecord: Codable, Identifiable, Equatable {
     var id: String { bundleID }
     var bundleID: String
@@ -32,13 +31,11 @@ struct SignedAppRecord: Codable, Identifiable, Equatable {
         self.iconData = iconData
     }
 
-    /// Remaining valid days (e.g. 7, 6, 5...)
     var remainingDays: Int {
         let diff = Calendar.current.dateComponents([.day], from: Date(), to: expirationDate).day ?? 0
         return max(0, diff)
     }
 
-    /// Whether the certificate has expired
     var isExpired: Bool {
         return Date() > expirationDate
     }

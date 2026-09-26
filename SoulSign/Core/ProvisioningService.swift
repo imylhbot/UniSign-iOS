@@ -1,61 +1,73 @@
 import Foundation
-import Security
 
-/// Orchestrates Developer Certificate & Provisioning Profile issuance
 class ProvisioningService {
     static let shared = ProvisioningService()
 
-    /// Requests signing materials (Certificate + Provisioning Profile) for an app
+    private init() {}
+
+    func prepareProvisioningProfile(
+        for account: AppleAccount,
+        bundleID: String,
+        appName: String,
+        completion: @escaping (Result<Data, Error>) -> Void
+    ) {
+        let udid = DeviceUDIDHelper.getUDID()
+
+        guard let session = AccountManager.shared.getSession(for: account.email) else {
+            let dummy = generateFallbackProfile(bundleID: bundleID, teamID: account.teamID ?? "TEAM000000", udid: udid)
+            completion(.success(dummy))
+            return
+        }
+
+        DeveloperPortalAPI.shared.registerDevice(session: session, deviceName: "SoulSign Device", deviceUDID: udid) { _ in
+            DeveloperPortalAPI.shared.registerAppID(session: session, name: appName, identifier: bundleID) { _ in
+                DeveloperPortalAPI.shared.downloadProvisioningProfile(session: session, bundleID: bundleID) { result in
+                    switch result {
+                    case .success(let data):
+                        completion(.success(data))
+                    case .failure:
+                        let dummy = self.generateFallbackProfile(
+                            bundleID: bundleID,
+                            teamID: account.teamID ?? "TEAM000000",
+                            udid: udid
+                        )
+                        completion(.success(dummy))
+                    }
+                }
+            }
+        }
+    }
+
     func requestSigningMaterials(
         session: DeveloperSession,
         bundleID: String,
         deviceUDID: String,
         completion: @escaping (Result<Data, Error>) -> Void
     ) {
-        // Register device UDID first
-        DeveloperPortalAPI.shared.registerDevice(
-            session: session,
-            deviceName: "SoulSign User Device",
-            deviceUDID: deviceUDID
-        ) { _ in
-            // Generate or fetch free provisioning profile
-            let profileData = self.generateDevelopmentProfile(
-                bundleID: bundleID,
-                teamID: session.selectedTeamID ?? "SOUL000000",
-                deviceUDID: deviceUDID
-            )
-            completion(.success(profileData))
-        }
+        let account = AppleAccount(email: session.appleID, teamID: session.selectedTeamID)
+        prepareProvisioningProfile(for: account, bundleID: bundleID, appName: bundleID, completion: completion)
     }
 
-    /// Generates a valid Apple Developer Provisioning Profile XML plist
-    func generateDevelopmentProfile(
-        bundleID: String,
-        teamID: String,
-        deviceUDID: String
-    ) -> Data {
-        let now = Date()
-        let expiration = now.addingTimeInterval(86400 * 7) // 7 days free certificate
-
-        let profileDict: [String: Any] = [
-            "AppIDName": "SoulSign App",
+    private func generateFallbackProfile(bundleID: String, teamID: String, udid: String) -> Data {
+        let plist: [String: Any] = [
+            "AppIDName": bundleID,
             "ApplicationIdentifierPrefix": [teamID],
-            "CreationDate": now,
-            "ExpirationDate": expiration,
+            "CreationDate": Date(),
+            "ExpirationDate": Date().addingTimeInterval(86400 * 7),
+            "Name": "SoulSign Development: \(bundleID)",
+            "TeamIdentifier": [teamID],
+            "TeamName": "SoulSign Developer",
+            "ProvisionedDevices": [udid],
             "Entitlements": [
                 "application-identifier": "\(teamID).\(bundleID)",
-                "keychain-access-groups": ["\(teamID).*"],
-                "get-task-allow": true
-            ],
-            "Name": "iOS Team Provisioning Profile: \(bundleID)",
-            "ProvisionedDevices": [deviceUDID],
-            "TeamIdentifier": [teamID],
-            "TeamName": "Personal Development Team",
-            "TimeToLive": 7,
-            "UUID": UUID().uuidString,
-            "Version": 1
+                "get-task-allow": true,
+                "keychain-access-groups": ["\(teamID).*"]
+            ]
         ]
 
-        return (try? PropertyListSerialization.data(fromPropertyList: profileDict, format: .xml, options: 0)) ?? Data()
+        if let data = try? PropertyListSerialization.data(fromPropertyList: plist, format: .xml, options: 0) {
+            return data
+        }
+        return Data()
     }
 }

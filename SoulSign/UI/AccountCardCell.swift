@@ -1,19 +1,19 @@
 import UIKit
 
 class AccountCardCell: UITableViewCell {
-    static let identifier = "AccountCardCell"
+    static let reuseIdentifier = "AccountCardCell"
 
     private let containerView = UIView()
     private let emailLabel = UILabel()
     private let activeBadge = UILabel()
     private let teamLabel = UILabel()
 
-    // 3-App Quota UI
+    // 3-App Quota elements
     private let quotaTitleLabel = UILabel()
     private let quotaCountLabel = UILabel()
     private let quotaProgressView = UIProgressView(progressViewStyle: .default)
 
-    // Session Status UI
+    // Session Status elements
     private let statusBadge = UILabel()
     private let lastCheckedLabel = UILabel()
 
@@ -46,7 +46,7 @@ class AccountCardCell: UITableViewCell {
         emailLabel.font = UIFont.systemFont(ofSize: 17, weight: .bold)
         emailLabel.textColor = .label
 
-        activeBadge.text = "娲昏穬绛惧悕璐﹀彿"
+        activeBadge.text = "活跃账号"
         activeBadge.font = UIFont.systemFont(ofSize: 11, weight: .semibold)
         activeBadge.textColor = .white
         activeBadge.backgroundColor = SoulSignTheme.primary
@@ -64,7 +64,7 @@ class AccountCardCell: UITableViewCell {
         teamLabel.textColor = SoulSignTheme.secondaryText
 
         // Quota Section
-        quotaTitleLabel.text = "3-App 寮鍙戣呯惧悕閰嶉?"
+        quotaTitleLabel.text = "3-App 开发者签名配额:"
         quotaTitleLabel.font = UIFont.systemFont(ofSize: 13, weight: .medium)
         quotaTitleLabel.textColor = .secondaryLabel
 
@@ -93,13 +93,13 @@ class AccountCardCell: UITableViewCell {
         statusRow.alignment = .center
 
         // Action Buttons Row
-        styleActionButton(checkButton, title: "馃攳 妫娴嬫湁鏁堟?, color: SoulSignTheme.primary)
+        styleActionButton(checkButton, title: "🔍 检测有效性", color: SoulSignTheme.primary)
         checkButton.addTarget(self, action: #selector(checkTapped), for: .touchUpInside)
 
-        styleActionButton(renewButton, title: "鈿?涓閿缁绛?, color: SoulSignTheme.success)
+        styleActionButton(renewButton, title: "⚡ 一键续签", color: SoulSignTheme.success)
         renewButton.addTarget(self, action: #selector(renewTapped), for: .touchUpInside)
 
-        styleActionButton(moreButton, title: "鈥⑩⑩?鏇村", color: .systemGray)
+        styleActionButton(moreButton, title: "••• 更多", color: .systemGray)
         moreButton.addTarget(self, action: #selector(moreTapped), for: .touchUpInside)
 
         let buttonRow = UIStackView(arrangedSubviews: [checkButton, renewButton, moreButton])
@@ -132,10 +132,10 @@ class AccountCardCell: UITableViewCell {
             mainStack.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -14),
 
             activeBadge.heightAnchor.constraint(equalToConstant: 20),
-            activeBadge.widthAnchor.constraint(equalToConstant: 80),
+            activeBadge.widthAnchor.constraint(equalToConstant: 68),
             quotaProgressView.heightAnchor.constraint(equalToConstant: 8),
             statusBadge.heightAnchor.constraint(equalToConstant: 22),
-            statusBadge.widthAnchor.constraint(equalToConstant: 90),
+            statusBadge.widthAnchor.constraint(equalToConstant: 96),
             buttonRow.heightAnchor.constraint(equalToConstant: 34)
         ])
     }
@@ -152,15 +152,14 @@ class AccountCardCell: UITableViewCell {
         emailLabel.text = account.email
         activeBadge.isHidden = !account.isActive
 
-        let team = account.teamName ?? account.teamID ?? "涓浜哄紑鍙戣呭洟闃?
-        teamLabel.text = "鍥㈤槦: \(team)"
+        let team = account.teamName ?? account.teamID ?? "个人开发者团队"
+        teamLabel.text = "团队: \(team)"
 
-        // Configure 3-App Quota
         let used = AccountManager.shared.activeAppsCount(for: account.email)
         let total = AccountManager.maxQuotaPerAccount
         let remaining = AccountManager.shared.remainingQuota(for: account.email)
 
-        quotaCountLabel.text = "\(used)/\(total) (鍙鐢: \(remaining) 涓?"
+        quotaCountLabel.text = "\(used)/\(total) (可用: \(remaining) 个)"
         quotaProgressView.progress = Float(used) / Float(total)
 
         if used >= total {
@@ -174,7 +173,6 @@ class AccountCardCell: UITableViewCell {
             quotaProgressView.progressTintColor = SoulSignTheme.success
         }
 
-        // Configure Session Status Badge
         statusBadge.text = account.sessionStatus.title
         switch account.sessionStatus {
         case .valid:
@@ -194,9 +192,9 @@ class AccountCardCell: UITableViewCell {
         if let lastChecked = account.lastCheckedDate {
             let df = DateFormatter()
             df.dateFormat = "MM-dd HH:mm"
-            lastCheckedLabel.text = "妫娴嬩簬: \(df.string(from: lastChecked))"
+            lastCheckedLabel.text = "检测于: \(df.string(from: lastChecked))"
         } else {
-            lastCheckedLabel.text = "灏氭湭妫娴?
+            lastCheckedLabel.text = "尚未检测"
         }
     }
 

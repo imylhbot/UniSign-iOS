@@ -1,41 +1,45 @@
 import UIKit
 
-/// Manages device UDID extraction, persistence, and Safari OTA retrieval
 class DeviceUDIDHelper {
-    private static let udidKey = "SoulSign_CustomUDID"
+    private static let udidKey = "SoulSign_DeviceUDID"
 
-    /// Gets active device UDID
-    static func getDeviceUDID() -> String {
+    static func getUDID() -> String {
         if let saved = UserDefaults.standard.string(forKey: udidKey), !saved.isEmpty {
             return saved
         }
-        if let vendorID = UIDevice.current.identifierForVendor?.uuidString {
-            return vendorID
+        if let idfv = UIDevice.current.identifierForVendor?.uuidString {
+            return idfv.replacingOccurrences(of: "-", with: "")
         }
-        return "00008030-001248883652802E"
+        return UUID().uuidString.replacingOccurrences(of: "-", with: "")
     }
 
-    /// Sets verified physical UDID
+    static func getDeviceUDID() -> String {
+        return getUDID()
+    }
+
     static func setCustomUDID(_ udid: String) {
-        let cleaned = udid.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
-        UserDefaults.standard.set(cleaned, forKey: udidKey)
+        let trimmed = udid.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
+        UserDefaults.standard.set(trimmed, forKey: udidKey)
     }
 
-    /// Whether current UDID is verified physical hardware UDID
-    static func isRealHardwareUDID() -> Bool {
-        if let saved = UserDefaults.standard.string(forKey: udidKey), !saved.isEmpty {
-            return true
+    static var hasConfiguredUDID: Bool {
+        guard let saved = UserDefaults.standard.string(forKey: udidKey), !saved.isEmpty else {
+            return false
         }
-        return false
+        return true
     }
 
-    /// Copies UDID to clipboard
     static func copyUDIDToClipboard() {
         UIPasteboard.general.string = getDeviceUDID()
     }
 
-    /// Launches Safari to install UDID extraction profile
     static func openUDIDAcquisitionInSafari() {
         LocalInstallServer.shared.installUDIDProfile()
+    }
+
+    static func openMobileConfigEnrollment() {
+        if let url = URL(string: "https://udid.tech") {
+            UIApplication.shared.open(url)
+        }
     }
 }

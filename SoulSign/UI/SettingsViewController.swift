@@ -28,7 +28,7 @@ class SettingsViewController: UIViewController, UITableViewDataSource, UITableVi
         tableView.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
             tableView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
-            tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            tableView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
             tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor)
         ])
@@ -45,18 +45,18 @@ class SettingsViewController: UIViewController, UITableViewDataSource, UITableVi
 
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         switch section {
-        case 0: return 2 // UDID Section
-        case 1: return 2 // Anisette & Tools
-        case 2: return 2 // About
+        case 0: return 2
+        case 1: return 2
+        case 2: return 2
         default: return 0
         }
     }
 
     func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
         switch section {
-        case 0: return "设备 UDID 硬件凭据"
-        case 1: return "SideStore 认证设置"
-        case 2: return "关于 SoulSign"
+        case 0: return "📱 设备 UDID 硬件凭据"
+        case 1: return "⚙️ SideStore 认证设置"
+        case 2: return "ℹ️ 关于 SoulSign"
         default: return nil
         }
     }
@@ -72,7 +72,7 @@ class SettingsViewController: UIViewController, UITableViewDataSource, UITableVi
                 cell.detailTextLabel?.text = String(DeviceUDIDHelper.getDeviceUDID().prefix(16)) + "..."
                 cell.accessoryType = .disclosureIndicator
             } else {
-                cell.textLabel?.text = "Safari 一键获取真实物理 UDID"
+                cell.textLabel?.text = "⚡ Safari 一键获取真实物理 UDID"
                 cell.textLabel?.textColor = SoulSignTheme.primary
                 cell.accessoryType = .disclosureIndicator
             }
@@ -83,7 +83,7 @@ class SettingsViewController: UIViewController, UITableViewDataSource, UITableVi
                 cell.detailTextLabel?.text = AnisetteProvider.shared.customServerURL ?? "内置本地引擎"
                 cell.accessoryType = .disclosureIndicator
             } else {
-                cell.textLabel?.text = "清理应用临时缓存"
+                cell.textLabel?.text = "🧹 清理应用临时缓存"
                 cell.accessoryType = .disclosureIndicator
             }
 
@@ -142,10 +142,8 @@ class SettingsViewController: UIViewController, UITableViewDataSource, UITableVi
             tf.text = AnisetteProvider.shared.customServerURL
         }
         alert.addAction(UIAlertAction(title: "保存", style: .default, handler: { [weak self] _ in
-            if let tfText = alert.textFields?.first?.text {
-                let text = tfText.trimmingCharacters(in: CharacterSetCharacterSet.whitespacesAndNewlines)
-                AnisetteProvider.shared.customServerURL = text.isEmpty ? nil : text
-            }
+            let text = alert.textFields?.first?.text?.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
+            AnisetteProvider.shared.customServerURL = text?.isEmpty == false ? text : nil
             self?.tableView.reloadData()
         }))
         alert.addAction(UIAlertAction(title: "恢复默认", style: .destructive, handler: { [weak self] _ in

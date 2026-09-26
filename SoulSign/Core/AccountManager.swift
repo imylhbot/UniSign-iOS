@@ -15,7 +15,6 @@ class AccountManager {
         loadAccounts()
     }
 
-    // MARK: - Account Persistence
     private func loadAccounts() {
         if let data = UserDefaults.standard.data(forKey: accountsKey),
            let decoded = try? JSONDecoder().decode([AppleAccount].self, from: data) {
@@ -91,12 +90,10 @@ class AccountManager {
             accounts.append(acc)
         }
 
-        // Store password in Keychain
         if let pwd = password, !pwd.isEmpty {
             saveKeychainPassword(pwd, for: email)
         }
 
-        // Store session in Keychain
         if let session = session {
             saveKeychainSession(session, for: email)
         }
@@ -126,7 +123,6 @@ class AccountManager {
         lock.unlock()
     }
 
-    // MARK: - 3-App Quota Enforcement (Strict)
     func activeAppsCount(for email: String) -> Int {
         return AppLibraryStore.shared.activeAppsCount(for: email)
     }
@@ -140,9 +136,7 @@ class AccountManager {
         return activeAppsCount(for: email) >= Self.maxQuotaPerAccount
     }
 
-    /// Checks whether an account has capacity to sign a new app
     func canSignNewApp(email: String, bundleID: String) -> Bool {
-        // If the bundle ID is already signed under this email, it's considered an update/renewal
         let existingRecords = AppLibraryStore.shared.records(for: email)
         if existingRecords.contains(where: { $0.bundleID.lowercased() == bundleID.lowercased() }) {
             return true
@@ -150,7 +144,6 @@ class AccountManager {
         return remainingQuota(for: email) > 0
     }
 
-    // MARK: - Keychain Security
     func getPassword(for email: String) -> String? {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,

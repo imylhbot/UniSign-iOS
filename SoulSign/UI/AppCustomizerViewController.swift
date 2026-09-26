@@ -12,7 +12,7 @@ class AppCustomizerViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        title = "搴旂敤娣卞害瀹氬埗"
+        title = "应用个性化定制"
         view.backgroundColor = SoulSignTheme.background
         setupNavigation()
         setupUI()
@@ -20,7 +20,7 @@ class AppCustomizerViewController: UIViewController {
 
     private func setupNavigation() {
         navigationItem.rightBarButtonItem = UIBarButtonItem(
-            title: "淇濆瓨",
+            title: "保存",
             style: .done,
             target: self,
             action: #selector(saveTapped)
@@ -33,24 +33,24 @@ class AppCustomizerViewController: UIViewController {
         view.addSubview(container)
         container.translatesAutoresizingMaskIntoConstraints = false
 
-        bundleIDField.placeholder = "Bundle Identifier (濡? com.app.signed)"
+        bundleIDField.placeholder = "Bundle Identifier (例如: com.app.signed)"
         bundleIDField.text = customization.bundleID
         styleTextField(bundleIDField)
 
-        appNameField.placeholder = "搴旂敤鏄剧ず鍚嶇О"
+        appNameField.placeholder = "应用显示名称"
         appNameField.text = customization.appName
         styleTextField(appNameField)
 
-        versionField.placeholder = "鐗堟湰鍙?(濡? 1.0.0)"
+        versionField.placeholder = "版本号 (例如: 1.0.0)"
         versionField.text = customization.version
         styleTextField(versionField)
 
-        minOSField.placeholder = "鏈浣庢敮鎸?iOS 鐗堟湰 (濡? 15.0)"
+        minOSField.placeholder = "最低支持 iOS 版本 (例如: 15.0)"
         minOSField.text = customization.minimumOS
         styleTextField(minOSField)
 
         let switchLabel = UILabel()
-        switchLabel.text = "寮鍚绯荤粺銆屾枃浠躲嶅簲鐢ㄦ矙鐩掍簰閫?
+        switchLabel.text = "开启系统「文件」应用沙盒互通"
         switchLabel.font = UIFont.systemFont(ofSize: 14, weight: .medium)
 
         fileSharingSwitch.isOn = customization.enableFileSharing

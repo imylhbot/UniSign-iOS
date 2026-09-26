@@ -11,17 +11,17 @@ enum AuthError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .invalidCredentials:
-            return "Apple ID 鎴栧瘑鐮侀敊璇锛岃锋鏌ヨ緭鍏ャ?
+            return "Apple ID 或密码错误，请检查输入。"
         case .twoFactorRequired:
-            return "闇瑕佸弻閲嶈よ?(2FA)銆?
+            return "需要双重认证 (2FA)。"
         case .invalid2FACode:
-            return "杈撳叆鐨勫弻閲嶉獙璇佺爜鏃犳晥鎴栧凡杩囨湡銆?
+            return "输入的双重验证码无效或已过期。"
         case .sessionExpired:
-            return "鐧诲綍浼氳瘽宸茶繃鏈燂紝璇烽噸鏂扮櫥褰曘?
+            return "登录会话已过期，请重新登录。"
         case .networkError(let msg):
-            return "缃戠粶杩炴帴寮傚父: \(msg)"
+            return "网络连接异常: \(msg)"
         case .appleServerError(let code, let msg):
-            return "鑻规灉鏈嶅姟鍣ㄨ繑鍥為敊璇?(\(code)): \(msg)"
+            return "苹果服务器返回错误 (\(code)): \(msg)"
         }
     }
 }
@@ -31,7 +31,6 @@ class GrandSlamClient {
 
     private let authURL = URL(string: "https://gsa.apple.com/grandslam/GsService2")!
 
-    /// Performs GrandSlam authentication with Apple ID and password
     func authenticate(
         appleID: String,
         password: String,
@@ -45,12 +44,10 @@ class GrandSlamClient {
             request.setValue("text/x-xml-plist", forHTTPHeaderField: "Content-Type")
             request.setValue("text/x-xml-plist", forHTTPHeaderField: "Accept")
 
-            // Inject Anisette Headers
             for (key, value) in anisetteHeaders {
                 request.setValue(value, forHTTPHeaderField: key)
             }
 
-            // Build GrandSlam Auth Request Plist
             var authDict: [String: Any] = [
                 "Header": [
                     "Version": "1.0.1"
@@ -73,7 +70,7 @@ class GrandSlamClient {
                 format: .xml,
                 options: 0
             ) else {
-                completion(.failure(.networkError("鏃犳硶鎵撳寘璁よ瘉璇锋眰")))
+                completion(.failure(.networkError("无法打包认证请求")))
                 return
             }
 
@@ -89,19 +86,18 @@ class GrandSlamClient {
 
                 guard let httpResponse = response as? HTTPURLResponse, let data = data else {
                     DispatchQueue.main.async {
-                        completion(.failure(.networkError("鏈鏀跺埌鏈嶅姟鍣ㄥ搷搴")))
+                        completion(.failure(.networkError("未收到服务器响应")))
                     }
                     return
                 }
 
-                // Parse XML Plist Response
                 guard let responseDict = try? PropertyListSerialization.propertyList(
                     from: data,
                     options: [],
                     format: nil
                 ) as? [String: Any] else {
                     DispatchQueue.main.async {
-                        completion(.failure(.networkError("鏃犳硶瑙ｆ瀽鏈嶅姟鍣ㄥ搷搴?)))
+                        completion(.failure(.networkError("无法解析服务器响应")))
                     }
                     return
                 }
@@ -110,7 +106,6 @@ class GrandSlamClient {
                 let statusNode = responseNode["Status"] as? [String: Any] ?? [:]
                 let statusCode = statusNode["ec"] as? Int ?? 0
 
-                // Check for 2FA requirement (ec = -22880 or -21669 or similar 2FA challenge)
                 if statusCode == -22880 || statusCode == -21669 || statusCode == 2011 {
                     DispatchQueue.main.async {
                         completion(.failure(.twoFactorRequired))
@@ -119,18 +114,16 @@ class GrandSlamClient {
                 }
 
                 if statusCode != 0 {
-                    let errorMsg = statusNode["em"] as? String ?? "璁よ瘉澶辫触"
+                    let errorMsg = statusNode["em"] as? String ?? "认证失败"
                     DispatchQueue.main.async {
                         completion(.failure(.appleServerError(statusCode, errorMsg)))
                     }
                     return
                 }
 
-                // Extract spsToken or myacinfo
                 let spsNode = responseNode["sps"] as? [String: Any] ?? [:]
                 let token = spsNode["token"] as? String ?? ""
 
-                // Extract cookies from HTTP response headers
                 var cookies: [String: String] = [:]
                 if let fields = httpResponse.allHeaderFields as? [String: String],
                    let url = response?.url {

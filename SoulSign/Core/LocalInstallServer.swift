@@ -2,7 +2,6 @@ import Foundation
 import Network
 import UIKit
 
-/// Lightweight local HTTP server for itms-services installation and UDID profile serving
 class LocalInstallServer {
     static let shared = LocalInstallServer()
 
@@ -22,7 +21,7 @@ class LocalInstallServer {
                 switch state {
                 case .ready:
                     self?.isRunning = true
-                    print("[SoulSign] 鏈鍦板畨瑁呮湇鍔″凡灏辩? http://127.0.0.1:\(self?.port ?? 24302)")
+                    print("[SoulSign] 本地安装服务已就绪: http://127.0.0.1:\(self?.port ?? 24302)")
                 case .failed:
                     self?.isRunning = false
                 default:
@@ -36,7 +35,7 @@ class LocalInstallServer {
 
             listener?.start(queue: .global(qos: .userInitiated))
         } catch {
-            print("[SoulSign] 鍚鍔ㄦ湰鍦版湇鍔″け璐: \(error)")
+            print("[SoulSign] 启动本地服务失败: \(error)")
         }
     }
 
@@ -85,7 +84,7 @@ class LocalInstallServer {
                 DeviceUDIDHelper.setCustomUDID(udid)
                 NotificationCenter.default.post(name: NSNotification.Name("SoulSignUDIDUpdatedNotification"), object: nil)
             }
-            let html = "<html><body><h1>UDID 鑾峰彇鎴愬姛锛佽疯繑鍥 SoulSign App</h1><script>setTimeout(function(){ window.location.href='soulsign://open'; }, 1000);</script></body></html>"
+            let html = "<html><body><h1>UDID 获取成功！请返回 SoulSign App</h1><script>setTimeout(function(){ window.location.href='soulsign://open'; }, 1000);</script></body></html>"
             let response = "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: \(html.utf8.count)\r\nConnection: close\r\n\r\n\(html)"
             send(response, on: connection)
         } else {
@@ -116,7 +115,7 @@ class LocalInstallServer {
     private func generateManifestXML(bundleID: String, title: String) -> String {
         return """
         <?xml version="1.0" encoding="UTF-8"?>
-        <!DOCTYPE plist "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
         <plist version="1.0">
         <dict>
             <key>items</key>
@@ -152,13 +151,13 @@ class LocalInstallServer {
     private func generateUDIDProfileXML() -> String {
         return """
         <?xml version="1.0" encoding="UTF-8"?>
-        <!DOCTYPE plist "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
         <plist version="1.0">
         <dict>
             <key>PayloadDisplayName</key>
-            <string>SoulSign 鑷鍔ㄨ幏鍙栫湡鏈 UDID</string>
+            <string>SoulSign 自动获取真机 UDID</string>
             <key>PayloadDescription</key>
-            <string>鐢ㄤ簬涓閿瀹夊叏鑾峰彇褰撳?iPhone / iPad 鐨勭湡瀹炵墿鐞嗙‖浠?UDID</string>
+            <string>用于一键安全获取当前设备的真实硬件 UDID</string>
             <key>PayloadIdentifier</key>
             <string>com.soulsign.udid.service</string>
             <key>PayloadOrganization</key>

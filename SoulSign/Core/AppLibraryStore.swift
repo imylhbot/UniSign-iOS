@@ -54,14 +54,12 @@ class AppLibraryStore {
         }
     }
 
-    /// Returns count of signed apps associated with a specific Apple ID email
     func activeAppsCount(for email: String) -> Int {
         return queue.sync {
             self.records.filter { $0.appleIDEmail.lowercased() == email.lowercased() }.count
         }
     }
 
-    /// Returns all records for a specific Apple ID email
     func records(for email: String) -> [SignedAppRecord] {
         return queue.sync {
             self.records.filter { $0.appleIDEmail.lowercased() == email.lowercased() }
