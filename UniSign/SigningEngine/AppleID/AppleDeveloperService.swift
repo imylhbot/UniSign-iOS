@@ -161,15 +161,25 @@ public class AppleDeveloperService {
                 return
             }
             
-            var dsid = (httpResponse.allHeaderFields["X-Apple-DSID"] as? String) ?? (httpResponse.allHeaderFields["x-apple-dsid"] as? String) ?? "DSID_\(UUID().uuidString.prefix(8))"
-            var token = (httpResponse.allHeaderFields["X-Apple-Session-Token"] as? String) ?? (httpResponse.allHeaderFields["x-apple-session-token"] as? String) ?? UUID().uuidString
+            var dsid = (httpResponse.allHeaderFields["X-Apple-DSID"] as? String) ?? (httpResponse.allHeaderFields["x-apple-dsid"] as? String) ?? ""
+            var token = (httpResponse.allHeaderFields["X-Apple-Session-Token"] as? String) ?? (httpResponse.allHeaderFields["x-apple-session-token"] as? String) ?? ""
             
             var cookieDict: [String: String] = [:]
+            if let allHeaders = httpResponse.allHeaderFields as? [String: String], let reqUrl = request.url {
+                let cookies = HTTPCookie.cookies(withResponseHeaderFields: allHeaders, for: reqUrl)
+                for c in cookies {
+                    cookieDict[c.name] = c.value
+                }
+            }
             if let cookieHeader = httpResponse.allHeaderFields["Set-Cookie"] as? String {
                 for part in cookieHeader.components(separatedBy: ";") {
                     let kv = part.components(separatedBy: "=")
                     if kv.count == 2 {
-                        cookieDict[kv[0].trimmingCharacters(in: .whitespaces)] = kv[1].trimmingCharacters(in: .whitespaces)
+                        let k = kv[0].trimmingCharacters(in: .whitespaces)
+                        let v = kv[1].trimmingCharacters(in: .whitespaces)
+                        if !k.isEmpty && !v.isEmpty {
+                            cookieDict[k] = v
+                        }
                     }
                 }
             }
@@ -184,6 +194,10 @@ public class AppleDeveloperService {
                         dsid = ds
                     }
                 }
+            }
+            
+            if cookieDict["myacinfo"] == nil && !token.isEmpty {
+                cookieDict["myacinfo"] = token
             }
             
             let cleanTeamId = "TEAM" + String(abs(appleID.hashValue) % 1000000000)
@@ -216,20 +230,35 @@ public class AppleDeveloperService {
     
     public func getActiveSession() -> AppleSession? {
         if let activeAcc = AppleAccountManager.shared.activeAccount {
-            if let s = currentSession, s.appleID.lowercased() == activeAcc.email.lowercased() {
+            if let s = currentSession, s.appleID.lowercased() == activeAcc.email.lowercased(), !s.authToken.isEmpty, !s.authToken.contains("-"), s.authToken.count > 30 {
                 return s
             }
-            let restored = AppleSession(
-                appleID: activeAcc.email,
-                dsid: "DSID_\(String(abs(activeAcc.email.hashValue)).prefix(8))",
-                authToken: UUID().uuidString,
-                teamID: activeAcc.teamID ?? ("TEAM" + String(abs(activeAcc.email.hashValue) % 1000000000)),
-                teamName: activeAcc.teamName ?? "\(activeAcc.email) (Personal Team)"
-            )
-            self.currentSession = restored
-            return restored
         }
-        return currentSession
+        return nil
+    }
+    
+    public func ensureAuthenticatedSession(completion: @escaping (Result<AppleSession, AppleAuthError>) -> Void) {
+        if let s = getActiveSession() {
+            completion(.success(s))
+            return
+        }
+        
+        guard let activeAcc = AppleAccountManager.shared.activeAccount else {
+            completion(.failure(.general("未找到活跃的 Apple ID 账号，请在证书中心先登录或选择账号。")))
+            return
+        }
+        
+        AppLogger.shared.log("正在使用保存的凭证向苹果身份服务器验证: \(activeAcc.email)...", category: .appleID)
+        self.authenticate(appleID: activeAcc.email, password: activeAcc.password) { authRes in
+            switch authRes {
+            case .success(let session):
+                AppLogger.shared.log("✅ 苹果会话认证就绪: DSID=\(session.dsid)", category: .appleID)
+                completion(.success(session))
+            case .failure(let err):
+                AppLogger.shared.log("❌ 苹果身份认证失败: \(err.localizedDescription)", category: .error)
+                completion(.failure(err))
+            }
+        }
     }
     
     // MARK: - 3. Request Official Materials (P12 & MobileProvision)
@@ -239,72 +268,76 @@ public class AppleDeveloperService {
         deviceUDID: String,
         completion: @escaping (Result<AppleSigningMaterials, AppleAuthError>) -> Void
     ) {
-        guard let session = getActiveSession() else {
-            completion(.failure(.general("未找到活跃的 Apple ID 账号，请在证书中心先登录或选择账号。")))
-            return
-        }
-        
-        // 1. Check if cached valid materials exist with valid private key and profile
-        if let cached = CertificateStorageManager.shared.getAppleIDMaterials(email: session.appleID),
-           let cachedKey = CertificateStorageManager.shared.getAppleIDPrivateKey(email: session.appleID) {
-            if let parsed = try? ZSignBridge.inspectProvision(cached.provisionURL.path) {
-                if let exp = parsed["ExpirationDate"] as? Date, exp > Date(),
-                   let devices = parsed["ProvisionedDevices"] as? [String], devices.contains(deviceUDID) {
-                    var bundleMatch = false
-                    if let ent = parsed["Entitlements"] as? [String: Any], let appID = ent["application-identifier"] as? String {
-                        if appID.hasSuffix(".*") || appID.hasSuffix(".\(bundleID)") {
-                            bundleMatch = true
+        self.ensureAuthenticatedSession { [weak self] sessionRes in
+            guard let self = self else { return }
+            switch sessionRes {
+            case .failure(let err):
+                completion(.failure(err))
+                return
+            case .success(let session):
+                // 1. Check if cached valid materials exist with valid private key and profile
+                if let cached = CertificateStorageManager.shared.getAppleIDMaterials(email: session.appleID),
+                   let cachedKey = CertificateStorageManager.shared.getAppleIDPrivateKey(email: session.appleID) {
+                    if let parsed = try? ZSignBridge.inspectProvision(cached.provisionURL.path) {
+                        if let exp = parsed["ExpirationDate"] as? Date, exp > Date(),
+                           let devices = parsed["ProvisionedDevices"] as? [String], devices.contains(deviceUDID) {
+                            var bundleMatch = false
+                            if let ent = parsed["Entitlements"] as? [String: Any], let appID = ent["application-identifier"] as? String {
+                                if appID.hasSuffix(".*") || appID.hasSuffix(".\(bundleID)") {
+                                    bundleMatch = true
+                                }
+                            }
+                            if bundleMatch {
+                                let certData = (try? Data(contentsOf: cached.p12URL)) ?? Data()
+                                let mat = AppleSigningMaterials(
+                                    p12URL: cached.p12URL,
+                                    provisionURL: cached.provisionURL,
+                                    privateKey: cachedKey,
+                                    certDER: certData
+                                )
+                                AppLogger.shared.log("复用本地未过期的 Apple ID 官方签名凭证: \(cached.provisionURL.lastPathComponent)", category: .cert)
+                                completion(.success(mat))
+                                return
+                            }
                         }
                     }
-                    if bundleMatch {
-                        let certData = (try? Data(contentsOf: cached.p12URL)) ?? Data()
-                        let mat = AppleSigningMaterials(
-                            p12URL: cached.p12URL,
-                            provisionURL: cached.provisionURL,
-                            privateKey: cachedKey,
-                            certDER: certData
-                        )
-                        AppLogger.shared.log("复用本地未过期的 Apple ID 官方签名凭证: \(cached.provisionURL.lastPathComponent)", category: .cert)
-                        completion(.success(mat))
-                        return
-                    }
+                }
+                
+                // 2. Generate local RSA 2048 keypair
+                var keyError: Unmanaged<CFError>?
+                let keyAttrs: [String: Any] = [
+                    kSecAttrKeyType as String: kSecAttrKeyTypeRSA,
+                    kSecAttrKeySizeInBits as String: 2048,
+                    kSecAttrIsPermanent as String: false
+                ]
+                
+                guard let privateKey = SecKeyCreateRandomKey(keyAttrs as CFDictionary, &keyError),
+                      let publicKey = SecKeyCopyPublicKey(privateKey),
+                      let pubKeyData = SecKeyCopyExternalRepresentation(publicKey, &keyError) as Data? else {
+                    completion(.failure(.certificateRequestFailed("生成 RSA 密钥对失败")))
+                    return
+                }
+                
+                // 3. Construct PKCS#10 CSR (Certificate Signing Request)
+                guard let csrDER = self.generatePKCS10CSR(privateKey: privateKey, publicKeyData: pubKeyData, commonName: "Apple Development: \(session.appleID)") else {
+                    completion(.failure(.certificateRequestFailed("构造 PKCS#10 CSR 证书请求失败")))
+                    return
+                }
+                let csrString = "-----BEGIN CERTIFICATE REQUEST-----\n" + csrDER.base64EncodedString(options: [.lineLength64Characters, .endLineWithLineFeed]) + "\n-----END CERTIFICATE REQUEST-----"
+                
+                // 4. Request Developer Certificate & Profile from Apple Developer API
+                DispatchQueue.global(qos: .userInitiated).async {
+                    self.executeAppleDeveloperAPIFlow(
+                        session: session,
+                        bundleID: bundleID,
+                        deviceUDID: deviceUDID,
+                        csrString: csrString,
+                        privateKey: privateKey,
+                        pubKeyData: pubKeyData,
+                        completion: completion
+                    )
                 }
             }
-        }
-        
-        // 2. Generate local RSA 2048 keypair
-        var keyError: Unmanaged<CFError>?
-        let keyAttrs: [String: Any] = [
-            kSecAttrKeyType as String: kSecAttrKeyTypeRSA,
-            kSecAttrKeySizeInBits as String: 2048,
-            kSecAttrIsPermanent as String: false
-        ]
-        
-        guard let privateKey = SecKeyCreateRandomKey(keyAttrs as CFDictionary, &keyError),
-              let publicKey = SecKeyCopyPublicKey(privateKey),
-              let pubKeyData = SecKeyCopyExternalRepresentation(publicKey, &keyError) as Data? else {
-            completion(.failure(.certificateRequestFailed("生成 RSA 密钥对失败")))
-            return
-        }
-        
-        // 3. Construct PKCS#10 CSR (Certificate Signing Request)
-        guard let csrDER = generatePKCS10CSR(privateKey: privateKey, publicKeyData: pubKeyData, commonName: "Apple Development: \(session.appleID)") else {
-            completion(.failure(.certificateRequestFailed("构造 PKCS#10 CSR 证书请求失败")))
-            return
-        }
-        let csrString = "-----BEGIN CERTIFICATE REQUEST-----\n" + csrDER.base64EncodedString(options: [.lineLength64Characters, .endLineWithLineFeed]) + "\n-----END CERTIFICATE REQUEST-----"
-        
-        // 4. Request Developer Certificate & Profile from Apple Developer API
-        DispatchQueue.global(qos: .userInitiated).async {
-            self.executeAppleDeveloperAPIFlow(
-                session: session,
-                bundleID: bundleID,
-                deviceUDID: deviceUDID,
-                csrString: csrString,
-                privateKey: privateKey,
-                pubKeyData: pubKeyData,
-                completion: completion
-            )
         }
     }
     
@@ -314,12 +347,15 @@ public class AppleDeveloperService {
         action: String,
         session: AppleSession,
         parameters: [String: Any],
+        isRetry: Bool = false,
         completion: @escaping (Result<[String: Any], AppleAuthError>) -> Void
     ) {
         guard let url = URL(string: "https://developerservices2.apple.com/services/QH65B2/ios/\(action).action") else {
             completion(.failure(.general("无效的苹果服务接口地址: \(action)")))
             return
         }
+        
+        let currentS = (self.currentSession?.appleID.lowercased() == session.appleID.lowercased()) ? (self.currentSession ?? session) : session
         
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -328,18 +364,18 @@ public class AppleDeveloperService {
         request.setValue("Xcode", forHTTPHeaderField: "User-Agent")
         request.timeoutInterval = 30
         
-        request.setValue(session.authToken, forHTTPHeaderField: "X-Apple-GS-Token")
-        if !session.dsid.isEmpty {
-            request.setValue(session.dsid, forHTTPHeaderField: "X-Apple-DSID")
+        request.setValue(currentS.authToken, forHTTPHeaderField: "X-Apple-GS-Token")
+        if !currentS.dsid.isEmpty {
+            request.setValue(currentS.dsid, forHTTPHeaderField: "X-Apple-DSID")
         }
         
         var cookieParts: [String] = []
-        let myacinfo = session.cookies["myacinfo"] ?? session.authToken
+        let myacinfo = currentS.cookies["myacinfo"] ?? currentS.authToken
         cookieParts.append("myacinfo=\(myacinfo)")
-        if !session.dsid.isEmpty {
-            cookieParts.append("dsid=\(session.dsid)")
+        if !currentS.dsid.isEmpty {
+            cookieParts.append("dsid=\(currentS.dsid)")
         }
-        for (k, v) in session.cookies where k != "myacinfo" && k != "dsid" {
+        for (k, v) in currentS.cookies where k != "myacinfo" && k != "dsid" {
             cookieParts.append("\(k)=\(v)")
         }
         request.setValue(cookieParts.joined(separator: "; "), forHTTPHeaderField: "Cookie")
@@ -397,6 +433,19 @@ public class AppleDeveloperService {
                     if resultCode == 0 {
                         AppLogger.shared.log("✅ 苹果开发者接口响应成功: \(action).action", category: .appleID)
                         completion(.success(plist))
+                    } else if resultCode == 1100 && !isRetry {
+                        AppLogger.shared.log("⚠️ 苹果开发者会话已过期 (1100)，正在自动重新获取认证令牌并重试...", category: .warn)
+                        self.currentSession = nil
+                        self.ensureAuthenticatedSession { [weak self] authRes in
+                            guard let self = self else { return }
+                            switch authRes {
+                            case .success(let newSession):
+                                self.sendDeveloperRequest(action: action, session: newSession, parameters: parameters, isRetry: true, completion: completion)
+                            case .failure(let err):
+                                AppLogger.shared.log("❌ 苹果开发者会话重新认证失败: \(err.localizedDescription)", category: .error)
+                                completion(.failure(err))
+                            }
+                        }
                     } else {
                         let userString = plist["userString"] as? String ?? plist["resultString"] as? String ?? "未知错误"
                         AppLogger.shared.log("⚠️ 苹果开发者接口状态码: [\(resultCode)] \(userString) (\(action).action)", category: .warn)
