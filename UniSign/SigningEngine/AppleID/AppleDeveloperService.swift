@@ -54,7 +54,7 @@ public class AppleDeveloperService {
         }
     }
     
-    public private(set) var currentSession: AppleSession?
+    public var currentSession: AppleSession?
     
     // MARK: - 1. Apple GrandSlam Authentication
     

@@ -54,7 +54,7 @@ public class AppleWebLoginViewController: UIViewController, WKNavigationDelegate
         view.addSubview(webView)
         
         progressView.translatesAutoresizingMaskIntoConstraints = false
-        progressView.tintColor = UniSignTheme.neonTeal
+        progressView.tintColor = UniSignTheme.primaryColor
         view.addSubview(progressView)
         
         NSLayoutConstraint.activate([
