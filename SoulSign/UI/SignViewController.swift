@@ -288,6 +288,7 @@ class SignViewController: UIViewController, UIDocumentPickerDelegate {
         let targetBundleID = customization.bundleID ?? "com.soulsign.signedapp"
 
         if !AccountManager.shared.canSignNewApp(email: account.email, bundleID: targetBundleID) {
+            AppLogger.shared.log("签名被拦截: 账号 \(account.email) 已达 3-App 免费配额上限", category: .quota)
             let alert = UIAlertController(
                 title: "⚠️ 签名配额已满 (3/3)",
                 message: "当前 Apple ID (\(account.email)) 绑定的应用数已达免费配额上限 (3 个)！\n\n请切换到其他有空闲配额的 Apple ID，或前往「应用库」删除不再使用的应用。",
@@ -316,6 +317,7 @@ class SignViewController: UIViewController, UIDocumentPickerDelegate {
         statusLabel.text = "1/4: 正在向苹果申请描述文件..."
 
         let deviceUDID = DeviceUDIDHelper.getDeviceUDID()
+        AppLogger.shared.log("开始应用签名流程: \(bundleID) (账号: \(account.email), UDID: \(deviceUDID))", category: .signer)
 
         ProvisioningService.shared.requestSigningMaterials(
             session: session,
@@ -328,9 +330,11 @@ class SignViewController: UIViewController, UIDocumentPickerDelegate {
             case .success(let profileData):
                 self.progressView.progress = 0.50
                 self.statusLabel.text = "2/4: 正在解包并应用定制参数..."
+                AppLogger.shared.log("成功获取描述文件，开始解包 IPA...", category: .signer)
 
                 let workDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
                 guard let appBundle = try? IPAPackager.shared.unpackIPA(ipaURL: ipaURL, workDir: workDir) else {
+                    AppLogger.shared.log("解包 IPA 失败", category: .signer)
                     self.signingFailed("解包 IPA 失败")
                     return
                 }
@@ -339,6 +343,7 @@ class SignViewController: UIViewController, UIDocumentPickerDelegate {
 
                 self.progressView.progress = 0.75
                 self.statusLabel.text = "3/4: 正在生成代码签名..."
+                AppLogger.shared.log("开始生成 Mach-O 与 CodeResources 签名...", category: .signer)
 
                 CodeSigner.shared.signAppBundle(
                     appBundleURL: appBundle,
@@ -358,15 +363,18 @@ class SignViewController: UIViewController, UIDocumentPickerDelegate {
                             appleIDEmail: account.email
                         )
                         AppLibraryStore.shared.addOrUpdateRecord(appRecord)
+                        AppLogger.shared.log("签名完成并成功入库: \(bundleID) (\(appRecord.appName))", category: .signer)
 
                         self.signingSuccess(bundleID: bundleID)
 
                     case .failure(let err):
+                        AppLogger.shared.log("代码签名执行失败: \(err.localizedDescription)", category: .signer)
                         self.signingFailed(err.localizedDescription)
                     }
                 }
 
             case .failure(let err):
+                AppLogger.shared.log("申请描述文件失败: \(err.localizedDescription)", category: .signer)
                 self.signingFailed(err.localizedDescription)
             }
         }

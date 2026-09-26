@@ -29,15 +29,28 @@ class AddAccountViewController: UIViewController {
         view.addSubview(card)
 
         let titleLabel = UILabel()
-        titleLabel.text = "Apple 开发者账号登录"
+        titleLabel.text = "Apple 开发者账号绑定"
         titleLabel.font = UIFont.systemFont(ofSize: 18, weight: .bold)
         titleLabel.textColor = .label
 
         let noteLabel = UILabel()
-        noteLabel.text = "参考 SideStore 登录协议，密码仅保存在本地 iOS 钥匙串 (Keychain) 中，用于生成签名描述文件，每个账号限签 3 个 App。"
-        noteLabel.font = UIFont.systemFont(ofSize: 12, weight: .regular)
+        noteLabel.text = "推荐优先使用 Apple 官方网页快捷登录，成功率极高且无苹果 GSA 拦截限制；每个账号限签 3 个 App。"
+        noteLabel.font = UIFont.systemFont(ofSize: 13, weight: .regular)
         noteLabel.textColor = SoulSignTheme.secondaryText
         noteLabel.numberOfLines = 0
+
+        // Web Login Button - Primary Recommendation
+        SoulSignTheme.stylePrimaryButton(webLoginButton, title: "🌐 Apple 官方网页快捷登录 (推荐)")
+        webLoginButton.addTarget(self, action: #selector(webLoginTapped), for: .touchUpInside)
+
+        let dividerView = UIView()
+        dividerView.backgroundColor = SoulSignTheme.cardBorder
+        dividerView.heightAnchor.constraint(equalToConstant: 1).isActive = true
+
+        let orLabel = UILabel()
+        orLabel.text = "或者直接输入账号密码登录 (SideStore 协议):"
+        orLabel.font = UIFont.systemFont(ofSize: 13, weight: .medium)
+        orLabel.textColor = .secondaryLabel
 
         styleInputField(emailField, placeholder: "Apple ID 邮箱账号", isSecure: false)
         emailField.keyboardType = .emailAddress
@@ -45,34 +58,33 @@ class AddAccountViewController: UIViewController {
 
         styleInputField(passwordField, placeholder: "Apple ID 密码", isSecure: true)
 
-        SoulSignTheme.stylePrimaryButton(loginButton, title: "安全登录并绑定")
+        loginButton.setTitle("安全登录并绑定", for: .normal)
+        loginButton.titleLabel?.font = UIFont.systemFont(ofSize: 15, weight: .semibold)
+        loginButton.setTitleColor(SoulSignTheme.primary, for: .normal)
+        loginButton.backgroundColor = SoulSignTheme.primary.withAlphaComponent(0.12)
+        loginButton.layer.cornerRadius = 12
         loginButton.addTarget(self, action: #selector(loginTapped), for: .touchUpInside)
-
-        webLoginButton.setTitle("🌐 使用 Apple 网页快捷登录", for: .normal)
-        webLoginButton.titleLabel?.font = UIFont.systemFont(ofSize: 15, weight: .medium)
-        webLoginButton.setTitleColor(SoulSignTheme.primary, for: .normal)
-        webLoginButton.backgroundColor = SoulSignTheme.primary.withAlphaComponent(0.1)
-        webLoginButton.layer.cornerRadius = 12
-        webLoginButton.addTarget(self, action: #selector(webLoginTapped), for: .touchUpInside)
 
         activityIndicator.hidesWhenStopped = true
 
         let stack = UIStackView(arrangedSubviews: [
             titleLabel,
             noteLabel,
+            webLoginButton,
+            dividerView,
+            orLabel,
             emailField,
             passwordField,
             loginButton,
-            activityIndicator,
-            webLoginButton
+            activityIndicator
         ])
         stack.axis = .vertical
-        stack.spacing = 16
+        stack.spacing = 14
         stack.translatesAutoresizingMaskIntoConstraints = false
         card.addSubview(stack)
 
         NSLayoutConstraint.activate([
-            card.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 20),
+            card.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 16),
             card.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
             card.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
 
@@ -81,10 +93,10 @@ class AddAccountViewController: UIViewController {
             stack.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 16),
             stack.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -16),
 
+            webLoginButton.heightAnchor.constraint(equalToConstant: 48),
             emailField.heightAnchor.constraint(equalToConstant: 44),
             passwordField.heightAnchor.constraint(equalToConstant: 44),
-            loginButton.heightAnchor.constraint(equalToConstant: 48),
-            webLoginButton.heightAnchor.constraint(equalToConstant: 44)
+            loginButton.heightAnchor.constraint(equalToConstant: 46)
         ])
     }
 
@@ -109,6 +121,7 @@ class AddAccountViewController: UIViewController {
 
     @objc private func webLoginTapped() {
         let webVC = WebAuthViewController()
+        webVC.initialEmail = emailField.text?.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
         let nav = UINavigationController(rootViewController: webVC)
         present(nav, animated: true)
     }
@@ -147,6 +160,7 @@ class AddAccountViewController: UIViewController {
                         teamID: teamID,
                         teamName: teamName
                     )
+                    AppLogger.shared.log("Apple ID 添加成功: \(email)", category: .auth)
                     self.dismiss(animated: true)
                 }
 
@@ -155,7 +169,12 @@ class AddAccountViewController: UIViewController {
                 if case AuthError.twoFactorRequired = error {
                     self.prompt2FACode(email: email, password: password)
                 } else {
-                    self.showAlert(title: "登录失败", message: error.localizedDescription)
+                    let alert = UIAlertController(title: "登录提示", message: error.localizedDescription, preferredStyle: .alert)
+                    alert.addAction(UIAlertAction(title: "使用网页快捷登录 (推荐)", style: .default) { [weak self] _ in
+                        self?.webLoginTapped()
+                    })
+                    alert.addAction(UIAlertAction(title: "重试", style: .cancel))
+                    self.present(alert, animated: true)
                 }
             }
         }
@@ -194,11 +213,17 @@ class AddAccountViewController: UIViewController {
                             teamID: teamID,
                             teamName: teamName
                         )
+                        AppLogger.shared.log("2FA 验证通过，绑定成功: \(email)", category: .auth)
                         self.dismiss(animated: true)
                     }
                 case .failure(let err):
                     self.setLoading(false)
-                    self.showAlert(title: "2FA 验证失败", message: err.localizedDescription)
+                    let errAlert = UIAlertController(title: "2FA 验证失败", message: err.localizedDescription, preferredStyle: .alert)
+                    errAlert.addAction(UIAlertAction(title: "使用网页快捷登录", style: .default) { [weak self] _ in
+                        self?.webLoginTapped()
+                    })
+                    errAlert.addAction(UIAlertAction(title: "重试", style: .cancel))
+                    self.present(errAlert, animated: true)
                 }
             }
         })
@@ -212,10 +237,12 @@ class AddAccountViewController: UIViewController {
             activityIndicator.startAnimating()
             loginButton.isEnabled = false
             loginButton.alpha = 0.6
+            webLoginButton.isEnabled = false
         } else {
             activityIndicator.stopAnimating()
             loginButton.isEnabled = true
             loginButton.alpha = 1.0
+            webLoginButton.isEnabled = true
         }
     }
 

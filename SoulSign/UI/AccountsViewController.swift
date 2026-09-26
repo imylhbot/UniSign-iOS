@@ -73,7 +73,7 @@ class AccountsViewController: UIViewController, UITableViewDataSource, UITableVi
         titleLabel.textAlignment = .center
 
         let descLabel = UILabel()
-        descLabel.text = "点击右上角添加您的 Apple 开发者账号\n支持密码/GrandSlam 及网页快捷登录\n每个账号最多支持 3 个应用签名"
+        descLabel.text = "点击下方按钮或右上角添加您的 Apple 开发者账号\n推荐使用 Apple 网页快捷登录，免受 GSA 拦截\n每个账号最多支持 3 个应用签名"
         descLabel.font = UIFont.systemFont(ofSize: 14, weight: .regular)
         descLabel.textColor = SoulSignTheme.secondaryText
         descLabel.textAlignment = .center
@@ -93,13 +93,18 @@ class AccountsViewController: UIViewController, UITableViewDataSource, UITableVi
         NSLayoutConstraint.activate([
             emptyView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             emptyView.centerYAnchor.constraint(equalTo: view.centerYAnchor),
-            emptyView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 32),
-            emptyView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -32),
+            emptyView.leadingAnchor.constraint(greaterThanOrEqualTo: view.leadingAnchor, constant: 24),
+            emptyView.trailingAnchor.constraint(lessThanOrEqualTo: view.trailingAnchor, constant: -24),
+
+            stack.topAnchor.constraint(equalTo: emptyView.topAnchor),
+            stack.bottomAnchor.constraint(equalTo: emptyView.bottomAnchor),
+            stack.leadingAnchor.constraint(equalTo: emptyView.leadingAnchor),
+            stack.trailingAnchor.constraint(equalTo: emptyView.trailingAnchor),
 
             iconView.widthAnchor.constraint(equalToConstant: 64),
             iconView.heightAnchor.constraint(equalToConstant: 64),
-            addBtn.heightAnchor.constraint(equalToConstant: 44),
-            addBtn.widthAnchor.constraint(equalToConstant: 220)
+            addBtn.heightAnchor.constraint(equalToConstant: 48),
+            addBtn.widthAnchor.constraint(equalToConstant: 240)
         ])
     }
 
@@ -111,10 +116,14 @@ class AccountsViewController: UIViewController, UITableViewDataSource, UITableVi
         accounts = AccountManager.shared.getAllAccounts()
         emptyView.isHidden = !accounts.isEmpty
         tableView.isHidden = accounts.isEmpty
+        if !emptyView.isHidden {
+            view.bringSubviewToFront(emptyView)
+        }
         tableView.reloadData()
     }
 
     @objc private func handleRefresh() {
+        AppLogger.shared.log("开始批量检测所有账号有效性", category: .portal)
         SessionValidator.shared.validateAllAccounts { [weak self] _ in
             self?.refreshControl.endRefreshing()
             self?.loadData()
@@ -132,6 +141,7 @@ class AccountsViewController: UIViewController, UITableViewDataSource, UITableVi
         let alert = UIAlertController(title: "检测账号有效性", message: "正在检测所有已添加账号的开发者凭据状态...", preferredStyle: .alert)
         present(alert, animated: true)
 
+        AppLogger.shared.log("用户触发全部账号有效性检测", category: .portal)
         SessionValidator.shared.validateAllAccounts { [weak self] _ in
             alert.dismiss(animated: true) {
                 self?.loadData()
@@ -140,6 +150,7 @@ class AccountsViewController: UIViewController, UITableViewDataSource, UITableVi
     }
 
     private func checkSingleValidity(for account: AppleAccount) {
+        AppLogger.shared.log("检测单账号有效性: \(account.email)", category: .portal)
         SessionValidator.shared.validateAccount(account) { [weak self] status, msg in
             let alert = UIAlertController(
                 title: "账号有效性检测",
@@ -153,13 +164,16 @@ class AccountsViewController: UIViewController, UITableViewDataSource, UITableVi
     }
 
     private func renewAccountApps(for account: AppleAccount) {
+        AppLogger.shared.log("开始为账号 \(account.email) 续签应用", category: .renewal)
         RenewalService.shared.renewAppsForAccount(email: account.email, progress: { _, _, _ in }) { [weak self] result in
             let msg: String
             switch result {
             case .success(let count):
                 msg = "成功续签了 \(count) 个应用！"
+                AppLogger.shared.log("账号 \(account.email) 续签完成，刷新 \(count) 个应用", category: .renewal)
             case .failure(let err):
                 msg = "续签提示: \(err.localizedDescription)"
+                AppLogger.shared.log("账号 \(account.email) 续签失败: \(err.localizedDescription)", category: .renewal)
             }
             let alert = UIAlertController(title: "一键续签", message: msg, preferredStyle: .alert)
             alert.addAction(UIAlertAction(title: "确定", style: .default))
@@ -174,12 +188,14 @@ class AccountsViewController: UIViewController, UITableViewDataSource, UITableVi
         if !account.isActive {
             sheet.addAction(UIAlertAction(title: "设为当前活跃签名账号", style: .default) { [weak self] _ in
                 AccountManager.shared.setActiveAccount(email: account.email)
+                AppLogger.shared.log("切换活跃账号为: \(account.email)", category: .auth)
                 self?.loadData()
             })
         }
 
         sheet.addAction(UIAlertAction(title: "删除此账号", style: .destructive) { [weak self] _ in
             AccountManager.shared.removeAccount(email: account.email)
+            AppLogger.shared.log("删除账号: \(account.email)", category: .auth)
             self?.loadData()
         })
 

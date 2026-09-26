@@ -9,12 +9,15 @@ class SessionValidator {
         _ account: AppleAccount,
         completion: @escaping (SessionStatus, String?) -> Void
     ) {
+        AppLogger.shared.log("正在探测账号会话状态: \(account.email)", category: .portal)
+
         guard let session = AccountManager.shared.getSession(for: account.email) else {
             AccountManager.shared.updateAccountStatus(
                 email: account.email,
                 status: .expired,
                 message: "未找到会话凭据，请重新登录"
             )
+            AppLogger.shared.log("账号 \(account.email) 缺少会话凭据", category: .portal)
             completion(.expired, "未找到会话凭据")
             return
         }
@@ -25,6 +28,7 @@ class SessionValidator {
                 status: .expired,
                 message: "会话已过期，请重新登录"
             )
+            AppLogger.shared.log("账号 \(account.email) 会话过期", category: .portal)
             completion(.expired, "会话已过期")
             return
         }
@@ -45,6 +49,7 @@ class SessionValidator {
                     status: .valid,
                     message: "会话有效"
                 )
+                AppLogger.shared.log("账号 \(account.email) 会话有效 (团队: \(teamName ?? "个人"))", category: .portal)
                 completion(.valid, nil)
 
             case .failure(let error):
@@ -60,6 +65,7 @@ class SessionValidator {
                     status: status,
                     message: errMsg
                 )
+                AppLogger.shared.log("账号 \(account.email) 探测结果: \(status.title) (\(errMsg))", category: .portal)
                 completion(status, errMsg)
             }
         }

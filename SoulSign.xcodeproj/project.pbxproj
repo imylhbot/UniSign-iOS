@@ -32,6 +32,8 @@
 		A10000172C00000100000001 /* SignViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000172C00000100000001 /* SignViewController.swift */; };
 		A10000182C00000100000001 /* AppLibraryViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000182C00000100000001 /* AppLibraryViewController.swift */; };
 		A10000192C00000100000001 /* SettingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000192C00000100000001 /* SettingsViewController.swift */; };
+		A10000302C00000100000001 /* AppLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000302C00000100000001 /* AppLogger.swift */; };
+		A10000312C00000100000001 /* LogViewerViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000312C00000100000001 /* LogViewerViewController.swift */; };
 		A10000202C00000100000001 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B10000202C00000100000001 /* Assets.xcassets */; };
 		A10000212C00000100000001 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C10000012C00000100000001 /* Security.framework */; };
 		A10000222C00000100000001 /* Network.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C10000022C00000100000001 /* Network.framework */; };
@@ -64,6 +66,8 @@
 		B10000172C00000100000001 /* SignViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignViewController.swift; sourceTree = "<group>"; };
 		B10000182C00000100000001 /* AppLibraryViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLibraryViewController.swift; sourceTree = "<group>"; };
 		B10000192C00000100000001 /* SettingsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsViewController.swift; sourceTree = "<group>"; };
+		B10000302C00000100000001 /* AppLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLogger.swift; sourceTree = "<group>"; };
+		B10000312C00000100000001 /* LogViewerViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LogViewerViewController.swift; sourceTree = "<group>"; };
 		B10000202C00000100000001 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		B10000212C00000100000001 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		C10000012C00000100000001 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
@@ -133,6 +137,7 @@
 				B100000E2C00000100000001 /* AppLibraryStore.swift */,
 				B100000F2C00000100000001 /* DeviceUDIDHelper.swift */,
 				B10000102C00000100000001 /* LocalInstallServer.swift */,
+				B10000302C00000100000001 /* AppLogger.swift */,
 			);
 			path = Core;
 			sourceTree = "<group>";
@@ -149,6 +154,7 @@
 				B10000172C00000100000001 /* SignViewController.swift */,
 				B10000182C00000100000001 /* AppLibraryViewController.swift */,
 				B10000192C00000100000001 /* SettingsViewController.swift */,
+				B10000312C00000100000001 /* LogViewerViewController.swift */,
 			);
 			path = UI;
 			sourceTree = "<group>";
@@ -260,6 +266,8 @@
 				A10000172C00000100000001 /* SignViewController.swift in Sources */,
 				A10000182C00000100000001 /* AppLibraryViewController.swift in Sources */,
 				A10000192C00000100000001 /* SettingsViewController.swift in Sources */,
+				A10000302C00000100000001 /* AppLogger.swift in Sources */,
+				A10000312C00000100000001 /* LogViewerViewController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
