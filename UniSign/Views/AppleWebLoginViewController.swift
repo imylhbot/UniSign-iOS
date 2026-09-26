@@ -12,15 +12,19 @@ public class AppleWebLoginViewController: UIViewController, WKNavigationDelegate
     
     private var webView: WKWebView!
     private let progressView = UIProgressView(progressViewStyle: .default)
+    private let tipBanner = UIView()
+    private let tipLabel = UILabel()
+    
     private var observation: NSKeyValueObservation?
     private var isCompleted = false
+    private var isCleaningCookies = true
     
     public override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = UniSignTheme.pageBackground
         setupNavBar()
-        setupWebView()
-        loadLoginPage()
+        setupUI()
+        cleanOldCookiesAndLoad()
     }
     
     private func setupNavBar() {
@@ -41,10 +45,41 @@ public class AppleWebLoginViewController: UIViewController, WKNavigationDelegate
             target: self,
             action: #selector(refreshAction)
         )
-        navigationItem.rightBarButtonItem = refreshItem
+        
+        let doneItem = UIBarButtonItem(
+            title: L("完成登录", "Done"),
+            style: .done,
+            target: self,
+            action: #selector(manualConfirmAction)
+        )
+        doneItem.tintColor = UniSignTheme.primaryColor
+        
+        navigationItem.rightBarButtonItems = [doneItem, refreshItem]
     }
     
-    private func setupWebView() {
+    private func setupUI() {
+        // Tip banner
+        tipBanner.translatesAutoresizingMaskIntoConstraints = false
+        tipBanner.backgroundColor = UniSignTheme.primaryColor.withAlphaComponent(0.1)
+        tipBanner.layer.cornerRadius = 8
+        view.addSubview(tipBanner)
+        
+        tipLabel.translatesAutoresizingMaskIntoConstraints = false
+        tipLabel.font = .systemFont(ofSize: 12, weight: .medium)
+        tipLabel.textColor = UniSignTheme.primaryColor
+        tipLabel.numberOfLines = 0
+        tipLabel.text = L(
+            "💡 请在下方页面中登录 Apple ID 并完成二次验证码 (2FA)。成功进入开发者后台后点击右上角「完成登录」。",
+            "💡 Sign in with your Apple ID & complete 2FA. Once in the dashboard, tap 'Done' at top right."
+        )
+        tipBanner.addSubview(tipLabel)
+        
+        // Progress view
+        progressView.translatesAutoresizingMaskIntoConstraints = false
+        progressView.tintColor = UniSignTheme.primaryColor
+        view.addSubview(progressView)
+        
+        // Web view
         let config = WKWebViewConfiguration()
         config.websiteDataStore = WKWebsiteDataStore.default()
         
@@ -53,12 +88,17 @@ public class AppleWebLoginViewController: UIViewController, WKNavigationDelegate
         webView.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(webView)
         
-        progressView.translatesAutoresizingMaskIntoConstraints = false
-        progressView.tintColor = UniSignTheme.primaryColor
-        view.addSubview(progressView)
-        
         NSLayoutConstraint.activate([
-            progressView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            tipBanner.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 8),
+            tipBanner.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 12),
+            tipBanner.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -12),
+            
+            tipLabel.topAnchor.constraint(equalTo: tipBanner.topAnchor, constant: 8),
+            tipLabel.bottomAnchor.constraint(equalTo: tipBanner.bottomAnchor, constant: -8),
+            tipLabel.leadingAnchor.constraint(equalTo: tipBanner.leadingAnchor, constant: 10),
+            tipLabel.trailingAnchor.constraint(equalTo: tipBanner.trailingAnchor, constant: -10),
+            
+            progressView.topAnchor.constraint(equalTo: tipBanner.bottomAnchor, constant: 6),
             progressView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             progressView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             progressView.heightAnchor.constraint(equalToConstant: 2),
@@ -73,6 +113,29 @@ public class AppleWebLoginViewController: UIViewController, WKNavigationDelegate
             guard let self = self, let progress = change.newValue else { return }
             self.progressView.progress = Float(progress)
             self.progressView.isHidden = (progress >= 1.0)
+        }
+    }
+    
+    private func cleanOldCookiesAndLoad() {
+        isCleaningCookies = true
+        AppLogger.shared.log("正在重置旧的 Apple 网页会话凭证，准备全新授权...", category: .appleID)
+        
+        let store = WKWebsiteDataStore.default().httpCookieStore
+        store.getAllCookies { [weak self] cookies in
+            guard let self = self else { return }
+            let group = DispatchGroup()
+            for c in cookies {
+                if c.domain.contains("apple.com") || c.domain.contains("icloud.com") {
+                    group.enter()
+                    store.delete(c) {
+                        group.leave()
+                    }
+                }
+            }
+            group.notify(queue: .main) {
+                self.isCleaningCookies = false
+                self.loadLoginPage()
+            }
         }
     }
     
@@ -91,11 +154,33 @@ public class AppleWebLoginViewController: UIViewController, WKNavigationDelegate
         webView.reload()
     }
     
-    public func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-        checkCookiesForAuth()
+    @objc private func manualConfirmAction() {
+        checkCookiesForAuth(userInitiated: true)
     }
     
-    private func checkCookiesForAuth() {
+    public func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        guard !isCleaningCookies else { return }
+        
+        let urlString = webView.url?.absoluteString.lowercased() ?? ""
+        
+        // If still in the login flow (idmsa.apple.com, auth, signin, etc.), do NOT auto-finish!
+        // The user must be allowed to enter their password, receive SMS/push, and enter the 2FA code!
+        if urlString.contains("idmsa.apple.com") ||
+           urlString.contains("/auth/") ||
+           urlString.contains("/signin") ||
+           urlString.contains("/login") {
+            AppLogger.shared.log("正在等待用户输入 Apple ID、密码及二次验证码...", category: .appleID)
+            return
+        }
+        
+        // If arrived at developer account dashboard, auto-check cookies
+        if urlString.contains("developer.apple.com/account") ||
+           urlString.contains("developer.apple.com/services-account") {
+            checkCookiesForAuth(userInitiated: false)
+        }
+    }
+    
+    private func checkCookiesForAuth(userInitiated: Bool) {
         guard !isCompleted else { return }
         
         webView.configuration.websiteDataStore.httpCookieStore.getAllCookies { [weak self] cookies in
@@ -118,9 +203,17 @@ public class AppleWebLoginViewController: UIViewController, WKNavigationDelegate
             }
             
             // Check if we captured valid developer session token
-            if let myacinfo = foundMyacinfo, !myacinfo.isEmpty {
+            if let myacinfo = foundMyacinfo, myacinfo.count > 10 {
                 self.isCompleted = true
                 self.extractUserAndFinish(myacinfo: myacinfo, dsid: foundDSID ?? "", cookies: cookieMap)
+            } else if userInitiated {
+                let alert = UIAlertController(
+                    title: L("尚未检测到登录凭证", "Session Not Detected"),
+                    message: L("请先在下方页面中输入 Apple ID、密码及 6 位验证码，登录成功进入开发者后台后再点击「完成登录」。", "Please complete your Apple ID & 2FA login first, then tap Done."),
+                    preferredStyle: .alert
+                )
+                alert.addAction(UIAlertAction(title: L("好的", "OK"), style: .default))
+                self.present(alert, animated: true)
             }
         }
     }
@@ -163,6 +256,9 @@ public class AppleWebLoginViewController: UIViewController, WKNavigationDelegate
             tf.placeholder = "example@icloud.com"
             tf.keyboardType = .emailAddress
             tf.autocapitalizationType = .none
+            if let pre = self.prefilledEmail, !pre.isEmpty {
+                tf.text = pre
+            }
         }
         alert.addAction(UIAlertAction(title: L("确定", "OK"), style: .default, handler: { [weak self, weak alert] _ in
             let email = alert?.textFields?.first?.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "AppleUser"
@@ -196,16 +292,12 @@ public class AppleWebLoginViewController: UIViewController, WKNavigationDelegate
         AppleAccountManager.shared.addOrUpdateAccount(account)
         AppleAccountManager.shared.setActiveAccount(id: account.id)
         
-        AppLogger.shared.log("✅ 成功通过 Apple 官方网页完成授权: \(email), myacinfo 凭证已就绪", category: .appleID)
+        AppLogger.shared.log("✅ 成功通过 Apple 官方网页完成授权: \(email), myacinfo 凭据与 2FA 会话 Cookie 已就绪", category: .appleID)
         UINotificationFeedbackGenerator().notificationOccurred(.success)
         
         self.onLoginSuccess?(account)
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
             self.dismiss(animated: true)
         }
-    }
-    
-    deinit {
-        observation?.invalidate()
     }
 }

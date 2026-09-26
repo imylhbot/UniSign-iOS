@@ -409,21 +409,27 @@ public class AppleDeveloperService {
         request.setValue("Xcode", forHTTPHeaderField: "User-Agent")
         request.timeoutInterval = 30
         
-        request.setValue(currentS.authToken, forHTTPHeaderField: "X-Apple-GS-Token")
+        if !currentS.authToken.isEmpty && !currentS.authToken.starts(with: "myacinfo") && currentS.authToken.count > 30 {
+            request.setValue(currentS.authToken, forHTTPHeaderField: "X-Apple-GS-Token")
+        }
         if !currentS.dsid.isEmpty {
             request.setValue(currentS.dsid, forHTTPHeaderField: "X-Apple-DSID")
         }
         
         var cookieParts: [String] = []
-        let myacinfo = currentS.cookies["myacinfo"] ?? currentS.authToken
-        cookieParts.append("myacinfo=\(myacinfo)")
+        let myacinfo = currentS.cookies["myacinfo"] ?? (currentS.authToken.count > 10 ? currentS.authToken : "")
+        if !myacinfo.isEmpty {
+            cookieParts.append("myacinfo=\(myacinfo)")
+        }
         if !currentS.dsid.isEmpty {
             cookieParts.append("dsid=\(currentS.dsid)")
         }
         for (k, v) in currentS.cookies where k != "myacinfo" && k != "dsid" {
             cookieParts.append("\(k)=\(v)")
         }
-        request.setValue(cookieParts.joined(separator: "; "), forHTTPHeaderField: "Cookie")
+        if !cookieParts.isEmpty {
+            request.setValue(cookieParts.joined(separator: "; "), forHTTPHeaderField: "Cookie")
+        }
         
         var bodyDict = parameters
         bodyDict["clientId"] = "XABBG36SBA"

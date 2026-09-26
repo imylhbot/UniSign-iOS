@@ -204,6 +204,10 @@ public class AppleIDLoginViewController: UIViewController {
         stackView.addArrangedSubview(errorLabel)
         
         // 5. Action Buttons
+        webAuthButton.heightAnchor.constraint(equalToConstant: 48).isActive = true
+        webAuthButton.addTarget(self, action: #selector(openWebLogin), for: .touchUpInside)
+        stackView.addArrangedSubview(webAuthButton)
+        
         loginButton.heightAnchor.constraint(equalToConstant: 50).isActive = true
         loginButton.addTarget(self, action: #selector(performLogin), for: .touchUpInside)
         stackView.addArrangedSubview(loginButton)
