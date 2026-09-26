@@ -1,7 +1,10 @@
 name: Build & Release SoulSign iOS & PC Helper
 
-# Triggers: Manually via GitHub Actions web UI (workflow_dispatch)
+# Triggers: Push to main or manually via GitHub Actions web UI (workflow_dispatch)
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
     inputs:
       version_tag:
