@@ -1251,13 +1251,13 @@ public class SignWorkflowViewController: UIViewController, UIDocumentPickerDeleg
         let targetBundleID = currentBundleId.isEmpty ? "com.unisign.app.\(UUID().uuidString.prefix(6))" : currentBundleId
         let deviceUDID = DeviceInfoHelper.getDeviceUDID()
         
-        let executeSigning: (URL, URL) -> Void = { [weak self] p12URL, provURL in
+        let executeSigning: (URL, URL?, String) -> Void = { [weak self] p12URL, provURL, pass in
             guard let self = self else { return }
             
             let config = IPAManager.SignConfig(
                 ipaURL: ipa,
                 p12URL: p12URL,
-                p12Password: "",
+                p12Password: pass,
                 provisionURL: provURL,
                 options: opts,
                 replacementIcon: self.selectedIconImage,
@@ -1309,7 +1309,7 @@ public class SignWorkflowViewController: UIViewController, UIDocumentPickerDeleg
                 DispatchQueue.main.async {
                     switch res {
                     case .success(let materials):
-                        executeSigning(materials.p12URL, materials.provisionURL)
+                        executeSigning(materials.p12URL, materials.provisionURL, "")
                     case .failure(let err):
                         ProgressHUD.shared.hide()
                         let alert = UIAlertController(title: L("证书申请失败", "Cert Request Failed"), message: err.localizedDescription, preferredStyle: .alert)
@@ -1319,12 +1319,24 @@ public class SignWorkflowViewController: UIViewController, UIDocumentPickerDeleg
                 }
             }
         } else {
-            let tempDir = FileManager.default.temporaryDirectory
-            let p12 = tempDir.appendingPathComponent("dev.p12")
-            let prov = tempDir.appendingPathComponent("dev.mobileprovision")
-            try? Data([0x30, 0x82, 0x01]).write(to: p12)
-            try? Data().write(to: prov)
-            executeSigning(p12, prov)
+            guard let p12 = CertificateStorageManager.shared.currentP12URL else {
+                ProgressHUD.shared.hide()
+                let alert = UIAlertController(
+                    title: L("未检测到有效证书", "No Certificate Loaded"),
+                    message: L("请先前往「证书中心」导入您的 .p12 开发者证书与 .mobileprovision 描述文件；或切换为「Apple ID 签名」/「免签定制模式」。", "Please import a .p12 cert and mobileprovision in Certificate Center first."),
+                    preferredStyle: .alert
+                )
+                alert.addAction(UIAlertAction(title: L("前往证书中心", "Go to Certificate Center"), style: .default, handler: { [weak self] _ in
+                    self?.tabBarController?.selectedIndex = 2
+                }))
+                alert.addAction(UIAlertAction(title: L("取消", "Cancel"), style: .cancel))
+                present(alert, animated: true)
+                return
+            }
+            
+            let prov = CertificateStorageManager.shared.currentProvisionURL
+            let pass = CertificateStorageManager.shared.currentP12Password
+            executeSigning(p12, prov, pass)
         }
     }
     

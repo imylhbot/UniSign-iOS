@@ -56,6 +56,20 @@ public class CertificateManagerViewController: UIViewController, UIDocumentPicke
         super.viewWillAppear(animated)
         reloadAppleAccounts()
         updateUDIDDisplay()
+        updateP12Display()
+    }
+    
+    private func updateP12Display() {
+        if let p12 = CertificateStorageManager.shared.currentP12URL {
+            importP12Button.setTitle("✓ " + p12.lastPathComponent, for: .normal)
+            importP12Button.buttonStyle = .primaryCyber
+            p12PasswordField.text = CertificateStorageManager.shared.currentP12Password
+            verifyP12()
+        }
+        if let prov = CertificateStorageManager.shared.currentProvisionURL {
+            importProvisionButton.setTitle("✓ " + prov.lastPathComponent, for: .normal)
+            importProvisionButton.buttonStyle = .primaryCyber
+        }
     }
     
     private func setupUI() {
@@ -537,26 +551,32 @@ public class CertificateManagerViewController: UIViewController, UIDocumentPicke
         let ext = url.pathExtension.lowercased()
         if ext == "p12" {
             importedP12URL = url
+            let pass = p12PasswordField.text ?? ""
+            try? CertificateStorageManager.shared.saveP12(from: url, password: pass)
             importP12Button.setTitle("✓ " + url.lastPathComponent, for: .normal)
             importP12Button.buttonStyle = .primaryCyber
+            verifyP12()
         } else if ext == "mobileprovision" {
             importedProvisionURL = url
+            try? CertificateStorageManager.shared.saveProvision(from: url)
             importProvisionButton.setTitle("✓ " + url.lastPathComponent, for: .normal)
             importProvisionButton.buttonStyle = .primaryCyber
         }
     }
     
     @objc private func verifyP12() {
-        guard let p12 = importedP12URL else {
+        let p12 = importedP12URL ?? CertificateStorageManager.shared.currentP12URL
+        guard let validP12 = p12 else {
             let alert = UIAlertController(title: L("提示", "Notice"), message: L("请先导入 .p12 证书文件！", "Please import a .p12 certificate first!"), preferredStyle: .alert)
             alert.addAction(UIAlertAction(title: L("好", "OK"), style: .default))
             present(alert, animated: true)
             return
         }
         
-        let pass = p12PasswordField.text ?? ""
+        let pass = p12PasswordField.text ?? CertificateStorageManager.shared.currentP12Password
+        CertificateStorageManager.shared.currentP12Password = pass
         do {
-            let info = try ZSignBridge.inspectP12(p12Path: p12.path, password: pass)
+            let info = try ZSignBridge.inspectP12(p12Path: validP12.path, password: pass)
             let days = info["daysRemaining"] as? Int ?? 0
             let valid = info["isValid"] as? Bool ?? false
             let subject = info["subject"] as? String ?? L("未知", "Unknown")

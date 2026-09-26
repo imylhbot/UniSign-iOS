@@ -192,6 +192,8 @@ public class ZSignBridge {
             if SecIdentityCopyPrivateKey(id, &keyRef) == errSecSuccess, let k = keyRef {
                 privateKey = k
             }
+        } else if p12Data.count > 32 {
+            certDER = p12Data
         }
         
         // 2. Parse Provisioning Profile & Entitlements
@@ -285,7 +287,7 @@ public class ZSignBridge {
                     relPath = String(relPath.dropFirst())
                 }
                 
-                if relPath.hasPrefix("_CodeSignature") || relPath == "embedded.mobileprovision" {
+                if relPath.hasPrefix("_CodeSignature") || relPath == "embedded.mobileprovision" || relPath == exeName || relPath.hasPrefix("Frameworks/") || relPath.hasPrefix("PlugIns/") || relPath.hasPrefix("Extensions/") {
                     continue
                 }
                 
