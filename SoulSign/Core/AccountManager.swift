@@ -1,10 +1,10 @@
 import Foundation
 import Security
 
-public class AccountManager {
-    public static let shared = AccountManager()
+class AccountManager {
+    static let shared = AccountManager()
 
-    public static let maxQuotaPerAccount = 3
+    static let maxQuotaPerAccount = 3
     private let accountsKey = "SoulSign_SavedAppleAccounts"
     private let activeAccountKey = "SoulSign_ActiveAppleAccountEmail"
 
@@ -30,19 +30,19 @@ public class AccountManager {
         NotificationCenter.default.post(name: NSNotification.Name("SoulSignAccountsUpdatedNotification"), object: nil)
     }
 
-    public func getAllAccounts() -> [AppleAccount] {
+    func getAllAccounts() -> [AppleAccount] {
         lock.lock()
         defer { lock.unlock() }
         return accounts
     }
 
-    public func getAccount(email: String) -> AppleAccount? {
+    func getAccount(email: String) -> AppleAccount? {
         lock.lock()
         defer { lock.unlock() }
         return accounts.first { $0.email.lowercased() == email.lowercased() }
     }
 
-    public func getActiveAccount() -> AppleAccount? {
+    func getActiveAccount() -> AppleAccount? {
         lock.lock()
         defer { lock.unlock() }
         if let active = accounts.first(where: { $0.isActive }) {
@@ -51,7 +51,7 @@ public class AccountManager {
         return accounts.first
     }
 
-    public func setActiveAccount(email: String) {
+    func setActiveAccount(email: String) {
         lock.lock()
         for i in 0..<accounts.count {
             accounts[i].isActive = (accounts[i].email.lowercased() == email.lowercased())
@@ -60,7 +60,7 @@ public class AccountManager {
         lock.unlock()
     }
 
-    public func addOrUpdateAccount(
+    func addOrUpdateAccount(
         email: String,
         password: String? = nil,
         session: DeveloperSession? = nil,
@@ -104,7 +104,7 @@ public class AccountManager {
         saveAccounts()
     }
 
-    public func updateAccountStatus(email: String, status: SessionStatus, message: String? = nil) {
+    func updateAccountStatus(email: String, status: SessionStatus, message: String? = nil) {
         lock.lock()
         if let idx = accounts.firstIndex(where: { $0.email.lowercased() == email.lowercased() }) {
             accounts[idx].sessionStatus = status
@@ -115,7 +115,7 @@ public class AccountManager {
         lock.unlock()
     }
 
-    public func removeAccount(email: String) {
+    func removeAccount(email: String) {
         lock.lock()
         accounts.removeAll { $0.email.lowercased() == email.lowercased() }
         deleteKeychainData(for: email)
@@ -127,21 +127,21 @@ public class AccountManager {
     }
 
     // MARK: - 3-App Quota Enforcement (Strict)
-    public func activeAppsCount(for email: String) -> Int {
+    func activeAppsCount(for email: String) -> Int {
         return AppLibraryStore.shared.activeAppsCount(for: email)
     }
 
-    public func remainingQuota(for email: String) -> Int {
+    func remainingQuota(for email: String) -> Int {
         let count = activeAppsCount(for: email)
         return max(0, Self.maxQuotaPerAccount - count)
     }
 
-    public func hasReachedQuota(for email: String) -> Bool {
+    func hasReachedQuota(for email: String) -> Bool {
         return activeAppsCount(for: email) >= Self.maxQuotaPerAccount
     }
 
     /// Checks whether an account has capacity to sign a new app
-    public func canSignNewApp(email: String, bundleID: String) -> Bool {
+    func canSignNewApp(email: String, bundleID: String) -> Bool {
         // If the bundle ID is already signed under this email, it's considered an update/renewal
         let existingRecords = AppLibraryStore.shared.records(for: email)
         if existingRecords.contains(where: { $0.bundleID.lowercased() == bundleID.lowercased() }) {
@@ -151,7 +151,7 @@ public class AccountManager {
     }
 
     // MARK: - Keychain Security
-    public func getPassword(for email: String) -> String? {
+    func getPassword(for email: String) -> String? {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrAccount as String: "pwd_\(email.lowercased())",
@@ -167,7 +167,7 @@ public class AccountManager {
         return nil
     }
 
-    public func getSession(for email: String) -> DeveloperSession? {
+    func getSession(for email: String) -> DeveloperSession? {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrAccount as String: "session_\(email.lowercased())",

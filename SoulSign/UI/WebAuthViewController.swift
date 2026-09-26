@@ -1,7 +1,7 @@
 import UIKit
 import WebKit
 
-public class WebAuthViewController: UIViewController, WKNavigationDelegate {
+class WebAuthViewController: UIViewController, WKNavigationDelegate {
     private var webView: WKWebView!
     private let progressView = UIProgressView(progressViewStyle: .bar)
 
@@ -52,7 +52,7 @@ public class WebAuthViewController: UIViewController, WKNavigationDelegate {
         }
     }
 
-    public func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         // Extract cookies
         WKWebsiteDataStore.default().httpCookieStore.getAllCookies { [weak self] cookies in
             var cookieDict: [String: String] = [:]

@@ -1,18 +1,18 @@
 import Foundation
 
 /// Handles IPA archive extraction, payload modification, and packaging
-public class IPAPackager {
-    public static let shared = IPAPackager()
+class IPAPackager {
+    static let shared = IPAPackager()
 
-    public struct AppCustomization {
-        public var bundleID: String?
-        public var appName: String?
-        public var version: String?
-        public var minimumOS: String?
-        public var enableFileSharing: Bool
-        public var injectedDylibs: [URL]
+    struct AppCustomization {
+        var bundleID: String?
+        var appName: String?
+        var version: String?
+        var minimumOS: String?
+        var enableFileSharing: Bool
+        var injectedDylibs: [URL]
 
-        public init(
+        init(
             bundleID: String? = nil,
             appName: String? = nil,
             version: String? = nil,
@@ -30,7 +30,7 @@ public class IPAPackager {
     }
 
     /// Extracts an IPA to a temporary work directory, returns URL to Payload/*.app
-    public func unpackIPA(ipaURL: URL, workDir: URL) throws -> URL {
+    func unpackIPA(ipaURL: URL, workDir: URL) throws -> URL {
         try? FileManager.default.removeItem(at: workDir)
         try FileManager.default.createDirectory(at: workDir, withIntermediateDirectories: true)
 
@@ -71,7 +71,7 @@ public class IPAPackager {
     }
 
     /// Applies custom modifications (Bundle ID, Display Name, MinimumOSVersion, FileSharing)
-    public func applyCustomizations(appBundleURL: URL, customization: AppCustomization) {
+    func applyCustomizations(appBundleURL: URL, customization: AppCustomization) {
         let infoPlistURL = appBundleURL.appendingPathComponent("Info.plist")
         guard let data = try? Data(contentsOf: infoPlistURL),
               var plist = try? PropertyListSerialization.propertyList(from: data, options: .mutableContainersAndLeaves, format: nil) as? [String: Any] else {
@@ -103,7 +103,7 @@ public class IPAPackager {
     }
 
     /// Repackages the modified Payload directory into a clean signed .ipa
-    public func repackageIPA(workDir: URL, outputIPAURL: URL) throws {
+    func repackageIPA(workDir: URL, outputIPAURL: URL) throws {
         try? FileManager.default.removeItem(at: outputIPAURL)
         // Ensure destination folder exists
         try FileManager.default.createDirectory(at: outputIPAURL.deletingLastPathComponent(), withIntermediateDirectories: true)
@@ -113,7 +113,7 @@ public class IPAPackager {
         try dummyData.write(to: outputIPAURL)
     }
 
-    public func findAppBundle(in directory: URL) -> URL? {
+    func findAppBundle(in directory: URL) -> URL? {
         let payloadDir = directory.appendingPathComponent("Payload")
         if let contents = try? FileManager.default.contentsOfDirectory(at: payloadDir, includingPropertiesForKeys: nil) {
             return contents.first(where: { $0.pathExtension == "app" })

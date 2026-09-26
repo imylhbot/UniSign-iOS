@@ -1,18 +1,18 @@
 import Foundation
 
 /// Record of an installed/signed IPA on the device
-public struct SignedAppRecord: Codable, Identifiable, Equatable {
-    public var id: String { bundleID }
-    public var bundleID: String
-    public var appName: String
-    public var version: String
-    public var signedDate: Date
-    public var expirationDate: Date
-    public var appleIDEmail: String
-    public var ipaPath: String?
-    public var iconData: Data?
+struct SignedAppRecord: Codable, Identifiable, Equatable {
+    var id: String { bundleID }
+    var bundleID: String
+    var appName: String
+    var version: String
+    var signedDate: Date
+    var expirationDate: Date
+    var appleIDEmail: String
+    var ipaPath: String?
+    var iconData: Data?
 
-    public init(
+    init(
         bundleID: String,
         appName: String,
         version: String,
@@ -33,13 +33,13 @@ public struct SignedAppRecord: Codable, Identifiable, Equatable {
     }
 
     /// Remaining valid days (e.g. 7, 6, 5...)
-    public var remainingDays: Int {
+    var remainingDays: Int {
         let diff = Calendar.current.dateComponents([.day], from: Date(), to: expirationDate).day ?? 0
         return max(0, diff)
     }
 
     /// Whether the certificate has expired
-    public var isExpired: Bool {
+    var isExpired: Bool {
         return Date() > expirationDate
     }
 }

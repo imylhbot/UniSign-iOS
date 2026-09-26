@@ -1,6 +1,6 @@
 import Foundation
 
-public enum AuthError: LocalizedError {
+enum AuthError: LocalizedError {
     case invalidCredentials
     case twoFactorRequired
     case invalid2FACode
@@ -8,31 +8,31 @@ public enum AuthError: LocalizedError {
     case networkError(String)
     case appleServerError(Int, String)
 
-    public var errorDescription: String? {
+    var errorDescription: String? {
         switch self {
         case .invalidCredentials:
-            return "Apple ID 或密码错误，请检查输入。"
+            return "Apple ID 或密码错误，请检查输入�?
         case .twoFactorRequired:
-            return "需要双重认证 (2FA)。"
+            return "需要双重认�?(2FA)�?
         case .invalid2FACode:
-            return "输入的双重验证码无效或已过期。"
+            return "输入的双重验证码无效或已过期�?
         case .sessionExpired:
-            return "登录会话已过期，请重新登录。"
+            return "登录会话已过期，请重新登录�?
         case .networkError(let msg):
             return "网络连接异常: \(msg)"
         case .appleServerError(let code, let msg):
-            return "苹果服务器返回错误 (\(code)): \(msg)"
+            return "苹果服务器返回错�?(\(code)): \(msg)"
         }
     }
 }
 
-public class GrandSlamClient {
-    public static let shared = GrandSlamClient()
+class GrandSlamClient {
+    static let shared = GrandSlamClient()
 
     private let authURL = URL(string: "https://gsa.apple.com/grandslam/GsService2")!
 
     /// Performs GrandSlam authentication with Apple ID and password
-    public func authenticate(
+    func authenticate(
         appleID: String,
         password: String,
         twoFactorCode: String? = nil,
@@ -101,7 +101,7 @@ public class GrandSlamClient {
                     format: nil
                 ) as? [String: Any] else {
                     DispatchQueue.main.async {
-                        completion(.failure(.networkError("无法解析服务器响应")))
+                        completion(.failure(.networkError("无法解析服务器响�?)))
                     }
                     return
                 }

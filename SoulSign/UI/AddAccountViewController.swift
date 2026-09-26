@@ -1,6 +1,6 @@
 import UIKit
 
-public class AddAccountViewController: UIViewController {
+class AddAccountViewController: UIViewController {
     private let emailField = UITextField()
     private let passwordField = UITextField()
     private let loginButton = UIButton(type: .system)
@@ -34,7 +34,7 @@ public class AddAccountViewController: UIViewController {
         styleTextField(passwordField, placeholder: "Apple ID 密码")
         passwordField.isSecureTextEntry = true
 
-        SoulSignTheme.stylePrimaryButton(loginButton, title: "登录并授权")
+        SoulSignTheme.stylePrimaryButton(loginButton, title: "登录并授�?)
         loginButton.addTarget(self, action: #selector(loginTapped), for: .touchUpInside)
 
         webLoginButton.setTitle("🌐 遇到风控？使用网页版 WebAuth 登录", for: .normal)
@@ -91,12 +91,12 @@ public class AddAccountViewController: UIViewController {
 
     @objc private func loginTapped() {
         guard let email = emailField.text?.trimmingCharacters(in: .whitespacesAndNewlines), !email.isEmpty else {
-            showAlert(title: "提示", message: "请输入有效的 Apple ID 账号。")
+            showAlert(title: "提示", message: "请输入有效的 Apple ID 账号�?)
             return
         }
 
         guard let pwd = passwordField.text, !pwd.isEmpty else {
-            showAlert(title: "提示", message: "请输入 Apple ID 密码。")
+            showAlert(title: "提示", message: "请输�?Apple ID 密码�?)
             return
         }
 
@@ -146,7 +146,7 @@ public class AddAccountViewController: UIViewController {
     private func promptFor2FACode(email: String, password: String) {
         let alert = UIAlertController(
             title: "双重认证 (2FA)",
-            message: "已向您的受信任 Apple 设备发送了 6 位验证码，请输入以继续：",
+            message: "已向您的受信�?Apple 设备发送了 6 位验证码，请输入以继续：",
             preferredStyle: .alert
         )
 

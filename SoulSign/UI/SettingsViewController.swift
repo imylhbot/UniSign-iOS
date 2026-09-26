@@ -1,6 +1,6 @@
 import UIKit
 
-public class SettingsViewController: UIViewController, UITableViewDataSource, UITableViewDelegate {
+class SettingsViewController: UIViewController, UITableViewDataSource, UITableViewDelegate {
     private let tableView = UITableView(frame: .zero, style: .insetGrouped)
 
     override func viewDidLoad() {
@@ -39,11 +39,11 @@ public class SettingsViewController: UIViewController, UITableViewDataSource, UI
     }
 
     // MARK: - UITableView DataSource & Delegate
-    public func numberOfSections(in tableView: UITableView) -> Int {
+    func numberOfSections(in tableView: UITableView) -> Int {
         return 3
     }
 
-    public func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         switch section {
         case 0: return 2 // UDID Section
         case 1: return 2 // Anisette & Tools
@@ -52,7 +52,7 @@ public class SettingsViewController: UIViewController, UITableViewDataSource, UI
         }
     }
 
-    public func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
+    func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
         switch section {
         case 0: return "📱 设备 UDID 硬件凭据"
         case 1: return "⚙️ SideStore 认证设置"
@@ -61,7 +61,7 @@ public class SettingsViewController: UIViewController, UITableViewDataSource, UI
         }
     }
 
-    public func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = UITableViewCell(style: .value1, reuseIdentifier: "SettingsCell")
         cell.textLabel?.font = UIFont.systemFont(ofSize: 15, weight: .medium)
 
@@ -72,14 +72,14 @@ public class SettingsViewController: UIViewController, UITableViewDataSource, UI
                 cell.detailTextLabel?.text = String(DeviceUDIDHelper.getDeviceUDID().prefix(16)) + "..."
                 cell.accessoryType = .disclosureIndicator
             } else {
-                cell.textLabel?.text = "⚡ Safari 一键获取真实物理 UDID"
+                cell.textLabel?.text = "�?Safari 一键获取真实物�?UDID"
                 cell.textLabel?.textColor = SoulSignTheme.primary
                 cell.accessoryType = .disclosureIndicator
             }
 
         case 1:
             if indexPath.row == 0 {
-                cell.textLabel?.text = "Anisette 远程服务器"
+                cell.textLabel?.text = "Anisette 远程服务�?
                 cell.detailTextLabel?.text = AnisetteProvider.shared.customServerURL ?? "内置本地引擎"
                 cell.accessoryType = .disclosureIndicator
             } else {
@@ -90,9 +90,9 @@ public class SettingsViewController: UIViewController, UITableViewDataSource, UI
         case 2:
             if indexPath.row == 0 {
                 cell.textLabel?.text = "系统版本要求"
-                cell.detailTextLabel?.text = "iOS 15.0 及更高"
+                cell.detailTextLabel?.text = "iOS 15.0 及更�?
             } else {
-                cell.textLabel?.text = "版本号"
+                cell.textLabel?.text = "版本�?
                 cell.detailTextLabel?.text = "SoulSign v2.5.0"
             }
 
@@ -103,7 +103,7 @@ public class SettingsViewController: UIViewController, UITableViewDataSource, UI
         return cell
     }
 
-    public func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
 
         switch indexPath.section {
@@ -133,7 +133,7 @@ public class SettingsViewController: UIViewController, UITableViewDataSource, UI
 
     private func promptCustomAnisette() {
         let alert = UIAlertController(
-            title: "配置 Anisette 服务器",
+            title: "配置 Anisette 服务�?,
             message: "默认使用内置本地引擎，如需接入 SideStore 外部 Provision 节点请在此输入：",
             preferredStyle: .alert
         )
@@ -159,7 +159,7 @@ public class SettingsViewController: UIViewController, UITableViewDataSource, UI
         try? FileManager.default.removeItem(at: tmp)
         try? FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
 
-        let alert = UIAlertController(title: "清理成功", message: "临时解包与签名缓存已全部清除。", preferredStyle: .alert)
+        let alert = UIAlertController(title: "清理成功", message: "临时解包与签名缓存已全部清除�?, preferredStyle: .alert)
         alert.addAction(UIAlertAction(title: "确定", style: .default))
         present(alert, animated: true)
     }

@@ -1,29 +1,29 @@
 import Foundation
 
 /// Orchestrates 1-Click automatic certificate & provisioning renewal
-public class RenewalService {
-    public static let shared = RenewalService()
+class RenewalService {
+    static let shared = RenewalService()
 
-    public enum RenewalError: LocalizedError {
+    enum RenewalError: LocalizedError {
         case accountNotFound
         case sessionInvalid
         case noAppsToRenew
         case appNotFound
         case renewalFailed(String)
 
-        public var errorDescription: String? {
+        var errorDescription: String? {
             switch self {
             case .accountNotFound: return "未找到绑定的 Apple ID 账号"
-            case .sessionInvalid: return "Apple ID 会话已失效，请重新登录"
+            case .sessionInvalid: return "Apple ID 会话已失效，请重新登�?
             case .noAppsToRenew: return "当前账号名下暂无可续签的应用"
-            case .appNotFound: return "未找到目标应用记录"
+            case .appNotFound: return "未找到目标应用记�?
             case .renewalFailed(let msg): return "续签失败: \(msg)"
             }
         }
     }
 
     /// Renews all apps associated with a specific Apple ID account (1-Click Account Renewal)
-    public func renewAppsForAccount(
+    func renewAppsForAccount(
         email: String,
         progress: @escaping (Int, Int, String) -> Void,
         completion: @escaping (Result<Int, RenewalError>) -> Void
@@ -82,7 +82,7 @@ public class RenewalService {
     }
 
     /// Renews a single specific app
-    public func renewSingleApp(
+    func renewSingleApp(
         bundleID: String,
         completion: @escaping (Result<Void, RenewalError>) -> Void
     ) {
@@ -117,7 +117,7 @@ public class RenewalService {
     }
 
     /// Renews all apps across all accounts (Global 1-Click Renewal)
-    public func renewAllApps(
+    func renewAllApps(
         progress: @escaping (Int, Int, String) -> Void,
         completion: @escaping (Result<Int, RenewalError>) -> Void
     ) {

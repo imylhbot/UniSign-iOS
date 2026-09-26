@@ -1,11 +1,11 @@
 import UIKit
 
 /// Manages device UDID extraction, persistence, and Safari OTA retrieval
-public class DeviceUDIDHelper {
+class DeviceUDIDHelper {
     private static let udidKey = "SoulSign_CustomUDID"
 
     /// Gets active device UDID
-    public static func getDeviceUDID() -> String {
+    static func getDeviceUDID() -> String {
         if let saved = UserDefaults.standard.string(forKey: udidKey), !saved.isEmpty {
             return saved
         }
@@ -16,13 +16,13 @@ public class DeviceUDIDHelper {
     }
 
     /// Sets verified physical UDID
-    public static func setCustomUDID(_ udid: String) {
+    static func setCustomUDID(_ udid: String) {
         let cleaned = udid.trimmingCharacters(in: .whitespacesAndNewlines)
         UserDefaults.standard.set(cleaned, forKey: udidKey)
     }
 
     /// Whether current UDID is verified physical hardware UDID
-    public static func isRealHardwareUDID() -> Bool {
+    static func isRealHardwareUDID() -> Bool {
         if let saved = UserDefaults.standard.string(forKey: udidKey), !saved.isEmpty {
             return true
         }
@@ -30,12 +30,12 @@ public class DeviceUDIDHelper {
     }
 
     /// Copies UDID to clipboard
-    public static func copyUDIDToClipboard() {
+    static func copyUDIDToClipboard() {
         UIPasteboard.general.string = getDeviceUDID()
     }
 
     /// Launches Safari to install UDID extraction profile
-    public static func openUDIDAcquisitionInSafari() {
+    static func openUDIDAcquisitionInSafari() {
         LocalInstallServer.shared.installUDIDProfile()
     }
 }

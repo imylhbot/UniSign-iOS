@@ -1,8 +1,8 @@
 import UIKit
 
-public class AppCustomizerViewController: UIViewController {
-    public var customization = IPAPackager.AppCustomization()
-    public var onSave: ((IPAPackager.AppCustomization) -> Void)?
+class AppCustomizerViewController: UIViewController {
+    var customization = IPAPackager.AppCustomization()
+    var onSave: ((IPAPackager.AppCustomization) -> Void)?
 
     private let bundleIDField = UITextField()
     private let appNameField = UITextField()
@@ -33,7 +33,7 @@ public class AppCustomizerViewController: UIViewController {
         view.addSubview(container)
         container.translatesAutoresizingMaskIntoConstraints = false
 
-        bundleIDField.placeholder = "Bundle Identifier (如: com.app.signed)"
+        bundleIDField.placeholder = "Bundle Identifier (�? com.app.signed)"
         bundleIDField.text = customization.bundleID
         styleTextField(bundleIDField)
 
@@ -41,16 +41,16 @@ public class AppCustomizerViewController: UIViewController {
         appNameField.text = customization.appName
         styleTextField(appNameField)
 
-        versionField.placeholder = "版本号 (如: 1.0.0)"
+        versionField.placeholder = "版本�?(�? 1.0.0)"
         versionField.text = customization.version
         styleTextField(versionField)
 
-        minOSField.placeholder = "最低支持 iOS 版本 (如: 15.0)"
+        minOSField.placeholder = "最低支�?iOS 版本 (�? 15.0)"
         minOSField.text = customization.minimumOS
         styleTextField(minOSField)
 
         let switchLabel = UILabel()
-        switchLabel.text = "开启系统「文件」应用沙盒互通"
+        switchLabel.text = "开启系统「文件」应用沙盒互�?
         switchLabel.font = UIFont.systemFont(ofSize: 14, weight: .medium)
 
         fileSharingSwitch.isOn = customization.enableFileSharing

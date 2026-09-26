@@ -2,15 +2,15 @@ import Foundation
 import UIKit
 
 /// Represents Apple Anisette provisioning data required for GrandSlam authentication
-public struct AnisetteData: Codable {
-    public var machineID: String
-    public var oneTimePassword: String
-    public var routingInfo: UInt64
-    public var clientTimestamp: Date
-    public var serialNumber: String
-    public var localUserUUID: String
+struct AnisetteData: Codable {
+    var machineID: String
+    var oneTimePassword: String
+    var routingInfo: UInt64
+    var clientTimestamp: Date
+    var serialNumber: String
+    var localUserUUID: String
 
-    public init(
+    init(
         machineID: String = UUID().uuidString.data(using: .utf8)!.base64EncodedString(),
         oneTimePassword: String = UUID().uuidString.data(using: .utf8)!.base64EncodedString(),
         routingInfo: UInt64 = 0x1B1B,
@@ -27,7 +27,7 @@ public struct AnisetteData: Codable {
     }
 
     /// Converts the Anisette data into standard Apple authentication HTTP headers
-    public var httpHeaders: [String: String] {
+    var httpHeaders: [String: String] {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         let timeString = formatter.string(from: clientTimestamp)
@@ -47,16 +47,16 @@ public struct AnisetteData: Codable {
 }
 
 /// Provides Anisette headers locally or from configured remote Anisette servers (SideStore style)
-public class AnisetteProvider {
-    public static let shared = AnisetteProvider()
+class AnisetteProvider {
+    static let shared = AnisetteProvider()
 
     private let userDefaultsKey = "SoulSign_AnisetteServerURL"
-    public var customServerURL: String? {
+    var customServerURL: String? {
         get { UserDefaults.standard.string(forKey: userDefaultsKey) }
         set { UserDefaults.standard.set(newValue, forKey: userDefaultsKey) }
     }
 
-    public func fetchAnisetteHeaders(completion: @escaping ([String: String]) -> Void) {
+    func fetchAnisetteHeaders(completion: @escaping ([String: String]) -> Void) {
         // If a remote server is provided (e.g. SideStore provision server), attempt network fetch
         if let serverStr = customServerURL, !serverStr.isEmpty, let url = URL(string: serverStr) {
             var request = URLRequest(url: url)

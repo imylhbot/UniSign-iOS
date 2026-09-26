@@ -2,15 +2,15 @@ import Foundation
 import CommonCrypto
 
 /// Local on-device Mach-O Code Signer inspired by SideStore / SideSign
-public class CodeSigner {
-    public static let shared = CodeSigner()
+class CodeSigner {
+    static let shared = CodeSigner()
 
-    public enum SignError: LocalizedError {
+    enum SignError: LocalizedError {
         case appPayloadNotFound
         case executableNotFound
         case signingFailed(String)
 
-        public var errorDescription: String? {
+        var errorDescription: String? {
             switch self {
             case .appPayloadNotFound: return "未找到有效的 Payload/*.app 应用目录"
             case .executableNotFound: return "未找到主 Mach-O 可执行二进制文件"
@@ -20,7 +20,7 @@ public class CodeSigner {
     }
 
     /// Signs an unpacked .app bundle directory with provided entitlements and embedded mobileprovision
-    public func signAppBundle(
+    func signAppBundle(
         appBundleURL: URL,
         provisioningProfileData: Data?,
         bundleID: String,
@@ -135,7 +135,7 @@ public class CodeSigner {
 
         let entitlementsXML = """
         <?xml version="1.0" encoding="UTF-8"?>
-        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <!DOCTYPE plist "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
         <plist version="1.0">
         <dict>
             <key>application-identifier</key>

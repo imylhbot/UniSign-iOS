@@ -1,22 +1,22 @@
 import Foundation
 
 /// Lifecycle session status of an Apple Developer Account
-public enum SessionStatus: String, Codable {
+enum SessionStatus: String, Codable {
     case valid              // 🟢 Session active & valid
     case expired            // 🔴 Session expired / cookie revoked
     case twoFactorRequired  // 🟡 2FA Challenge pending
-    case unchecked          // ⚪ Not checked yet
+    case unchecked          // �?Not checked yet
 
-    public var title: String {
+    var title: String {
         switch self {
         case .valid: return "有效"
-        case .expired: return "会话已失效"
+        case .expired: return "会话已失�?
         case .twoFactorRequired: return "需 2FA 验证"
-        case .unchecked: return "未检测"
+        case .unchecked: return "未检�?
         }
     }
 
-    public var badgeColorHex: String {
+    var badgeColorHex: String {
         switch self {
         case .valid: return "#28C840"           // Green
         case .expired: return "#FF3B30"         // Red
@@ -27,18 +27,18 @@ public enum SessionStatus: String, Codable {
 }
 
 /// Represents a configured Apple Developer Account in SoulSign
-public struct AppleAccount: Codable, Identifiable, Equatable {
-    public var id: String { email }
-    public var email: String
-    public var teamID: String?
-    public var teamName: String?
-    public var isActive: Bool
-    public var addedDate: Date
-    public var sessionStatus: SessionStatus
-    public var lastCheckedDate: Date?
-    public var statusMessage: String?
+struct AppleAccount: Codable, Identifiable, Equatable {
+    var id: String { email }
+    var email: String
+    var teamID: String?
+    var teamName: String?
+    var isActive: Bool
+    var addedDate: Date
+    var sessionStatus: SessionStatus
+    var lastCheckedDate: Date?
+    var statusMessage: String?
 
-    public init(
+    init(
         email: String,
         teamID: String? = nil,
         teamName: String? = nil,
@@ -58,7 +58,7 @@ public struct AppleAccount: Codable, Identifiable, Equatable {
         self.statusMessage = statusMessage
     }
 
-    public static func == (lhs: AppleAccount, rhs: AppleAccount) -> Bool {
+    static func == (lhs: AppleAccount, rhs: AppleAccount) -> Bool {
         return lhs.email == rhs.email
     }
 }

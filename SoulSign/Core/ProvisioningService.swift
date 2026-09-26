@@ -2,11 +2,11 @@ import Foundation
 import Security
 
 /// Orchestrates Developer Certificate & Provisioning Profile issuance
-public class ProvisioningService {
-    public static let shared = ProvisioningService()
+class ProvisioningService {
+    static let shared = ProvisioningService()
 
     /// Requests signing materials (Certificate + Provisioning Profile) for an app
-    public func requestSigningMaterials(
+    func requestSigningMaterials(
         session: DeveloperSession,
         bundleID: String,
         deviceUDID: String,
@@ -29,7 +29,7 @@ public class ProvisioningService {
     }
 
     /// Generates a valid Apple Developer Provisioning Profile XML plist
-    public func generateDevelopmentProfile(
+    func generateDevelopmentProfile(
         bundleID: String,
         teamID: String,
         deviceUDID: String

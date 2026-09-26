@@ -3,16 +3,16 @@ import Network
 import UIKit
 
 /// Lightweight local HTTP server for itms-services installation and UDID profile serving
-public class LocalInstallServer {
-    public static let shared = LocalInstallServer()
+class LocalInstallServer {
+    static let shared = LocalInstallServer()
 
-    public var port: UInt16 = 24302
+    var port: UInt16 = 24302
     private var listener: NWListener?
-    public private(set) var isRunning: Bool = false
+    private(set) var isRunning: Bool = false
 
     private init() {}
 
-    public func start() {
+    func start() {
         guard !isRunning else { return }
         guard let nwPort = NWEndpoint.Port(rawValue: port) else { return }
 
@@ -22,7 +22,7 @@ public class LocalInstallServer {
                 switch state {
                 case .ready:
                     self?.isRunning = true
-                    print("[SoulSign] 本地安装服务已就绪: http://127.0.0.1:\(self?.port ?? 24302)")
+                    print("[SoulSign] 本地安装服务已就�? http://127.0.0.1:\(self?.port ?? 24302)")
                 case .failed:
                     self?.isRunning = false
                 default:
@@ -40,7 +40,7 @@ public class LocalInstallServer {
         }
     }
 
-    public func stop() {
+    func stop() {
         listener?.cancel()
         listener = nil
         isRunning = false
@@ -104,7 +104,7 @@ public class LocalInstallServer {
         }
     }
 
-    public func installUDIDProfile() {
+    func installUDIDProfile() {
         start()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
             if let url = URL(string: "http://127.0.0.1:\(self.port)/udid.mobileconfig") {
@@ -116,7 +116,7 @@ public class LocalInstallServer {
     private func generateManifestXML(bundleID: String, title: String) -> String {
         return """
         <?xml version="1.0" encoding="UTF-8"?>
-        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <!DOCTYPE plist "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
         <plist version="1.0">
         <dict>
             <key>items</key>
@@ -152,13 +152,13 @@ public class LocalInstallServer {
     private func generateUDIDProfileXML() -> String {
         return """
         <?xml version="1.0" encoding="UTF-8"?>
-        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <!DOCTYPE plist "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
         <plist version="1.0">
         <dict>
             <key>PayloadDisplayName</key>
             <string>SoulSign 自动获取真机 UDID</string>
             <key>PayloadDescription</key>
-            <string>用于一键安全获取当前 iPhone / iPad 的真实物理硬件 UDID</string>
+            <string>用于一键安全获取当�?iPhone / iPad 的真实物理硬�?UDID</string>
             <key>PayloadIdentifier</key>
             <string>com.soulsign.udid.service</string>
             <key>PayloadOrganization</key>

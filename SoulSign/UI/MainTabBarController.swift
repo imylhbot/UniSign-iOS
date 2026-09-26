@@ -1,7 +1,7 @@
 import UIKit
 
-public class MainTabBarController: UITabBarController {
-    override public func viewDidLoad() {
+class MainTabBarController: UITabBarController {
+    override func viewDidLoad() {
         super.viewDidLoad()
         setupTabs()
         setupAppearance()
@@ -24,7 +24,7 @@ public class MainTabBarController: UITabBarController {
 
         let libraryVC = UINavigationController(rootViewController: AppLibraryViewController())
         libraryVC.tabBarItem = UITabBarItem(
-            title: "应用库",
+            title: "应用�?,
             image: UIImage(systemName: "square.stack.3d.up"),
             selectedImage: UIImage(systemName: "square.stack.3d.up.fill")
         )

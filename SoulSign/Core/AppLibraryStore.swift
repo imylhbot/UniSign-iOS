@@ -1,7 +1,7 @@
 import Foundation
 
-public class AppLibraryStore {
-    public static let shared = AppLibraryStore()
+class AppLibraryStore {
+    static let shared = AppLibraryStore()
 
     private let storeFileName = "signed_apps_registry.json"
     private var records: [SignedAppRecord] = []
@@ -32,11 +32,11 @@ public class AppLibraryStore {
         }
     }
 
-    public func getAllRecords() -> [SignedAppRecord] {
+    func getAllRecords() -> [SignedAppRecord] {
         return queue.sync { records }
     }
 
-    public func addOrUpdateRecord(_ record: SignedAppRecord) {
+    func addOrUpdateRecord(_ record: SignedAppRecord) {
         queue.async(flags: .barrier) {
             if let index = self.records.firstIndex(where: { $0.bundleID == record.bundleID }) {
                 self.records[index] = record
@@ -47,7 +47,7 @@ public class AppLibraryStore {
         }
     }
 
-    public func deleteRecord(bundleID: String) {
+    func deleteRecord(bundleID: String) {
         queue.async(flags: .barrier) {
             self.records.removeAll { $0.bundleID == bundleID }
             self.saveRecords()
@@ -55,14 +55,14 @@ public class AppLibraryStore {
     }
 
     /// Returns count of signed apps associated with a specific Apple ID email
-    public func activeAppsCount(for email: String) -> Int {
+    func activeAppsCount(for email: String) -> Int {
         return queue.sync {
             self.records.filter { $0.appleIDEmail.lowercased() == email.lowercased() }.count
         }
     }
 
     /// Returns all records for a specific Apple ID email
-    public func records(for email: String) -> [SignedAppRecord] {
+    func records(for email: String) -> [SignedAppRecord] {
         return queue.sync {
             self.records.filter { $0.appleIDEmail.lowercased() == email.lowercased() }
         }

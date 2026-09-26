@@ -1,15 +1,15 @@
 import UIKit
 
-public struct SoulSignTheme {
+struct SoulSignTheme {
     // Primary Brand Colors
-    public static let primary = UIColor(red: 0.08, green: 0.44, blue: 0.98, alpha: 1.0) // iOS vibrant blue
-    public static let primaryDark = UIColor(red: 0.04, green: 0.32, blue: 0.78, alpha: 1.0)
-    public static let success = UIColor(red: 0.16, green: 0.78, blue: 0.42, alpha: 1.0) // Green
-    public static let warning = UIColor(red: 1.00, green: 0.65, blue: 0.15, alpha: 1.0) // Orange / Yellow
-    public static let danger = UIColor(red: 0.95, green: 0.26, blue: 0.21, alpha: 1.0)  // Red
+    static let primary = UIColor(red: 0.08, green: 0.44, blue: 0.98, alpha: 1.0) // iOS vibrant blue
+    static let primaryDark = UIColor(red: 0.04, green: 0.32, blue: 0.78, alpha: 1.0)
+    static let success = UIColor(red: 0.16, green: 0.78, blue: 0.42, alpha: 1.0) // Green
+    static let warning = UIColor(red: 1.00, green: 0.65, blue: 0.15, alpha: 1.0) // Orange / Yellow
+    static let danger = UIColor(red: 0.95, green: 0.26, blue: 0.21, alpha: 1.0)  // Red
     
     // Backgrounds & Surfaces
-    public static var background: UIColor {
+    static var background: UIColor {
         return UIColor { traitCollection in
             traitCollection.userInterfaceStyle == .dark
                 ? UIColor(red: 0.07, green: 0.07, blue: 0.09, alpha: 1.0)
@@ -17,7 +17,7 @@ public struct SoulSignTheme {
         }
     }
     
-    public static var cardBackground: UIColor {
+    static var cardBackground: UIColor {
         return UIColor { traitCollection in
             traitCollection.userInterfaceStyle == .dark
                 ? UIColor(red: 0.13, green: 0.13, blue: 0.15, alpha: 1.0)
@@ -25,7 +25,7 @@ public struct SoulSignTheme {
         }
     }
     
-    public static var cardBorder: UIColor {
+    static var cardBorder: UIColor {
         return UIColor { traitCollection in
             traitCollection.userInterfaceStyle == .dark
                 ? UIColor(white: 0.22, alpha: 1.0)
@@ -33,7 +33,7 @@ public struct SoulSignTheme {
         }
     }
     
-    public static var secondaryText: UIColor {
+    static var secondaryText: UIColor {
         return UIColor { traitCollection in
             traitCollection.userInterfaceStyle == .dark
                 ? UIColor(white: 0.60, alpha: 1.0)
@@ -42,7 +42,7 @@ public struct SoulSignTheme {
     }
 
     // Card View Helper
-    public static func styleCardView(_ view: UIView) {
+    static func styleCardView(_ view: UIView) {
         view.backgroundColor = cardBackground
         view.layer.cornerRadius = 14
         view.layer.borderWidth = 1
@@ -54,7 +54,7 @@ public struct SoulSignTheme {
     }
     
     // Primary Button Helper
-    public static func stylePrimaryButton(_ button: UIButton, title: String) {
+    static func stylePrimaryButton(_ button: UIButton, title: String) {
         button.setTitle(title, for: .normal)
         button.titleLabel?.font = UIFont.systemFont(ofSize: 16, weight: .semibold)
         button.backgroundColor = primary

@@ -1,13 +1,13 @@
 import Foundation
 
-public struct DeveloperSession: Codable {
-    public var appleID: String
-    public var authToken: String
-    public var cookies: [String: String]
-    public var expirationDate: Date
-    public var selectedTeamID: String?
+struct DeveloperSession: Codable {
+    var appleID: String
+    var authToken: String
+    var cookies: [String: String]
+    var expirationDate: Date
+    var selectedTeamID: String?
 
-    public init(
+    init(
         appleID: String,
         authToken: String,
         cookies: [String: String],
@@ -22,15 +22,15 @@ public struct DeveloperSession: Codable {
     }
 }
 
-public struct DeveloperTeam: Codable {
-    public var teamID: String
-    public var name: String
-    public var status: String
-    public var type: String
+struct DeveloperTeam: Codable {
+    var teamID: String
+    var name: String
+    var status: String
+    var type: String
 }
 
-public class DeveloperPortalAPI {
-    public static let shared = DeveloperPortalAPI()
+class DeveloperPortalAPI {
+    static let shared = DeveloperPortalAPI()
 
     private let baseURL = "https://developerservices2.apple.com/services/QH65B2"
 
@@ -70,7 +70,7 @@ public class DeveloperPortalAPI {
     }
 
     /// Fetches development teams for the given session (also serves as session validity probe)
-    public func listTeams(
+    func listTeams(
         session: DeveloperSession,
         completion: @escaping (Result<[DeveloperTeam], Error>) -> Void
     ) {
@@ -120,7 +120,7 @@ public class DeveloperPortalAPI {
     }
 
     /// Registers a device UDID to the developer team
-    public func registerDevice(
+    func registerDevice(
         session: DeveloperSession,
         deviceName: String,
         deviceUDID: String,

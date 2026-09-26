@@ -1,7 +1,7 @@
 import UIKit
 
-public class AccountCardCell: UITableViewCell {
-    public static let identifier = "AccountCardCell"
+class AccountCardCell: UITableViewCell {
+    static let identifier = "AccountCardCell"
 
     private let containerView = UIView()
     private let emailLabel = UILabel()
@@ -22,9 +22,9 @@ public class AccountCardCell: UITableViewCell {
     private let renewButton = UIButton(type: .system)
     private let moreButton = UIButton(type: .system)
 
-    public var onCheckValidity: (() -> Void)?
-    public var onRenewApps: (() -> Void)?
-    public var onMoreActions: (() -> Void)?
+    var onCheckValidity: (() -> Void)?
+    var onRenewApps: (() -> Void)?
+    var onMoreActions: (() -> Void)?
 
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
@@ -64,7 +64,7 @@ public class AccountCardCell: UITableViewCell {
         teamLabel.textColor = SoulSignTheme.secondaryText
 
         // Quota Section
-        quotaTitleLabel.text = "3-App 开发者签名配额:"
+        quotaTitleLabel.text = "3-App 开发者签名配�?"
         quotaTitleLabel.font = UIFont.systemFont(ofSize: 13, weight: .medium)
         quotaTitleLabel.textColor = .secondaryLabel
 
@@ -93,13 +93,13 @@ public class AccountCardCell: UITableViewCell {
         statusRow.alignment = .center
 
         // Action Buttons Row
-        styleActionButton(checkButton, title: "🔍 检测有效性", color: SoulSignTheme.primary)
+        styleActionButton(checkButton, title: "🔍 检测有效�?, color: SoulSignTheme.primary)
         checkButton.addTarget(self, action: #selector(checkTapped), for: .touchUpInside)
 
-        styleActionButton(renewButton, title: "⚡ 一键续签", color: SoulSignTheme.success)
+        styleActionButton(renewButton, title: "�?一键续�?, color: SoulSignTheme.success)
         renewButton.addTarget(self, action: #selector(renewTapped), for: .touchUpInside)
 
-        styleActionButton(moreButton, title: "••• 更多", color: .systemGray)
+        styleActionButton(moreButton, title: "••�?更多", color: .systemGray)
         moreButton.addTarget(self, action: #selector(moreTapped), for: .touchUpInside)
 
         let buttonRow = UIStackView(arrangedSubviews: [checkButton, renewButton, moreButton])
@@ -148,11 +148,11 @@ public class AccountCardCell: UITableViewCell {
         button.layer.cornerRadius = 8
     }
 
-    public func configure(with account: AppleAccount) {
+    func configure(with account: AppleAccount) {
         emailLabel.text = account.email
         activeBadge.isHidden = !account.isActive
 
-        let team = account.teamName ?? account.teamID ?? "个人开发者团队"
+        let team = account.teamName ?? account.teamID ?? "个人开发者团�?
         teamLabel.text = "团队: \(team)"
 
         // Configure 3-App Quota
@@ -160,7 +160,7 @@ public class AccountCardCell: UITableViewCell {
         let total = AccountManager.maxQuotaPerAccount
         let remaining = AccountManager.shared.remainingQuota(for: account.email)
 
-        quotaCountLabel.text = "\(used)/\(total) (可用: \(remaining) 个)"
+        quotaCountLabel.text = "\(used)/\(total) (可用: \(remaining) �?"
         quotaProgressView.progress = Float(used) / Float(total)
 
         if used >= total {
@@ -196,7 +196,7 @@ public class AccountCardCell: UITableViewCell {
             df.dateFormat = "MM-dd HH:mm"
             lastCheckedLabel.text = "检测于: \(df.string(from: lastChecked))"
         } else {
-            lastCheckedLabel.text = "尚未检测"
+            lastCheckedLabel.text = "尚未检�?
         }
     }
 

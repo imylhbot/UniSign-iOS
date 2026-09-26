@@ -1,16 +1,16 @@
 import Foundation
 
 /// Active health checker for Apple Developer sessions
-public class SessionValidator {
-    public static let shared = SessionValidator()
+class SessionValidator {
+    static let shared = SessionValidator()
 
     /// Checks the login validity of a specific Apple Account by querying Developer Portal
-    public func checkValidity(
+    func checkValidity(
         for email: String,
         completion: @escaping (SessionStatus, String) -> Void
     ) {
         guard let account = AccountManager.shared.getAccount(email: email) else {
-            completion(.unchecked, "未找到账号")
+            completion(.unchecked, "未找到账�?)
             return
         }
 
@@ -20,8 +20,8 @@ public class SessionValidator {
                 AccountManager.shared.updateAccountStatus(email: email, status: .twoFactorRequired, message: "需重新认证")
                 completion(.twoFactorRequired, "缺少有效会话凭据")
             } else {
-                AccountManager.shared.updateAccountStatus(email: email, status: .expired, message: "请重新输入密码登录")
-                completion(.expired, "未保存会话")
+                AccountManager.shared.updateAccountStatus(email: email, status: .expired, message: "请重新输入密码登�?)
+                completion(.expired, "未保存会�?)
             }
             return
         }
@@ -30,13 +30,13 @@ public class SessionValidator {
         DeveloperPortalAPI.shared.listTeams(session: session) { result in
             switch result {
             case .success(let teams):
-                let teamInfo = teams.first?.name ?? "个人开发者"
+                let teamInfo = teams.first?.name ?? "个人开发�?
                 AccountManager.shared.updateAccountStatus(
                     email: email,
                     status: .valid,
-                    message: "已连接 (\(teamInfo))"
+                    message: "已连�?(\(teamInfo))"
                 )
-                completion(.valid, "会话正常，支持签名")
+                completion(.valid, "会话正常，支持签�?)
 
             case .failure(let error):
                 let errorDesc = error.localizedDescription
@@ -61,7 +61,7 @@ public class SessionValidator {
     }
 
     /// Checks validity of all saved accounts in parallel
-    public func checkAllAccounts(completion: @escaping ([String: SessionStatus]) -> Void) {
+    func checkAllAccounts(completion: @escaping ([String: SessionStatus]) -> Void) {
         let accounts = AccountManager.shared.getAllAccounts()
         guard !accounts.isEmpty else {
             completion([:])
