@@ -76,6 +76,14 @@ public class AppleAccountManager {
         saveAccounts()
     }
     
+    public func updateTeam(for email: String, teamID: String, teamName: String) {
+        if let idx = accounts.firstIndex(where: { $0.email.lowercased() == email.lowercased() }) {
+            accounts[idx].teamID = teamID
+            accounts[idx].teamName = teamName
+            saveAccounts()
+        }
+    }
+    
     public func setActiveAccount(id: String) {
         for i in 0..<accounts.count {
             accounts[i].isActive = (accounts[i].id == id)

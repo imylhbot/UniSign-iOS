@@ -294,37 +294,67 @@ public class AppleWebLoginViewController: UIViewController, WKNavigationDelegate
     }
     
     private func finalizeLogin(email: String, myacinfo: String, dsid: String, cookies: [String: String], teamId: String = "", teamName: String = "") {
-        let cleanTeamId = !teamId.isEmpty ? teamId : ("TEAM" + String(abs(email.hashValue) % 1000000000))
-        let cleanTeamName = !teamName.isEmpty ? teamName : "\(email) (Personal Team)"
-        
-        let session = AppleDeveloperService.AppleSession(
+        let validExplicitTeamId = (teamId.count == 10 && !teamId.starts(with: "TEAM")) ? teamId : nil
+        let tempSession = AppleDeveloperService.AppleSession(
             appleID: email,
             dsid: dsid,
             authToken: myacinfo,
-            teamID: cleanTeamId,
-            teamName: cleanTeamName,
+            teamID: validExplicitTeamId,
+            teamName: teamName.isEmpty ? nil : teamName,
             cookies: cookies
         )
-        AppleDeveloperService.shared.currentSession = session
         
-        let account = AppleAccount(
-            email: email,
-            password: "",
-            teamID: session.teamID,
-            teamName: session.teamName,
-            isActive: true,
-            myacinfo: myacinfo,
-            sessionCookies: cookies
-        )
-        AppleAccountManager.shared.addOrUpdateAccount(account)
-        AppleAccountManager.shared.setActiveAccount(id: account.id)
+        AppLogger.shared.log("正在验证 Apple 开发者账号权限及团队信息...", category: .appleID)
         
-        AppLogger.shared.log("✅ 成功通过 Apple 官方网页完成授权: \(email) (Team: \(cleanTeamId)), myacinfo 凭据与 2FA 会话 Cookie 已就绪", category: .appleID)
-        UINotificationFeedbackGenerator().notificationOccurred(.success)
-        
-        self.onLoginSuccess?(account)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-            self.dismiss(animated: true)
+        AppleDeveloperService.shared.resolveDeveloperTeam(session: tempSession) { [weak self] res in
+            guard let self = self else { return }
+            DispatchQueue.main.async {
+                switch res {
+                case .success(let teamInfo):
+                    let session = AppleDeveloperService.AppleSession(
+                        appleID: email,
+                        dsid: dsid,
+                        authToken: myacinfo,
+                        teamID: teamInfo.teamId,
+                        teamName: teamInfo.teamName,
+                        cookies: cookies
+                    )
+                    AppleDeveloperService.shared.currentSession = session
+                    
+                    let account = AppleAccount(
+                        email: email,
+                        password: "",
+                        teamID: teamInfo.teamId,
+                        teamName: teamInfo.teamName,
+                        isActive: true,
+                        myacinfo: myacinfo,
+                        sessionCookies: cookies
+                    )
+                    AppleAccountManager.shared.addOrUpdateAccount(account)
+                    AppleAccountManager.shared.setActiveAccount(id: account.id)
+                    
+                    AppLogger.shared.log("✅ 成功通过 Apple 官方网页完成授权: \(email) (开发者团队: \(teamInfo.teamName) [\(teamInfo.teamId)])", category: .appleID)
+                    UINotificationFeedbackGenerator().notificationOccurred(.success)
+                    
+                    self.onLoginSuccess?(account)
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        self.dismiss(animated: true)
+                    }
+                    
+                case .failure(let err):
+                    AppLogger.shared.log("⚠️ 网页登录已通过，但获取团队失败: \(err.localizedDescription)", category: .warn)
+                    self.isCompleted = false
+                    
+                    let alert = UIAlertController(
+                        title: L("开发者权限未就绪", "Developer Team Required"),
+                        message: L("Apple ID 已成功登录，但未能获取到已关联的开发者团队。\n\n常见原因：\n当前 Apple ID 尚未同意《Apple Developer Agreement》开发者协议。\n\n解决办法：\n请在当前网页中查看是否有「Review Agreement / 同意协议」提示，同意协议后再次点击右上角「完成登录」。",
+                                   "Your Apple ID is signed in, but no active developer team was found. Please accept the Apple Developer Agreement on the page, then tap Done."),
+                        preferredStyle: .alert
+                    )
+                    alert.addAction(UIAlertAction(title: L("好的，留在页面同意协议", "Stay and Accept"), style: .default))
+                    self.present(alert, animated: true)
+                }
+            }
         }
     }
 }

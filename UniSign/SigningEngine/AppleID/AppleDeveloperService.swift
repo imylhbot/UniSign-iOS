@@ -219,13 +219,14 @@ public class AppleDeveloperService {
                 return
             }
             
-            let cleanTeamId = "TEAM" + String(abs(appleID.hashValue) % 1000000000)
+            let existingAcc = AppleAccountManager.shared.getAllAccounts().first(where: { $0.email.lowercased() == appleID.lowercased() })
+            let validTeamId: String? = (existingAcc?.teamID?.count == 10 && !(existingAcc?.teamID?.starts(with: "TEAM") ?? false)) ? existingAcc?.teamID : nil
             var session = AppleSession(
                 appleID: appleID,
                 dsid: dsid,
                 authToken: token.isEmpty ? (cookieDict["myacinfo"] ?? "") : token,
-                teamID: cleanTeamId,
-                teamName: "\(appleID) (Personal Team)",
+                teamID: validTeamId,
+                teamName: existingAcc?.teamName ?? "\(appleID) (Personal Team)",
                 cookies: cookieDict
             )
             
@@ -263,12 +264,12 @@ public class AppleDeveloperService {
             if let myacinfo = activeAcc.myacinfo ?? activeAcc.sessionCookies?["myacinfo"], myacinfo.count > 20 {
                 var cookies = activeAcc.sessionCookies ?? [:]
                 cookies["myacinfo"] = myacinfo
-                let cleanTeamId = activeAcc.teamID ?? ("TEAM" + String(abs(activeAcc.email.hashValue) % 1000000000))
+                let validTeamId = (activeAcc.teamID?.count == 10 && !(activeAcc.teamID?.starts(with: "TEAM") ?? false)) ? activeAcc.teamID : nil
                 let restored = AppleSession(
                     appleID: activeAcc.email,
                     dsid: cookies["dsid"] ?? "",
                     authToken: myacinfo,
-                    teamID: cleanTeamId,
+                    teamID: validTeamId,
                     teamName: activeAcc.teamName ?? "\(activeAcc.email) (Personal Team)",
                     cookies: cookies
                 )
@@ -508,7 +509,14 @@ public class AppleDeveloperService {
                     
                     let resultCode = plist["resultCode"] as? Int ?? -1
                     if resultCode == 0 {
-                        AppLogger.shared.log("✅ 苹果开发者接口响应成功: \(action).action", category: .appleID)
+                        AppLogger.shared.log("✅ 苹果开发者接口响应成功: \(action).action (返回键: \(plist.keys.joined(separator: ", ")))", category: .appleID)
+                        if action == "listTeams" {
+                            let preview = "\(plist["teams"] ?? plist["team"] ?? "无 teams 字段")"
+                            AppLogger.shared.log("listTeams 原始数据摘要: \(preview.prefix(250))", category: .appleID)
+                        } else if action == "viewDeveloper" {
+                            let preview = "\(plist["developer"] ?? "无 developer 字段")"
+                            AppLogger.shared.log("viewDeveloper 原始数据摘要: \(preview.prefix(250))", category: .appleID)
+                        }
                         completion(.success(plist))
                     } else if resultCode == 1100 && !isRetry {
                         if !useFallbackHost {
@@ -543,6 +551,184 @@ public class AppleDeveloperService {
         }
     }
     
+    // MARK: - Team Resolution & Parsing
+    
+    public func parseTeamsFromPlist(_ plist: [String: Any]) -> [(id: String, name: String, status: String)] {
+        var results: [(id: String, name: String, status: String)] = []
+        
+        func extractTeam(from dict: [String: Any]) -> (id: String, name: String, status: String)? {
+            let teamId = (dict["teamId"] as? String)
+                ?? (dict["teamID"] as? String)
+                ?? (dict["id"] as? String)
+                ?? (dict["identifier"] as? String)
+                ?? ((dict["teamId"] as? NSNumber)?.stringValue)
+                ?? ""
+            
+            let teamName = (dict["name"] as? String)
+                ?? (dict["teamName"] as? String)
+                ?? (dict["developerName"] as? String)
+                ?? ""
+            
+            var status = (dict["status"] as? String) ?? "active"
+            if let memberships = dict["memberships"] as? [[String: Any]], let firstM = memberships.first {
+                if let mStatus = firstM["status"] as? String {
+                    status = mStatus
+                }
+            }
+            
+            let cleanId = teamId.trimmingCharacters(in: .whitespacesAndNewlines)
+            if cleanId.count == 10 && !cleanId.starts(with: "TEAM") {
+                return (id: cleanId, name: teamName.isEmpty ? "\(cleanId) Team" : teamName, status: status)
+            }
+            return nil
+        }
+        
+        // 1. "teams" array
+        if let teamsArr = plist["teams"] as? [Any] {
+            for item in teamsArr {
+                if let dict = item as? [String: Any], let t = extractTeam(from: dict) {
+                    results.append(t)
+                } else if let nsDict = item as? NSDictionary {
+                    var converted: [String: Any] = [:]
+                    for (k, v) in nsDict {
+                        if let kStr = k as? String {
+                            converted[kStr] = v
+                        }
+                    }
+                    if let t = extractTeam(from: converted) {
+                        results.append(t)
+                    }
+                }
+            }
+        }
+        
+        // 2. "team" dictionary or array
+        if let singleTeam = plist["team"] as? [String: Any], let t = extractTeam(from: singleTeam) {
+            results.append(t)
+        } else if let teamArr = plist["team"] as? [Any] {
+            for item in teamArr {
+                if let dict = item as? [String: Any], let t = extractTeam(from: dict) {
+                    results.append(t)
+                }
+            }
+        }
+        
+        // 3. "developer" dictionary from viewDeveloper
+        if let devDict = plist["developer"] as? [String: Any] {
+            let devId = ((devDict["developerId"] as? String) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            let firstName = (devDict["firstName"] as? String) ?? (devDict["dsFirstName"] as? String) ?? ""
+            let lastName = (devDict["lastName"] as? String) ?? (devDict["dsLastName"] as? String) ?? ""
+            let devName = "\(firstName) \(lastName)".trimmingCharacters(in: .whitespaces)
+            if devId.count == 10 && !devId.starts(with: "TEAM") {
+                results.append((id: devId, name: devName.isEmpty ? "Personal Team" : "\(devName) (Personal Team)", status: "active"))
+            }
+        }
+        
+        return results
+    }
+    
+    public func resolveDeveloperTeam(
+        session: AppleSession,
+        completion: @escaping (Result<(teamId: String, teamName: String), AppleAuthError>) -> Void
+    ) {
+        AppLogger.shared.log("正在请求苹果开发者账户详情 (viewDeveloper.action)...", category: .appleID)
+        
+        // Step 1: viewDeveloper.action to register/provision developer record
+        self.sendDeveloperRequest(action: "viewDeveloper", session: session, parameters: [:]) { [weak self] viewDevRes in
+            guard let self = self else { return }
+            
+            var devRecordTeamId: String? = nil
+            var devRecordTeamName: String? = nil
+            
+            if case .success(let viewDevPlist) = viewDevRes {
+                let teamsFromDev = self.parseTeamsFromPlist(viewDevPlist)
+                if let firstT = teamsFromDev.first {
+                    devRecordTeamId = firstT.id
+                    devRecordTeamName = firstT.name
+                    AppLogger.shared.log("从 viewDeveloper 获得开发者团队: \(firstT.name) (\(firstT.id))", category: .appleID)
+                }
+            }
+            
+            // Step 2: listTeams.action on primary host
+            AppLogger.shared.log("正在请求苹果开发者团队列表 (listTeams.action)...", category: .appleID)
+            self.sendDeveloperRequest(action: "listTeams", session: session, parameters: [:], useFallbackHost: false) { [weak self] teamRes in
+                guard let self = self else { return }
+                
+                self.processListTeamsResult(
+                    teamRes: teamRes,
+                    session: session,
+                    devRecordTeamId: devRecordTeamId,
+                    devRecordTeamName: devRecordTeamName,
+                    triedFallback: false,
+                    completion: completion
+                )
+            }
+        }
+    }
+    
+    private func processListTeamsResult(
+        teamRes: Result<[String: Any], AppleAuthError>,
+        session: AppleSession,
+        devRecordTeamId: String?,
+        devRecordTeamName: String?,
+        triedFallback: Bool,
+        completion: @escaping (Result<(teamId: String, teamName: String), AppleAuthError>) -> Void
+    ) {
+        var foundTeams: [(id: String, name: String, status: String)] = []
+        
+        if case .success(let plist) = teamRes {
+            foundTeams = self.parseTeamsFromPlist(plist)
+            AppLogger.shared.log("解析出可用开发者团队数量: \(foundTeams.count)", category: .appleID)
+            for (idx, t) in foundTeams.enumerated() {
+                AppLogger.shared.log("  团队 [\(idx + 1)]: \(t.name) (Team ID: \(t.id), 状态: \(t.status))", category: .appleID)
+            }
+        }
+        
+        if let activeTeam = foundTeams.first(where: { $0.status.lowercased() == "active" }) ?? foundTeams.first {
+            AppLogger.shared.log("✅ 成功匹配有效开发者团队: \(activeTeam.name) (\(activeTeam.id))", category: .appleID)
+            completion(.success((teamId: activeTeam.id, teamName: activeTeam.name)))
+            return
+        }
+        
+        // If not found and haven't tried fallback web host yet, try fallback host
+        if !triedFallback {
+            AppLogger.shared.log("主服务未返回团队，尝试通过开发者网页网关请求团队列表...", category: .appleID)
+            self.sendDeveloperRequest(action: "listTeams", session: session, parameters: [:], useFallbackHost: true) { [weak self] fallbackRes in
+                guard let self = self else { return }
+                self.processListTeamsResult(
+                    teamRes: fallbackRes,
+                    session: session,
+                    devRecordTeamId: devRecordTeamId,
+                    devRecordTeamName: devRecordTeamName,
+                    triedFallback: true,
+                    completion: completion
+                )
+            }
+            return
+        }
+        
+        // If listTeams didn't yield a team, but viewDeveloper gave a valid 10-char teamId
+        if let devTeamId = devRecordTeamId, devTeamId.count == 10 {
+            let devName = devRecordTeamName ?? "\(session.appleID) (Personal Team)"
+            AppLogger.shared.log("✅ 使用 viewDeveloper 记录中获得的开发者团队 ID: \(devName) (\(devTeamId))", category: .appleID)
+            completion(.success((teamId: devTeamId, teamName: devName)))
+            return
+        }
+        
+        // If session already had a valid 10-character team ID (not dummy TEAMxxx)
+        if let existingId = session.teamID, existingId.count == 10, !existingId.starts(with: "TEAM") {
+            let existingName = session.teamName ?? "\(session.appleID) (Personal Team)"
+            AppLogger.shared.log("✅ 使用既有已绑定的有效开发者团队: \(existingName) (\(existingId))", category: .appleID)
+            completion(.success((teamId: existingId, teamName: existingName)))
+            return
+        }
+        
+        // No valid team found
+        let errDesc = "未能从 Apple 获取有效的开发者团队 (Team ID)。请登录 developer.apple.com 确认是否已同意《Apple Developer Agreement》开发者协议以激活免费开发者团队。"
+        AppLogger.shared.log("❌ \(errDesc)", category: .error)
+        completion(.failure(.general(errDesc)))
+    }
+    
     private func executeAppleDeveloperAPIFlow(
         session: AppleSession,
         bundleID: String,
@@ -552,32 +738,31 @@ public class AppleDeveloperService {
         pubKeyData: Data,
         completion: @escaping (Result<AppleSigningMaterials, AppleAuthError>) -> Void
     ) {
-        AppLogger.shared.log("正在通过 Apple ID (\(session.appleID)) 获取苹果开发者团队信息...", category: .appleID)
-        self.sendDeveloperRequest(action: "listTeams", session: session, parameters: [:]) { [weak self] teamRes in
+        AppLogger.shared.log("正在解析 Apple ID (\(session.appleID)) 的开发者团队信息...", category: .appleID)
+        
+        self.resolveDeveloperTeam(session: session) { [weak self] teamRes in
             guard let self = self else { return }
-            var effectiveTeamId = session.teamID ?? ""
-            var effectiveTeamName = session.teamName ?? "\(session.appleID) (Personal Team)"
+            
+            let effectiveTeamId: String
+            let effectiveTeamName: String
             
             switch teamRes {
-            case .success(let plist):
-                if let teams = plist["teams"] as? [[String: Any]], !teams.isEmpty {
-                    let selected = teams.first { ($0["status"] as? String) == "active" } ?? teams[0]
-                    if let tId = selected["teamId"] as? String {
-                        effectiveTeamId = tId
-                    }
-                    if let tName = selected["name"] as? String {
-                        effectiveTeamName = tName
-                    }
-                    AppLogger.shared.log("✅ 成功匹配苹果开发者团队: \(effectiveTeamName) (Team ID: \(effectiveTeamId))", category: .appleID)
+            case .success(let teamInfo):
+                effectiveTeamId = teamInfo.teamId
+                effectiveTeamName = teamInfo.teamName
+                AppLogger.shared.log("✅ 当前签名使用的苹果开发者团队: \(effectiveTeamName) (Team ID: \(effectiveTeamId))", category: .appleID)
+                
+                if session.teamID != effectiveTeamId {
+                    var updated = session
+                    updated.teamID = effectiveTeamId
+                    updated.teamName = effectiveTeamName
+                    self.currentSession = updated
+                    AppleAccountManager.shared.updateTeam(for: session.appleID, teamID: effectiveTeamId, teamName: effectiveTeamName)
                 }
+                
             case .failure(let err):
-                if !effectiveTeamId.isEmpty {
-                    AppLogger.shared.log("⚠️ 获取团队列表受限 (\(err.localizedDescription))，自动使用绑定团队: \(effectiveTeamName) (\(effectiveTeamId)) 继续签名流程...", category: .warn)
-                } else {
-                    AppLogger.shared.log("获取团队列表失败: \(err.localizedDescription)", category: .error)
-                    completion(.failure(err))
-                    return
-                }
+                completion(.failure(err))
+                return
             }
             
             // 2. Register Device UDID
