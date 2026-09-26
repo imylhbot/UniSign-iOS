@@ -323,10 +323,12 @@ public class LocalInstallServer {
     }
     
     private func routeRequest(connection: NWConnection, method: String, path: String, requestStr: String, rangeHeader: String?) {
+        AppLogger.shared.log("收到本地安装服务 HTTP 请求: \(method) \(path) (Range: \(rangeHeader ?? "None"))", category: .install)
         if path.contains("manifest.plist") {
             let manifest = generateManifestXML()
             let response = "HTTP/1.1 200 OK\r\nContent-Type: application/xml; charset=utf-8\r\nContent-Length: \(manifest.utf8.count)\r\nAccess-Control-Allow-Origin: *\r\nConnection: close\r\n\r\n\(manifest)"
             sendResponse(connection: connection, data: response.data(using: .utf8) ?? Data())
+            AppLogger.shared.log("已返回 manifest.plist 安装清单数据 (\(manifest.utf8.count) 字节)", category: .install)
             
         } else if path.contains("ca.mobileconfig") {
             let profile = generateCAProfileXML()
@@ -390,6 +392,7 @@ public class LocalInstallServer {
             
             let chunkLength = end - start + 1
             let chunkData = fileData.subdata(in: start..<(end + 1))
+            AppLogger.shared.log("正在向 iOS 传输 IPA 分块数据: \(start)-\(end)/\(totalLength) (长度: \(chunkLength) 字节)", category: .install)
             
             let headers = "HTTP/1.1 206 Partial Content\r\n" +
                           "Content-Type: application/octet-stream\r\n" +
@@ -403,6 +406,7 @@ public class LocalInstallServer {
             fullResponse.append(chunkData)
             sendResponse(connection: connection, data: fullResponse)
         } else {
+            AppLogger.shared.log("正在向 iOS 传输全量 IPA 数据 (\(totalLength) 字节)", category: .install)
             let headers = "HTTP/1.1 200 OK\r\n" +
                           "Content-Type: application/octet-stream\r\n" +
                           "Accept-Ranges: bytes\r\n" +

@@ -37,6 +37,7 @@ public class ZipEngine {
         guard fileData.count >= 22 else {
             throw ZipError.invalidZipArchive
         }
+        AppLogger.shared.log("开始解压 IPA 文件: \(source.lastPathComponent) (\(fileData.count) 字节)", category: .zip)
         
         // Find End of Central Directory record (signature: 0x06054b50)
         let eocdSignature: UInt32 = 0x06054b50
@@ -130,6 +131,7 @@ public class ZipEngine {
                 progress?(pct, "正在解压: \(fileName.components(separatedBy: "/").last ?? fileName)")
             }
         }
+        AppLogger.shared.log("IPA 解压完成: \(destination.lastPathComponent)", category: .zip)
     }
     
     /// Fast extraction of Info.plist dictionary directly from an IPA file without unpacking the whole archive
@@ -239,6 +241,7 @@ public class ZipEngine {
             let isDir = (try? url.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory ?? false
             filesToZip.append((relative: isDir ? rel + "/" : rel, fullURL: url, isDir: isDir))
         }
+        AppLogger.shared.log("开始打包 IPA: 共 \(filesToZip.count) 个条目 -> \(destinationIPA.lastPathComponent)", category: .zip)
         
         var zipOutput = Data()
         var centralDirectory = Data()
@@ -342,6 +345,7 @@ public class ZipEngine {
         zipOutput.appendUInt16LE(0) // comment len
         
         try zipOutput.write(to: destinationIPA, options: .atomic)
+        AppLogger.shared.log("IPA 打包写入成功，文件大小: \(zipOutput.count) 字节 (包含 \(centralDirEntries) 个 UNIX POSIX 标准条目)", category: .zip)
     }
     
     // MARK: - Native Compression Helpers

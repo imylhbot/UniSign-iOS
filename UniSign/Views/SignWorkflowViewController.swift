@@ -118,6 +118,9 @@ public class SignWorkflowViewController: UIViewController, UIDocumentPickerDeleg
     
     public override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
+        if selectedCertMode == .appleID && CertificateStorageManager.shared.currentP12URL != nil {
+            selectedCertMode = .p12
+        }
         updateCertCardText()
         updateActionButtonTitle()
         updateFilenamePreview()
@@ -762,12 +765,18 @@ public class SignWorkflowViewController: UIViewController, UIDocumentPickerDeleg
         case .appleID:
             if let active = AppleAccountManager.shared.activeAccount {
                 let count = AppleAccountManager.shared.activeAppsCount(for: active.email)
-                certDetailLabel.text = "\(active.email) (\(active.teamName ?? "Personal Team"))\n• 7 " + L("天免越狱签名 (当前已签 ", "days free signing (Active: ") + "\(count)/3)"
+                certDetailLabel.text = "🍏 \(active.email) (\(active.teamName ?? "Personal Team"))\n• 7 " + L("天免费签名 (当前已签 ", "days free signing (Active: ") + "\(count)/3)\n⚠️ " + L("提示: 免电脑自签 Apple ID 需苹果开发者在线验签，若提示完整性错误建议使用 P12 证书", "Tip: Apple ID signing may require official online verification")
             } else {
                 certDetailLabel.text = L("还没有登录 Apple ID。点击这里登录或切换签名证书。", "No Apple ID logged in. Tap here to login or select cert.")
             }
         case .p12:
-            certDetailLabel.text = L("使用本地导入的 .p12 开发者证书与 mobileprovision 描述文件签名。", "Using imported .p12 developer certificate.")
+            if let p12 = CertificateStorageManager.shared.currentP12URL {
+                let name = CertificateStorageManager.shared.currentP12Name ?? p12.lastPathComponent
+                let prov = CertificateStorageManager.shared.currentProvisionURL?.lastPathComponent ?? L("未导入描述文件", "No mobileprovision")
+                certDetailLabel.text = "📜 \(name)\n• " + L("描述文件", "Profile") + ": \(prov)\n• " + L("凭证状态: 本地 P12 证书已就绪", "Status: Local P12 certificate ready")
+            } else {
+                certDetailLabel.text = L("未导入 P12 证书。点击这里前往证书中心导入或切换模式。", "No P12 imported. Tap here to manage certificates.")
+            }
         case .none:
             certDetailLabel.text = "⚠️ [" + L("免签定制模式", "NO CERT - CUSTOMIZE ONLY") + "]\n" + L("不使用任何证书，直接定制并打包为新 IPA，完美适配 TrollStore / 巨魔。", "No certificate will be used. Generates modified IPA for TrollStore.")
         }
@@ -1022,6 +1031,13 @@ public class SignWorkflowViewController: UIViewController, UIDocumentPickerDeleg
         sheet.addAction(UIAlertAction(title: "🔄 " + L("重新解析原始 Info.plist", "Reload Info.plist"), style: .default, handler: { [weak self] _ in
             guard let self = self, let url = self.selectedIPAURL else { return }
             self.applySelectedIPA(url)
+        }))
+        
+        sheet.addAction(UIAlertAction(title: "📋 " + L("查看运行与签名日志", "View Runtime Logs"), style: .default, handler: { [weak self] _ in
+            let logVC = LogViewerViewController()
+            let nav = UINavigationController(rootViewController: logVC)
+            nav.modalPresentationStyle = .pageSheet
+            self?.present(nav, animated: true)
         }))
         
         sheet.addAction(UIAlertAction(title: L("取消", "Cancel"), style: .cancel))
@@ -1296,8 +1312,14 @@ public class SignWorkflowViewController: UIViewController, UIDocumentPickerDeleg
                         
                     case .failure(let error):
                         UINotificationFeedbackGenerator().notificationOccurred(.error)
+                        AppLogger.shared.log("签名打包流程异常中断: \(error.localizedDescription)", category: .error)
                         let alert = UIAlertController(title: L("签名失败", "Signing Failed"), message: error.localizedDescription, preferredStyle: .alert)
-                        alert.addAction(UIAlertAction(title: L("好", "OK"), style: .default))
+                        alert.addAction(UIAlertAction(title: "📋 " + L("查看诊断日志", "View Diagnostics"), style: .default, handler: { [weak self] _ in
+                            let logVC = LogViewerViewController()
+                            let nav = UINavigationController(rootViewController: logVC)
+                            self?.present(nav, animated: true)
+                        }))
+                        alert.addAction(UIAlertAction(title: L("好", "OK"), style: .cancel))
                         self.present(alert, animated: true)
                     }
                 }
@@ -1312,8 +1334,14 @@ public class SignWorkflowViewController: UIViewController, UIDocumentPickerDeleg
                         executeSigning(materials.p12URL, materials.provisionURL, "")
                     case .failure(let err):
                         ProgressHUD.shared.hide()
+                        AppLogger.shared.log("Apple ID 证书申请失败: \(err.localizedDescription)", category: .error)
                         let alert = UIAlertController(title: L("证书申请失败", "Cert Request Failed"), message: err.localizedDescription, preferredStyle: .alert)
-                        alert.addAction(UIAlertAction(title: L("好", "OK"), style: .default))
+                        alert.addAction(UIAlertAction(title: "📋 " + L("查看诊断日志", "View Diagnostics"), style: .default, handler: { [weak self] _ in
+                            let logVC = LogViewerViewController()
+                            let nav = UINavigationController(rootViewController: logVC)
+                            self?.present(nav, animated: true)
+                        }))
+                        alert.addAction(UIAlertAction(title: L("好", "OK"), style: .cancel))
                         self.present(alert, animated: true)
                     }
                 }
@@ -1365,6 +1393,14 @@ public class SignWorkflowViewController: UIViewController, UIDocumentPickerDeleg
         // 3. 在其他应用中打开 / 存入「文件」App
         sheet.addAction(UIAlertAction(title: "📁 " + L("在其他应用中打开 / 存入「文件」App", "Open in... / Save to Files"), style: .default, handler: { [weak self] _ in
             self?.openInOtherApp(ipaURL)
+        }))
+        
+        // 4. 查看本次签名诊断日志
+        sheet.addAction(UIAlertAction(title: "📋 " + L("查看本次签名与安装日志", "View Signing & Install Logs"), style: .default, handler: { [weak self] _ in
+            let logVC = LogViewerViewController()
+            let nav = UINavigationController(rootViewController: logVC)
+            nav.modalPresentationStyle = .pageSheet
+            self?.present(nav, animated: true)
         }))
         
         // 4. 电脑端 USB 助手极速直装 (推荐，彻底免除 127.0.0.1 困扰)
@@ -1435,6 +1471,7 @@ public class SignWorkflowViewController: UIViewController, UIDocumentPickerDeleg
     }
     
     private func startDirectOnDeviceInstall(ipaURL: URL, name: String, bundleID: String) {
+        AppLogger.shared.log("正在启动本地安装服务: \(name) (\(bundleID)), IPA: \(ipaURL.lastPathComponent)", category: .install)
         ProgressHUD.shared.show(in: view, title: L("正在启动本地安装服务...", "Starting install server..."), detail: name)
         
         LocalInstallServer.shared.startServing(ipaURL: ipaURL, bundleID: bundleID, version: "1.0.0", title: name) { [weak self] result in
@@ -1444,22 +1481,35 @@ public class SignWorkflowViewController: UIViewController, UIDocumentPickerDeleg
                 
                 switch result {
                 case .success(let installURL):
+                    AppLogger.shared.log("本地安装服务已就绪，已向 iOS 发送 itms-services 安装协议: \(installURL.absoluteString)", category: .install)
                     UIApplication.shared.open(installURL, options: [:]) { [weak self] success in
                         guard let self = self else { return }
                         let alert = UIAlertController(
                             title: "📲 " + L("已发送本地安装请求！", "Install Request Sent!"),
-                            message: L("系统将自动拉取安装包并安装到手机桌面。\n\n💡 常见提示解决：\n1. 若提示「无法连接到 127.0.0.1」，点击下方「配置本地 CA 证书」安装并信任描述文件，或连接 Wi-Fi 后重试。\n2. 安装完成后首次打开，请前往手机「设置 -> 通用 -> VPN 与设备管理」信任签名证书。\n3. iOS 16+ 请在「设置 -> 隐私与安全性」开启开发者模式。", "Check home screen for installation."),
+                            message: L("系统将自动拉取安装包并安装到手机桌面。\n\n💡 常见提示解决：\n1. 若提示「无法验证其完整性」：请确保签名使用的证书/描述文件包含本机设备 UDID，或使用企业 P12 证书。\n2. 若提示「无法连接到 127.0.0.1」，点击下方「配置本地 CA 证书」安装并信任描述文件，或连接 Wi-Fi 后重试。\n3. 安装完成后首次打开，请前往手机「设置 -> 通用 -> VPN 与设备管理」信任签名证书。", "Check home screen for installation."),
                             preferredStyle: .alert
                         )
                         alert.addAction(UIAlertAction(title: "🛡️ " + L("配置本地 CA 证书 (100%防拦截)", "Install Local CA Profile"), style: .default, handler: { _ in
                             LocalInstallServer.shared.installLocalCAProfile()
                         }))
+                        alert.addAction(UIAlertAction(title: "📋 " + L("查看安装诊断日志", "View Install Logs"), style: .default, handler: { [weak self] _ in
+                            let logVC = LogViewerViewController()
+                            let nav = UINavigationController(rootViewController: logVC)
+                            nav.modalPresentationStyle = .pageSheet
+                            self?.present(nav, animated: true)
+                        }))
                         alert.addAction(UIAlertAction(title: L("好的，去桌面查看", "OK, Go to Home Screen"), style: .default))
                         self.present(alert, animated: true)
                     }
                 case .failure(let error):
+                    AppLogger.shared.log("启动安装服务失败: \(error.localizedDescription)", category: .error)
                     let alert = UIAlertController(title: L("启动安装服务失败", "Failed to start install server"), message: error.localizedDescription, preferredStyle: .alert)
-                    alert.addAction(UIAlertAction(title: L("确定", "OK"), style: .default))
+                    alert.addAction(UIAlertAction(title: "📋 " + L("查看诊断日志", "View Logs"), style: .default, handler: { [weak self] _ in
+                        let logVC = LogViewerViewController()
+                        let nav = UINavigationController(rootViewController: logVC)
+                        self?.present(nav, animated: true)
+                    }))
+                    alert.addAction(UIAlertAction(title: L("确定", "OK"), style: .cancel))
                     self.present(alert, animated: true)
                 }
             }

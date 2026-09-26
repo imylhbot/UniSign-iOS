@@ -291,6 +291,9 @@ public class AppleDeveloperService {
         pubKeyData: Data,
         completion: @escaping (Result<(p12URL: URL, provisionURL: URL), AppleAuthError>) -> Void
     ) {
+        AppLogger.shared.log("正在通过 Apple ID (\(session.appleID)) 准备开发者签名材料: Team=\(teamId), UDID=\(deviceUDID)", category: .appleID)
+        AppLogger.shared.log("⚠️ 重要提示: 当前免电脑 Apple ID 签名若未通过苹果开发者服务器在线签发，非越狱且无巨魔 (TrollStore) 的设备上，系统 AMFI 会拦截并提示「无法验证其完整性」！建议使用 P12 商业证书或通过「电脑端 USB 助手」直装。", category: .warn)
+        
         // Generate valid X.509 Certificate DER signed with RSA key
         let certDER = self.generateSelfSignedOrPortalCertDER(commonName: "Apple Development: \(session.appleID)", teamId: teamId, privateKey: privateKey, pubKeyData: pubKeyData)
         

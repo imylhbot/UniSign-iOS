@@ -8,6 +8,7 @@ public class SettingsViewController: UIViewController {
     private let stack = UIStackView()
     private var langDetailLabel: UILabel?
     private var cacheDetailLabel: UILabel?
+    private var logDetailLabel: UILabel?
     
     public override func viewDidLoad() {
         super.viewDidLoad()
@@ -20,6 +21,11 @@ public class SettingsViewController: UIViewController {
         NotificationCenter.default.addObserver(self, selector: #selector(languageDidChange), name: LanguageManager.languageChangedNotification, object: nil)
     }
     
+    public override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        updateTexts()
+    }
+    
     @objc private func languageDidChange() {
         updateTexts()
     }
@@ -28,6 +34,7 @@ public class SettingsViewController: UIViewController {
         title = L("软件设置", "Settings")
         let langName = LanguageManager.shared.currentLanguage == .chinese ? "简体中文" : "English"
         langDetailLabel?.text = langName
+        logDetailLabel?.text = "\(L("查看实时操作记录与诊断输出", "View real-time engine activity")) (\(AppLogger.shared.getLogFileSizeDescription()))"
         updateCacheSize()
     }
     
@@ -114,9 +121,10 @@ public class SettingsViewController: UIViewController {
             icon: "text.alignleft",
             iconColor: .systemOrange,
             title: L("运行日志", "Execution Logs"),
-            subtitle: L("查看实时操作记录与签名输出", "View real-time engine activity"),
+            subtitle: L("查看实时操作记录与诊断输出", "View real-time engine activity"),
             action: #selector(showLogsViewer)
         )
+        logDetailLabel = logRow.subtitleLabel
         stack.addArrangedSubview(logRow.card)
         
         // 7. Terms Card
@@ -283,32 +291,9 @@ public class SettingsViewController: UIViewController {
     }
     
     @objc private func showLogsViewer() {
-        let logVC = UIViewController()
-        logVC.title = L("运行日志", "Execution Logs")
-        logVC.view.backgroundColor = .systemBackground
-        
-        let textView = UITextView()
-        textView.isEditable = false
-        textView.font = UIFont.monospacedSystemFont(ofSize: 12, weight: .regular)
-        textView.translatesAutoresizingMaskIntoConstraints = false
-        textView.text = """
-        [INFO] UniSign Core Engine initialized.
-        [INFO] Sandboxed storage mounted: Documents/Signed/, Documents/IPAs/
-        [INFO] Local Anisette mirror pool ready (4 active mirrors).
-        [INFO] LocalInstallServer ready on port \(LocalInstallServer.shared.port).
-        [STATUS] Pure client-side codesigning engine: Active.
-        """
-        logVC.view.addSubview(textView)
-        
-        NSLayoutConstraint.activate([
-            textView.topAnchor.constraint(equalTo: logVC.view.safeAreaLayoutGuide.topAnchor),
-            textView.leadingAnchor.constraint(equalTo: logVC.view.leadingAnchor, constant: 12),
-            textView.trailingAnchor.constraint(equalTo: logVC.view.trailingAnchor, constant: -12),
-            textView.bottomAnchor.constraint(equalTo: logVC.view.bottomAnchor)
-        ])
-        
+        let logVC = LogViewerViewController()
         let nav = UINavigationController(rootViewController: logVC)
-        logVC.navigationItem.rightBarButtonItem = UIBarButtonItem(title: L("关闭", "Close"), style: .done, target: self, action: #selector(dismissModal))
+        nav.modalPresentationStyle = .pageSheet
         present(nav, animated: true)
     }
     

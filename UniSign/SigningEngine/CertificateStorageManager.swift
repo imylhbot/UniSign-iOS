@@ -22,6 +22,15 @@ public class CertificateStorageManager {
         return FileManager.default.fileExists(atPath: file.path) ? file : nil
     }
     
+    public var currentP12Name: String? {
+        get {
+            return UserDefaults.standard.string(forKey: "unisign_active_p12_name")
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: "unisign_active_p12_name")
+        }
+    }
+    
     public var currentP12Password: String {
         get {
             return UserDefaults.standard.string(forKey: "unisign_active_p12_password") ?? ""
@@ -36,12 +45,15 @@ public class CertificateStorageManager {
         try? FileManager.default.removeItem(at: dest)
         try FileManager.default.copyItem(at: sourceURL, to: dest)
         self.currentP12Password = password
+        self.currentP12Name = sourceURL.lastPathComponent
+        AppLogger.shared.log("已成功导入并保存 P12 证书: \(sourceURL.lastPathComponent)", category: .cert)
     }
     
     public func saveProvision(from sourceURL: URL) throws {
         let dest = certsDir.appendingPathComponent("active.mobileprovision")
         try? FileManager.default.removeItem(at: dest)
         try FileManager.default.copyItem(at: sourceURL, to: dest)
+        AppLogger.shared.log("已成功导入并保存描述文件: \(sourceURL.lastPathComponent)", category: .cert)
     }
     
     public func saveAppleIDMaterials(p12Data: Data, provisionData: Data, email: String) throws -> (p12URL: URL, provisionURL: URL) {

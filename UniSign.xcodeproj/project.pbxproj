@@ -36,6 +36,8 @@
 		A10000212C00000100000001 /* SigningPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000212C00000100000001 /* SigningPreferences.swift */; };
 		A10000222C00000100000001 /* SigningConfigViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000222C00000100000001 /* SigningConfigViewController.swift */; };
 		A10000232C00000100000001 /* CertificateStorageManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000232C00000100000001 /* CertificateStorageManager.swift */; };
+		A10000242C00000100000001 /* AppLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000242C00000100000001 /* AppLogger.swift */; };
+		A10000252C00000100000001 /* LogViewerViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000252C00000100000001 /* LogViewerViewController.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -67,6 +69,8 @@
 		B10000212C00000100000001 /* SigningPreferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SigningPreferences.swift; sourceTree = "<group>"; };
 		B10000222C00000100000001 /* SigningConfigViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SigningConfigViewController.swift; sourceTree = "<group>"; };
 		B10000232C00000100000001 /* CertificateStorageManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CertificateStorageManager.swift; sourceTree = "<group>"; };
+		B10000242C00000100000001 /* AppLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLogger.swift; sourceTree = "<group>"; };
+		B10000252C00000100000001 /* LogViewerViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LogViewerViewController.swift; sourceTree = "<group>"; };
 		C10000012C00000100000001 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
 		C10000022C00000100000001 /* Network.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Network.framework; path = System/Library/Frameworks/Network.framework; sourceTree = SDKROOT; };
 		D10000012C00000100000001 /* UniSign.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = UniSign.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -135,6 +139,7 @@
 			children = (
 				B10000032C00000100000001 /* ZSignBridge.swift */,
 				B10000232C00000100000001 /* CertificateStorageManager.swift */,
+				B10000242C00000100000001 /* AppLogger.swift */,
 				B10000132C00000100000001 /* RenewalService.swift */,
 				B10000142C00000100000001 /* DeviceInfoHelper.swift */,
 				F100000A2C00000100000001 /* AppleID */,
@@ -182,6 +187,7 @@
 				B100000C2C00000100000001 /* CertificateManagerViewController.swift */,
 				B10000202C00000100000001 /* AppleIDLoginViewController.swift */,
 				B10000222C00000100000001 /* SigningConfigViewController.swift */,
+				B10000252C00000100000001 /* LogViewerViewController.swift */,
 				B100000D2C00000100000001 /* SettingsViewController.swift */,
 				B100000E2C00000100000001 /* MainTabBarController.swift */,
 			);
@@ -288,6 +294,8 @@
 				A10000212C00000100000001 /* SigningPreferences.swift in Sources */,
 				A10000222C00000100000001 /* SigningConfigViewController.swift in Sources */,
 				A10000232C00000100000001 /* CertificateStorageManager.swift in Sources */,
+				A10000242C00000100000001 /* AppLogger.swift in Sources */,
+				A10000252C00000100000001 /* LogViewerViewController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -167,9 +167,11 @@ public class ZSignBridge {
         }
         
         log("[*] 目标应用程序: \(appURL.lastPathComponent)")
+        AppLogger.shared.log("开始处理 App: \(appURL.lastPathComponent) (路径: \(appPath))", category: .sign)
         
         // 1. Import P12 Identity and Keys
         log("[*] 正在加载开发者证书与私钥签名凭证...")
+        AppLogger.shared.log("正在加载 P12 开发者证书: \(URL(fileURLWithPath: p12Path).lastPathComponent)", category: .cert)
         let p12Data = try Data(contentsOf: URL(fileURLWithPath: p12Path))
         let importOptions = [kSecImportExportPassphrase as String: p12Password] as CFDictionary
         var rawItems: CFArray?
@@ -177,6 +179,7 @@ public class ZSignBridge {
         
         var secIdentity: SecIdentity?
         var certDER: Data = Data()
+        var certChainDERs: [Data] = []
         var privateKey: SecKey?
         
         if status == errSecSuccess, let items = rawItems as? [[String: Any]], let first = items.first,
@@ -187,22 +190,44 @@ public class ZSignBridge {
             var certRef: SecCertificate?
             if SecIdentityCopyCertificate(id, &certRef) == errSecSuccess, let cert = certRef {
                 certDER = SecCertificateCopyData(cert) as Data
+                certChainDERs.append(certDER)
+                if let summary = SecCertificateCopySubjectSummary(cert) {
+                    AppLogger.shared.log("主证书名称 (Subject): \(summary)", category: .cert)
+                }
+            }
+            if let chain = first[kSecImportItemCertChain as String] as? [SecCertificate] {
+                for c in chain {
+                    let d = SecCertificateCopyData(c) as Data
+                    if !certChainDERs.contains(d) {
+                        certChainDERs.append(d)
+                    }
+                }
+                AppLogger.shared.log("已获取完整证书信任链，包含 \(certChainDERs.count) 个证书 (包含苹果中间 CA)", category: .cert)
             }
             var keyRef: SecKey?
             if SecIdentityCopyPrivateKey(id, &keyRef) == errSecSuccess, let k = keyRef {
                 privateKey = k
+                AppLogger.shared.log("RSA 私钥加载成功，可用于生成 CMS 签名", category: .cert)
+            } else {
+                AppLogger.shared.log("⚠️ 警告: P12 中未找到可导出的 RSA 私钥！", category: .warn)
             }
         } else if p12Data.count > 32 {
             certDER = p12Data
+            certChainDERs.append(p12Data)
+            AppLogger.shared.log("使用原始证书数据进行签名 (\(p12Data.count) 字节)", category: .cert)
+        } else {
+            AppLogger.shared.log("⚠️ P12 导入状态码: \(status) (密码验证失败或数据格式错误)", category: .error)
         }
         
         // 2. Parse Provisioning Profile & Entitlements
         var provDict: [String: Any]?
         var teamId = "PersonalTeam"
         var entitlementsData = Data()
+        var finalBundleID = bundleId ?? "com.soulsign.app"
         
         if let provPath = provisionPath, fm.fileExists(atPath: provPath) {
             log("[*] 正在嵌入并解析 mobileprovision 描述文件...")
+            AppLogger.shared.log("正在嵌入并解析描述文件: \(URL(fileURLWithPath: provPath).lastPathComponent)", category: .cert)
             let destProv = appURL.appendingPathComponent("embedded.mobileprovision")
             try? fm.removeItem(at: destProv)
             try? fm.copyItem(at: URL(fileURLWithPath: provPath), to: destProv)
@@ -217,15 +242,45 @@ public class ZSignBridge {
                 
                 if certDER.isEmpty, let rawCerts = parsed["DeveloperCertificates"] as? [Data], let firstCert = rawCerts.first {
                     certDER = firstCert
+                    if certChainDERs.isEmpty {
+                        certChainDERs.append(firstCert)
+                    }
                 }
                 
+                // Inspect entitlements & sync explicit App ID
                 if let ent = parsed["Entitlements"] as? [String: Any] {
                     var mutableEnt = ent
-                    if let targetBundleId = bundleId, !targetBundleId.isEmpty {
-                        mutableEnt["application-identifier"] = "\(teamId).\(targetBundleId)"
+                    if let appID = ent["application-identifier"] as? String {
+                        if !appID.hasSuffix("*") {
+                            // Explicit profile: bundleId must strictly match!
+                            let profileBundleID = appID.replacingOccurrences(of: "\(teamId).", with: "")
+                            if finalBundleID != profileBundleID {
+                                AppLogger.shared.log("描述文件限制特定 App ID (\(appID))，Bundle ID 自动对齐为: \(profileBundleID)", category: .sign)
+                                finalBundleID = profileBundleID
+                            }
+                            mutableEnt["application-identifier"] = appID
+                        } else if !finalBundleID.isEmpty {
+                            mutableEnt["application-identifier"] = "\(teamId).\(finalBundleID)"
+                        }
+                    } else if !finalBundleID.isEmpty {
+                        mutableEnt["application-identifier"] = "\(teamId).\(finalBundleID)"
                     }
                     if let entData = try? PropertyListSerialization.data(fromPropertyList: mutableEnt, format: .xml, options: 0) {
                         entitlementsData = entData
+                    }
+                }
+                
+                let isEnterprise = (parsed["ProvisionsAllDevices"] as? Bool) ?? false
+                let devList = (parsed["ProvisionedDevices"] as? [String]) ?? []
+                let curUDID = DeviceInfoHelper.getDeviceUDID()
+                AppLogger.shared.log("开发者团队: \(parsed["TeamName"] ?? teamId) (Team ID: \(teamId))", category: .cert)
+                AppLogger.shared.log("描述文件类型: \(isEnterprise ? "企业级证书 (全设备免添加)" : "开发/个人证书 (已注册 \(devList.count) 台设备)")", category: .cert)
+                
+                if !isEnterprise && !devList.isEmpty {
+                    if devList.contains(curUDID) {
+                        AppLogger.shared.log("设备 UDID 匹配成功: \(curUDID)", category: .cert)
+                    } else {
+                        AppLogger.shared.log("⚠️ 警告: 当前设备 UDID (\(curUDID)) 未在描述文件的已授权设备列表 (ProvisionedDevices) 中！若非越狱/巨魔设备，iOS 系统可能会因 0xe8008015 提示「无法验证其完整性」！", category: .warn)
                     }
                 }
                 log("[*] 开发者团队: \(parsed["TeamName"] ?? teamId) (Team ID: \(teamId))")
@@ -234,9 +289,8 @@ public class ZSignBridge {
         
         // Default Entitlements fallback
         if entitlementsData.isEmpty {
-            let bId = bundleId ?? "com.soulsign.app"
             let defaultEnt: [String: Any] = [
-                "application-identifier": "\(teamId).\(bId)",
+                "application-identifier": "\(teamId).\(finalBundleID)",
                 "keychain-access-groups": ["\(teamId).*"],
                 "get-task-allow": true,
                 "team-identifier": teamId
@@ -246,16 +300,10 @@ public class ZSignBridge {
         
         // 3. Update Info.plist
         let infoPlistURL = appURL.appendingPathComponent("Info.plist")
-        var finalBundleID = bundleId ?? "com.soulsign.app"
         var exeName = appURL.deletingPathExtension().lastPathComponent
         
         if var infoDict = NSDictionary(contentsOf: infoPlistURL) as? [String: Any] {
-            if let bId = bundleId, !bId.isEmpty {
-                infoDict["CFBundleIdentifier"] = bId
-                finalBundleID = bId
-            } else if let curId = infoDict["CFBundleIdentifier"] as? String {
-                finalBundleID = curId
-            }
+            infoDict["CFBundleIdentifier"] = finalBundleID
             if let dName = displayName, !dName.isEmpty {
                 infoDict["CFBundleDisplayName"] = dName
             }
@@ -266,9 +314,53 @@ public class ZSignBridge {
                 try? updatedData.write(to: infoPlistURL)
             }
         }
+        AppLogger.shared.log("已更新 Info.plist: BundleID=\(finalBundleID), Executable=\(exeName)", category: .sign)
         
-        // 4. Generate CodeResources (Cryptographic File Hashes)
+        // 4. Sign Nested Dynamic Frameworks & Dylibs FIRST
+        let fwDir = appURL.appendingPathComponent("Frameworks")
+        if fm.fileExists(atPath: fwDir.path), let fwItems = try? fm.contentsOfDirectory(atPath: fwDir.path) {
+            for item in fwItems {
+                let itemURL = fwDir.appendingPathComponent(item)
+                if item.hasSuffix(".framework") {
+                    let fwName = item.replacingOccurrences(of: ".framework", with: "")
+                    let fwBin = itemURL.appendingPathComponent(fwName)
+                    if fm.fileExists(atPath: fwBin.path) {
+                        log("[*] 正在对动态框架签名: \(item)...")
+                        AppLogger.shared.log("正在对动态框架签名: \(item)", category: .sign)
+                        let fwInfoPlist = (try? Data(contentsOf: itemURL.appendingPathComponent("Info.plist"))) ?? Data()
+                        try? signMachOBinary(
+                            binaryURL: fwBin,
+                            bundleId: "\(finalBundleID).\(fwName)",
+                            teamId: teamId,
+                            infoPlistData: fwInfoPlist,
+                            codeResourcesData: Data(),
+                            entitlementsData: entitlementsData,
+                            certDER: certDER,
+                            certChainDERs: certChainDERs,
+                            privateKey: privateKey
+                        )
+                    }
+                } else if item.hasSuffix(".dylib") {
+                    log("[*] 正在对动态插件签名: \(item)...")
+                    AppLogger.shared.log("正在对动态插件签名: \(item)", category: .sign)
+                    try? signMachOBinary(
+                        binaryURL: itemURL,
+                        bundleId: "\(finalBundleID).\(item)",
+                        teamId: teamId,
+                        infoPlistData: Data(),
+                        codeResourcesData: Data(),
+                        entitlementsData: entitlementsData,
+                        certDER: certDER,
+                        certChainDERs: certChainDERs,
+                        privateKey: privateKey
+                    )
+                }
+            }
+        }
+        
+        // 5. Generate CodeResources (Cryptographic File Hashes) AFTER signing nested binaries
         log("[*] 正在计算全量资源 SHA-1 & SHA-256 哈希清单 (CodeResources)...")
+        AppLogger.shared.log("正在计算全量资源 CodeResources 哈希清单...", category: .sign)
         let codeSignatureDir = appURL.appendingPathComponent("_CodeSignature")
         try? fm.createDirectory(at: codeSignatureDir, withIntermediateDirectories: true, attributes: nil)
         let codeResourcesURL = codeSignatureDir.appendingPathComponent("CodeResources")
@@ -287,7 +379,8 @@ public class ZSignBridge {
                     relPath = String(relPath.dropFirst())
                 }
                 
-                if relPath.hasPrefix("_CodeSignature") || relPath == "embedded.mobileprovision" || relPath == exeName || relPath.hasPrefix("Frameworks/") || relPath.hasPrefix("PlugIns/") || relPath.hasPrefix("Extensions/") {
+                // Only skip _CodeSignature of main app, embedded.mobileprovision, and main executable
+                if relPath.hasPrefix("_CodeSignature") || relPath == "embedded.mobileprovision" || relPath == exeName {
                     continue
                 }
                 
@@ -335,44 +428,7 @@ public class ZSignBridge {
         let codeResourcesData = try PropertyListSerialization.data(fromPropertyList: codeResourcesManifest, format: .xml, options: 0)
         try codeResourcesData.write(to: codeResourcesURL)
         log("[*] CodeResources 哈希清单构建完成 (\(files1Dict.count) 个文件已封签)")
-        
-        // 5. Sign Nested Dynamic Frameworks & Dylibs
-        let fwDir = appURL.appendingPathComponent("Frameworks")
-        if fm.fileExists(atPath: fwDir.path), let fwItems = try? fm.contentsOfDirectory(atPath: fwDir.path) {
-            for item in fwItems {
-                let itemURL = fwDir.appendingPathComponent(item)
-                if item.hasSuffix(".framework") {
-                    let fwName = item.replacingOccurrences(of: ".framework", with: "")
-                    let fwBin = itemURL.appendingPathComponent(fwName)
-                    if fm.fileExists(atPath: fwBin.path) {
-                        log("[*] 正在对动态框架签名: \(item)...")
-                        let fwInfoPlist = (try? Data(contentsOf: itemURL.appendingPathComponent("Info.plist"))) ?? Data()
-                        try? signMachOBinary(
-                            binaryURL: fwBin,
-                            bundleId: "\(finalBundleID).\(fwName)",
-                            teamId: teamId,
-                            infoPlistData: fwInfoPlist,
-                            codeResourcesData: codeResourcesData,
-                            entitlementsData: entitlementsData,
-                            certDER: certDER,
-                            privateKey: privateKey
-                        )
-                    }
-                } else if item.hasSuffix(".dylib") {
-                    log("[*] 正在对动态插件签名: \(item)...")
-                    try? signMachOBinary(
-                        binaryURL: itemURL,
-                        bundleId: "\(finalBundleID).\(item)",
-                        teamId: teamId,
-                        infoPlistData: Data(),
-                        codeResourcesData: codeResourcesData,
-                        entitlementsData: entitlementsData,
-                        certDER: certDER,
-                        privateKey: privateKey
-                    )
-                }
-            }
-        }
+        AppLogger.shared.log("CodeResources 构建完成: \(files1Dict.count) 个文件已封签 (含 Frameworks 与插件)", category: .sign)
         
         // 6. Sign Main Executable Mach-O Binary
         let mainExeURL = appURL.appendingPathComponent(exeName)
@@ -381,6 +437,7 @@ public class ZSignBridge {
         }
         
         log("[*] 正在计算主二进制 Mach-O 代码页哈希与 LC_CODE_SIGNATURE 签名段...")
+        AppLogger.shared.log("正在计算主二进制 Mach-O 代码页哈希与 LC_CODE_SIGNATURE 签名段...", category: .sign)
         let infoPlistData = (try? Data(contentsOf: infoPlistURL)) ?? Data()
         try signMachOBinary(
             binaryURL: mainExeURL,
@@ -390,10 +447,12 @@ public class ZSignBridge {
             codeResourcesData: codeResourcesData,
             entitlementsData: entitlementsData,
             certDER: certDER,
+            certChainDERs: certChainDERs,
             privateKey: privateKey
         )
         
         log("[✓] 主程序与全部组件签名嵌入完成，应用完整性已 100% 校验！")
+        AppLogger.shared.log("✅ 主程序与全部组件签名嵌入完成，应用完整性校验数据就绪！", category: .sign)
         return true
     }
     
@@ -407,6 +466,7 @@ public class ZSignBridge {
         codeResourcesData: Data,
         entitlementsData: Data,
         certDER: Data,
+        certChainDERs: [Data] = [],
         privateKey: SecKey?
     ) throws {
         var binaryData = try Data(contentsOf: binaryURL)
@@ -444,6 +504,7 @@ public class ZSignBridge {
                         codeResourcesData: codeResourcesData,
                         entitlementsData: entitlementsData,
                         certDER: certDER,
+                        certChainDERs: certChainDERs,
                         privateKey: privateKey
                     )
                     binaryData.replaceSubrange(sliceOff..<(sliceOff + sliceSize), with: sliceData)
@@ -463,6 +524,7 @@ public class ZSignBridge {
                 codeResourcesData: codeResourcesData,
                 entitlementsData: entitlementsData,
                 certDER: certDER,
+                certChainDERs: certChainDERs,
                 privateKey: privateKey
             )
             try binaryData.write(to: binaryURL, options: .atomic)
@@ -477,6 +539,7 @@ public class ZSignBridge {
         codeResourcesData: Data,
         entitlementsData: Data,
         certDER: Data,
+        certChainDERs: [Data],
         privateKey: SecKey?
     ) throws {
         let LC_CODE_SIGNATURE: UInt32 = 0x1d
@@ -583,7 +646,7 @@ public class ZSignBridge {
         
         // 4. Generate CMS PKCS#7 Signature for CodeDirectory
         let cdHash = sha256(cdData)
-        let signatureCMS = buildCMSSignature(cdHash: cdHash, certDER: certDER, privateKey: privateKey)
+        let signatureCMS = buildCMSSignature(cdHash: cdHash, certDER: certDER, certChainDERs: certChainDERs, privateKey: privateKey)
         let sigBlob = buildSignatureBlob(signatureCMS)
         
         // 5. Construct SuperBlob (magic 0xfade0cc0)
@@ -783,7 +846,7 @@ public class ZSignBridge {
         return (issuer: issuerDER, serial: serialDER)
     }
 
-    private static func buildCMSSignature(cdHash: Data, certDER: Data, privateKey: SecKey?) -> Data {
+    private static func buildCMSSignature(cdHash: Data, certDER: Data, certChainDERs: [Data], privateKey: SecKey?) -> Data {
         var sigBytes = Data(repeating: 0, count: 256)
         if let privKey = privateKey {
             var error: Unmanaged<CFError>?
@@ -803,7 +866,12 @@ public class ZSignBridge {
         let algSha256 = derWrap(tag: 0x30, value: derWrap(tag: 0x06, value: oid_sha256) + derWrap(tag: 0x05, value: Data()))
         let digestAlgs = derWrap(tag: 0x31, value: algSha256)
         let encapContent = derWrap(tag: 0x30, value: derWrap(tag: 0x06, value: oid_data))
-        let certsBlob = derWrap(tag: 0xa0, value: certDER.isEmpty ? Data(repeating: 0, count: 64) : certDER)
+        
+        var allCerts = certChainDERs
+        if allCerts.isEmpty && !certDER.isEmpty {
+            allCerts.append(certDER)
+        }
+        let certsBlob = derWrap(tag: 0xa0, value: allCerts.isEmpty ? Data(repeating: 0, count: 64) : allCerts.reduce(Data(), +))
         
         var signerId = derWrap(tag: 0x30, value: derWrap(tag: 0x30, value: Data([0x06, 0x03, 0x55, 0x04, 0x03, 0x13, 0x08, 0x53, 0x6f, 0x75, 0x6c, 0x53, 0x69, 0x67, 0x6e])) + derWrap(tag: 0x02, value: Data([0x01])))
         if let parsed = extractIssuerAndSerialFromDER(certDER) {
